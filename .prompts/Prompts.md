@@ -12,3 +12,9 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 14:58]** Please analyze this codebase and create an AGENTS.md file containing: 1. Build/lint/test commands - especially for running a single test 2. Code style guidelines including imports, formatting, types, naming conventions, error handling, etc.
+
+---
+**[14/08/2026 15:03]** crie uma nova branch iniciarmos o projeto
+
+---
+**[14/08/2026 15:06]** Estabeleça e emenda a constituição do projeto (princípios não-negociáveis). use o @docs/guias/guia-app-web-do-zero-com-agentes.md

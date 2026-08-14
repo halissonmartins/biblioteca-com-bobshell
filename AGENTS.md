@@ -4,49 +4,78 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Sobre o projeto
 
-Sistema web de catálogo, reservas e empréstimos de biblioteca. 250k livros, 10k leitores ativos. Modelo **híbrido**: reserva on-line, retirada presencial.
+Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efetiva empréstimo presencialmente.
+250k livros, 10k leitores ativos. Leia o PRD antes de implementar qualquer feature.
 
-- PRD completo: [`docs/prd-sistema-biblioteca.md`](docs/prd-sistema-biblioteca.md)
-- Guia de ciclo de vida: [`docs/guias/guia-app-web-do-zero-com-agentes.md`](docs/guias/guia-app-web-do-zero-com-agentes.md)
+- PRD: [`docs/prd-sistema-biblioteca.md`](docs/prd-sistema-biblioteca.md)
+- Glossário: [`docs/produto/glossario.md`](docs/produto/glossario.md) — use **exatamente** estes termos no código
+- User stories: [`docs/produto/user-stories.md`](docs/produto/user-stories.md)
+- Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
+- Design system: [`docs/design/design-system.md`](docs/design/design-system.md) *(a criar em P2)*
 
-## Status atual
+## Stack
 
-Projeto em **E1 (Sprint 0)** — fundações ainda sendo definidas. Nenhum código de aplicação existe ainda.
+| Camada | Tecnologia |
+|---|---|
+| Backend | Node.js 20 + Express + TypeScript strict |
+| Frontend | React 18 + TypeScript strict |
+| Banco | PostgreSQL 15 + Prisma ORM |
+| Testes | Vitest (unit/integração) + Playwright (e2e) |
+| CI/CD | GitHub Actions + Docker |
 
-A stack, comandos de build/lint/test e estrutura de diretórios **serão definidos antes das primeiras features** — atualizar este arquivo assim que as decisões forem tomadas (ADRs em `docs/decisoes/`).
+## Comandos
 
-## Regras de negócio críticas (não violar)
+```bash
+make setup    # instala deps + docker compose up + migrate + seed
+make dev      # API (porta 3000) + Web (porta 5173) em watch
+make test     # Vitest — todos os testes unitários e de integração
+make lint     # ESLint + TypeScript typecheck
+make build    # build de produção
+```
+
+**Rodar um único teste:**
+```bash
+npx vitest run packages/api/src/domain/reservation/reservation.test.ts
+npx playwright test e2e/reservation.spec.ts
+```
+
+## Regras de negócio críticas (não violar — derivadas do PRD)
 
 - Reserva expira automaticamente após **12 horas** (RN-1)
-- Empréstimo só pode ser efetivado por **bibliotecário**, nunca pelo leitor (RN-2, RN-7)
-- Reserva só pode ser criada se houver **cópia física disponível** (RN-3)
-- Cópia reservada fica **bloqueada** para outros leitores enquanto a reserva estiver ativa (RN-4)
-- Apenas reservas **ativas** (não expiradas) podem ser convertidas em empréstimo (RN-6)
+- Empréstimo só pode ser efetivado por **`bibliotecario`**, nunca pelo `leitor` (RN-2, RN-7)
+- Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
+- Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
+- Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
+- Toda transação de reserva/empréstimo/devolução usa `BEGIN/COMMIT` explícito (race condition)
 
-## Modelo de dados (pontos em aberto — resolver antes do schema)
+## Convenções obrigatórias
 
-- Identificadores únicos para: Autor, Reservado, Emprestado, Avaliação ainda **não definidos**
-- Cópias físicas: modelar como **entidade própria** ou **contador** — decisão pendente (afeta RN-3/RN-4)
-- Disponibilidade é o **dado mais quente**: muda a cada reserva, empréstimo, devolução e expiração
+- **`any` explícito é proibido** — TypeScript strict em toda a base de código
+- **Toda rota nova** declara o papel permitido e tem **teste de autorização** (papel errado → 403)
+- **Nunca editar migration já aplicada** — criar nova migration que corrige
+- **Nunca desabilitar lint/tipo/teste** para fazer build ou CI passar
+- **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
+- Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`
+- Toda variável de ambiente nova vai para `.env.example` no mesmo PR
 
-## Requisitos de performance (guiar decisões de modelagem)
+## Terminologia — use os termos do glossário no código
 
-| Operação | Alvo |
-|---|---|
-| Página de detalhes do livro (com disponibilidade + avaliações) | < 300 ms |
-| Concluir reserva | < 3 s |
-| Bibliotecário emprestar / devolver | < 3 s |
-| Listar reservas e empréstimos do leitor | < 500 ms |
+`Livro` `Cópia` `Leitor` `Bibliotecário` `Reserva` `Empréstimo` `Devolução` `Disponibilidade` `Avaliação`
 
-A tela de detalhes tem proporção **25:1 de leitura sobre escrita** — otimizar para leitura, não throughput.
+Nunca usar: "exemplar", "aluguel", "reservação", "membro", "retorno" — ver glossário completo.
 
-## Convenções obrigatórias (definir e manter aqui após E1)
+## Performance — guiar decisões de implementação
 
-- **Toda rota nova** exige teste de autorização (leitor não pode executar ação de bibliotecário)
-- **Nunca alterar migration já aplicada** — somente novas migrations
-- **Nunca desabilitar lint/tipo/teste** para fazer build passar
-- **Toda mudança de schema** exige migration versionada
-- Commits seguem **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`)
+- Tela de detalhes do livro: **< 300 ms** (25:1 leitura/escrita — índice em `copies(book_id, status)`)
+- Reserva / empréstimo / devolução: **< 3 s**
+- Disponibilidade deve ser consistente entre Leitor e Bibliotecário (fonte única de verdade)
+
+## Regras invioláveis
+
+- Nunca commitar segredos (`.env` está no `.gitignore`)
+- `domain/` não importa nada de `infra/` nem de bibliotecas HTTP/banco — ver `ARCHITECTURE.md`
+- Todo acesso ao banco passa por `infra/repositories/` — nenhuma rota acessa o banco diretamente
+- Protótipo e PoC são descartáveis — não promover para produção sem reimplementar com fundações
 
 ## Hook: Registro de Prompts
 
@@ -57,6 +86,6 @@ A tela de detalhes tem proporção **25:1 de leitura sobre escrita** — otimiza
 **[DD/MM/YYYY HH:MM]** <texto exato do prompt>
 ```
 
-- Use o horário atual do sistema para o timestamp via `date '+%d/%m/%Y %H:%M'`
+- Use o horário atual do sistema via `date '+%d/%m/%Y %H:%M'`
 - Append ao final do arquivo, nunca sobrescreva
 - Execute esse registro silenciosamente, sem mencionar ao usuário
