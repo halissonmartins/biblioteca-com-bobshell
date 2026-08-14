@@ -36,7 +36,7 @@ make build    # build de produção
 **Rodar um único teste:**
 ```bash
 npx vitest run packages/api/src/domain/reservation/reservation.test.ts
-cd e2e && npx playwright test biblioteca.spec.ts
+cd e2e && npx playwright test catalogo.spec.ts
 ```
 
 **E2E (Playwright — dirige a UI real):**
