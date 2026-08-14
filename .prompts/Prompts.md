@@ -18,3 +18,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 15:06]** Estabeleça e emenda a constituição do projeto (princípios não-negociáveis). use o @docs/guias/guia-app-web-do-zero-com-agentes.md
+
+---
+**[14/08/2026 15:16]** implemente o passo P2
