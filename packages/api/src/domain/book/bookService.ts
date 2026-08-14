@@ -57,7 +57,8 @@ export async function listBooks(
 
   const { books, total } = await deps.findBooks(filter);
 
-  return { data: books, total, page, pageSize };
+  const totalPages = Math.ceil(total / pageSize);
+  return { data: books, pagination: { page, pageSize, total, totalPages } };
 }
 
 // ---------------------------------------------------------------------------

@@ -28,8 +28,8 @@ export interface ReviewSummary {
   id: string;
   rating: number;
   text: string;
-  userName: string;
   createdAt: string; // ISO 8601
+  user: { id: string; name: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -62,9 +62,12 @@ export interface BookDetail extends BookSummary {
 
 export interface PaginatedResult<T> {
   data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // ---------------------------------------------------------------------------

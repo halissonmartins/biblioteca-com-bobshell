@@ -57,8 +57,8 @@ const RESERVATION_DETAIL = {
   convertedAt: null,
   cancelledAt: null,
   status: 'active' as const,
-  copy: { id: 'copy-1', code: 'LIV-001', book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null } },
-  reader: { id: 'user-1', name: 'João', email: 'joao@test.com' },
+  copy: { id: 'copy-1', code: 'LIV-001', book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null, author: { id: 'author-1', name: 'Machado de Assis' } } },
+  user: { id: 'user-1', name: 'João', email: 'joao@test.com' },
 };
 
 // ── POST /reservations ─────────────────────────────────────────────────────

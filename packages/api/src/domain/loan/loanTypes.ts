@@ -22,9 +22,13 @@ export interface LoanSummary {
       id: string;
       title: string;
       coverUrl: string | null;
+      author: {
+        id: string;
+        name: string;
+      };
     };
   };
-  reader: {
+  user: {
     id: string;
     name: string;
     email: string;

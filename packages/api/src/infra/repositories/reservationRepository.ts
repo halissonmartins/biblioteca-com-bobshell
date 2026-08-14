@@ -88,7 +88,7 @@ export async function findActiveReservationsByUser(filter: {
           id: true,
           code: true,
           book: {
-            select: { id: true, title: true, coverUrl: true },
+            select: { id: true, title: true, coverUrl: true, author: { select: { id: true, name: true } } },
           },
         },
       },
@@ -106,6 +106,7 @@ export async function findActiveReservationsByUser(filter: {
         id: row.copy.book.id,
         title: row.copy.book.title,
         coverUrl: row.copy.book.coverUrl,
+        author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
       },
     },
   }));
@@ -137,7 +138,7 @@ export async function findReservationsByBook(filter: {
           id: true,
           code: true,
           book: {
-            select: { id: true, title: true, coverUrl: true },
+            select: { id: true, title: true, coverUrl: true, author: { select: { id: true, name: true } } },
           },
         },
       },
@@ -172,9 +173,10 @@ export async function findReservationsByBook(filter: {
           id: row.copy.book.id,
           title: row.copy.book.title,
           coverUrl: row.copy.book.coverUrl,
+          author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
         },
       },
-      reader: {
+      user: {
         id: row.user.id,
         name: row.user.name,
         email: row.user.email,
@@ -248,7 +250,7 @@ export async function findReservationDetail(reservationId: string): Promise<Rese
         select: {
           id: true,
           code: true,
-          book: { select: { id: true, title: true, coverUrl: true } },
+          book: { select: { id: true, title: true, coverUrl: true, author: { select: { id: true, name: true } } } },
         },
       },
       user: { select: { id: true, name: true, email: true } },
@@ -280,9 +282,10 @@ export async function findReservationDetail(reservationId: string): Promise<Rese
         id: row.copy.book.id,
         title: row.copy.book.title,
         coverUrl: row.copy.book.coverUrl,
+        author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
       },
     },
-    reader: {
+    user: {
       id: row.user.id,
       name: row.user.name,
       email: row.user.email,
@@ -314,7 +317,7 @@ export async function findAllReservations(userId?: string): Promise<ReservationD
         select: {
           id: true,
           code: true,
-          book: { select: { id: true, title: true, coverUrl: true } },
+          book: { select: { id: true, title: true, coverUrl: true, author: { select: { id: true, name: true } } } },
         },
       },
       user: { select: { id: true, name: true, email: true } },
@@ -346,9 +349,10 @@ export async function findAllReservations(userId?: string): Promise<ReservationD
           id: row.copy.book.id,
           title: row.copy.book.title,
           coverUrl: row.copy.book.coverUrl,
+          author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
         },
       },
-      reader: {
+      user: {
         id: row.user.id,
         name: row.user.name,
         email: row.user.email,

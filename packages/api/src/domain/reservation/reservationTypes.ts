@@ -21,13 +21,17 @@ export interface ReservationSummary {
       id: string;
       title: string;
       coverUrl: string | null;
+      author: {
+        id: string;
+        name: string;
+      };
     };
   };
 }
 
 /** Projeção usada na listagem do Bibliotecário (RF-B1) */
 export interface ReservationDetail extends ReservationSummary {
-  reader: {
+  user: {
     id: string;
     name: string;
     email: string;

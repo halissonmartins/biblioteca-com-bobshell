@@ -59,8 +59,8 @@ const LOAN_DETAIL = {
   dueAt: FUTURE_ISO,
   returnedAt: null,
   createdAt: new Date().toISOString(),
-  copy: { id: 'copy-1', code: 'LIV-001', book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null } },
-  reader: { id: 'user-1', name: 'João', email: 'joao@test.com' },
+  copy: { id: 'copy-1', code: 'LIV-001', book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null, author: { id: 'author-1', name: 'Machado de Assis' } } },
+  user: { id: 'user-1', name: 'João', email: 'joao@test.com' },
   librarian: { id: 'lib-1', name: 'Ana' },
 };
 

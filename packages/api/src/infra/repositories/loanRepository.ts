@@ -142,7 +142,7 @@ const LOAN_SELECT = {
     select: {
       id: true,
       code: true,
-      book: { select: { id: true, title: true, coverUrl: true } },
+      book: { select: { id: true, title: true, coverUrl: true, author: { select: { id: true, name: true } } } },
     },
   },
   user: { select: { id: true, name: true, email: true } },
@@ -178,9 +178,10 @@ export async function findLoans(filter: {
         id: row.copy.book.id,
         title: row.copy.book.title,
         coverUrl: row.copy.book.coverUrl,
+        author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
       },
     },
-    reader: {
+    user: {
       id: row.user.id,
       name: row.user.name,
       email: row.user.email,
@@ -214,9 +215,10 @@ export async function findLoanDetail(loanId: string): Promise<LoanSummary | null
         id: row.copy.book.id,
         title: row.copy.book.title,
         coverUrl: row.copy.book.coverUrl,
+        author: { id: row.copy.book.author.id, name: row.copy.book.author.name },
       },
     },
-    reader: {
+    user: {
       id: row.user.id,
       name: row.user.name,
       email: row.user.email,
