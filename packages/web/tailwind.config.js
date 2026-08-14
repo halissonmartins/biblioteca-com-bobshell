@@ -40,6 +40,7 @@ export default {
           100: '#fef3c7',
           500: '#f59e0b',  // base
           600: '#d97706',
+          700: '#b45309',
         },
         // Surface — fundos, cards, bordas
         surface: {

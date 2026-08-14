@@ -4,6 +4,7 @@ interface AlertProps {
   variant: 'success' | 'error' | 'warning' | 'info'
   title?: string
   children: ReactNode
+  className?: string
 }
 
 const icons = {
@@ -47,9 +48,9 @@ const variantClass = {
  * </Alert>
  * <Alert variant="error">Sem cópias disponíveis no momento.</Alert>
  */
-export function Alert({ variant, title, children }: AlertProps) {
+export function Alert({ variant, title, children, className = '' }: AlertProps) {
   return (
-    <div className={variantClass[variant]} role="alert">
+    <div className={[variantClass[variant], className].filter(Boolean).join(' ')} role="alert">
       {icons[variant]}
       <div className="flex flex-col gap-0.5">
         {title && <p className="font-medium">{title}</p>}

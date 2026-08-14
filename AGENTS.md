@@ -39,6 +39,25 @@ npx vitest run packages/api/src/domain/reservation/reservation.test.ts
 npx playwright test e2e/reservation.spec.ts
 ```
 
+**Comandos individuais (packages/api):**
+```bash
+cd packages/api
+npm run typecheck          # TypeScript sem emitir (valida tipos)
+npm run lint               # ESLint strict
+npm run test               # Vitest (unit + integração)
+npm run migrate:dev        # prisma migrate dev (cria migration + aplica)
+npm run migrate:deploy     # prisma migrate deploy (só aplica — para CI/produção)
+npm run db:generate        # prisma generate (regenera @prisma/client após schema change)
+npm run db:seed            # popula banco com dados de dev (seed.ts)
+npm run db:studio          # Prisma Studio em http://localhost:5555
+```
+
+**Fluxo para mudar o schema do banco:**
+1. Editar `packages/api/prisma/schema.prisma`
+2. `cd packages/api && npm run migrate:dev -- --name <nome_descritivo>`
+3. Commitar o arquivo SQL gerado em `prisma/migrations/`
+4. **Nunca editar** migration já aplicada
+
 ## Regras de negócio críticas (não violar — derivadas do PRD)
 
 - Reserva expira automaticamente após **12 horas** (RN-1)
