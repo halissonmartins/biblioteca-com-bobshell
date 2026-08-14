@@ -104,3 +104,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 20:08]** use o playwright para tirar screenshot das demais funcionalidades, salvar no diretório /assets/images dessa vez não incluir em uma sessão no readme
+
+---
+**[14/08/2026 20:31]** analise os cenários e implementa completamente os testes e2e do projeto
