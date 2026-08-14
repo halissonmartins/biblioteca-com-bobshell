@@ -110,3 +110,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 20:49]** crie um pr para main
+
+---
+**[14/08/2026 20:53]** sim
