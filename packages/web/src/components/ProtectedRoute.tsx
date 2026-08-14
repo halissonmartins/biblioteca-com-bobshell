@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/hooks/useAuthHook'
 import type { Role } from '../../../shared/src/types/domain'
 
 interface ProtectedRouteProps {

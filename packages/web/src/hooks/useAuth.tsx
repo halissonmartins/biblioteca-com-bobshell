@@ -1,30 +1,17 @@
 /**
- * AuthContext — estado global do usuário autenticado.
+ * AuthProvider — provedor de autenticação global.
  * Wraps o login/logout e persiste o user no sessionStorage.
  */
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  type ReactNode,
-} from 'react'
+import { useState, useCallback, type ReactNode } from 'react'
 import { login as apiLogin, logout as apiLogout } from '@/api/auth'
 import type { User } from '../../../shared/src/types/domain'
 import type { LoginRequest } from '../../../shared/src/types/api'
+import { AuthContext } from './authContext'
 
 interface AuthState {
   user: User | null
   accessToken: string | null
 }
-
-interface AuthContextValue extends AuthState {
-  login: (req: LoginRequest) => Promise<void>
-  logout: () => Promise<void>
-  isAuthenticated: boolean
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
 
 function loadStoredAuth(): AuthState {
   try {
@@ -68,10 +55,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }

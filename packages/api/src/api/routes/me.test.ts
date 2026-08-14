@@ -39,7 +39,7 @@ import jwt from 'jsonwebtoken';
 
 const SECRET = 'test-secret-for-me';
 
-function makeToken(role: 'leitor' | 'bibliotecario', userId = 'user-1') {
+function makeToken(role: 'leitor' | 'bibliotecario', userId = 'user-1'): string {
   return jwt.sign({ sub: userId, role }, SECRET, { expiresIn: '1h' });
 }
 

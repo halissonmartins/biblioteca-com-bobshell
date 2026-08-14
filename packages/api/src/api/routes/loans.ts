@@ -13,6 +13,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { createLoan, returnLoan, listLoans } from '../../domain/loan/loanService.js';
+import type { ListLoansFilter } from '../../domain/loan/loanTypes.js';
 import { loanRepoDeps, findLoanDetail } from '../../infra/repositories/loanRepository.js';
 import { AppError } from '../../shared/errors.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
@@ -105,7 +106,9 @@ router.get(
       return;
     }
 
-    const loans = await listLoans({ userId: parsed.data.userId }, loanRepoDeps);
+    const filter: ListLoansFilter = {};
+    if (parsed.data.userId !== undefined) filter.userId = parsed.data.userId;
+    const loans = await listLoans(filter, loanRepoDeps);
     res.status(200).json({ data: loans });
   }),
 );
