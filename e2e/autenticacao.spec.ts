@@ -53,6 +53,7 @@ test.describe('Autenticação e controle de acesso (RN-7)', () => {
     await loginUI(page, LEITOR.email)
     await page.getByRole('button', { name: 'Sair' }).click()
     await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible()
+    // Na tela de login há dois "Entrar" (navbar + formulário); a navbar prova o logout
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Entrar' })).toBeVisible()
   })
 })
