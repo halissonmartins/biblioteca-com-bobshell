@@ -1,0 +1,22 @@
+# Postgres para desenvolvimento e testes E2E locais.
+# Uso: docker compose up -d  (antes de `make dev` ou `npm test` em e2e/)
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: biblioteca-postgres
+    environment:
+      POSTGRES_USER: biblioteca
+      POSTGRES_PASSWORD: biblioteca
+      POSTGRES_DB: biblioteca
+    ports:
+      - "5432:5432"
+    volumes:
+      - biblioteca-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biblioteca -d biblioteca"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  biblioteca-pgdata:
