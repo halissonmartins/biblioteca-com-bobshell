@@ -62,3 +62,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 16:50]** continue a atividade que estava sendo executada. olhe o histórico da nossa conversa para dar continuidade
+
+---
+**[14/08/2026 17:10]** crie um hook para fazer o push automático após o commit
