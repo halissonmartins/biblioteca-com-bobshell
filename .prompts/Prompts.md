@@ -74,3 +74,21 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 17:20]** faça o commit, que eu faço o push manualmente
+
+---
+**[14/08/2026 17:46]** Inicializar o projeto e executar um teste ad-hoc detalhado. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 17:57]** Inicializar o projeto e executar um teste E2E ad-hoc detalhado. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 18:07]** Inicializar o projeto e executar um teste ad-hoc E2E através do playwright cli. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 18:39]** sim
+
+---
+**[14/08/2026 19:21]** sim
+
+---
+**[14/08/2026 19:30]** faça o commite de tudo que ficou de fora
