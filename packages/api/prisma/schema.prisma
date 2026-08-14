@@ -1,0 +1,220 @@
+// schema.prisma — fonte de verdade do modelo de dados
+// Terminologia segue docs/produto/glossario.md estritamente
+// Toda mudança exige nova migration em prisma/migrations/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  leitor
+  bibliotecario
+}
+
+/// Estados do ciclo de vida de uma Cópia (glossario.md)
+enum CopyStatus {
+  available  // disponível — pode ser reservada
+  reserved   // reservada — bloqueada para um Leitor
+  loaned     // emprestada — fisicamente fora da biblioteca
+}
+
+// ---------------------------------------------------------------------------
+// Autor
+// ---------------------------------------------------------------------------
+
+model Author {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique  // URL-friendly, ex: "jose-saramago"
+  bio       String?
+  books     Book[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("authors")
+}
+
+// ---------------------------------------------------------------------------
+// Livro (entidade lógica, identificada por ISBN)
+// ---------------------------------------------------------------------------
+
+model Book {
+  id          String   @id @default(cuid())
+  isbn        String   @unique
+  title       String
+  synopsis    String?
+  genre       String
+  coverUrl    String?
+  publishedAt DateTime?
+
+  authorId    String
+  author      Author   @relation(fields: [authorId], references: [id])
+
+  copies      Copy[]
+  reviews     Review[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([title])
+  @@index([genre])
+  @@index([authorId])
+  @@map("books")
+}
+
+// ---------------------------------------------------------------------------
+// Cópia — exemplar físico de um Livro (ADR-0002)
+// ---------------------------------------------------------------------------
+
+model Copy {
+  id     String     @id @default(cuid())
+  code   String     @unique  // código de barras / etiqueta física
+  status CopyStatus @default(available)
+
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id])
+
+  reservations Reservation[]
+  loans        Loan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // índice obrigatório para RNF-1: tela de detalhes em < 300 ms
+  @@index([bookId, status])
+  @@map("copies")
+}
+
+// ---------------------------------------------------------------------------
+// Usuário — Leitor ou Bibliotecário (ADR-0003)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  address      String?
+
+  reservations   Reservation[]
+  loans          Loan[]         @relation("reader_loans")
+  librarianLoans Loan[]         @relation("librarian_loans")
+  reviews        Review[]
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+/// Refresh tokens (ADR-0003 — rotacionados a cada uso, 7 dias)
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Reserva — intenção de retirada (RN-1 a RN-6)
+// ---------------------------------------------------------------------------
+
+model Reservation {
+  id        String   @id @default(cuid())
+  expiresAt DateTime  // createdAt + 12h (RN-1)
+
+  /// null enquanto ativa; preenchido quando convertida ou expirada
+  convertedAt DateTime?
+  cancelledAt DateTime?
+
+  copyId String
+  copy   Copy   @relation(fields: [copyId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  loan Loan?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([copyId])
+  @@index([expiresAt])           // usado pelo job de expiração
+  @@map("reservations")
+}
+
+// ---------------------------------------------------------------------------
+// Empréstimo — retirada física efetivada por Bibliotecário (RN-2)
+// ---------------------------------------------------------------------------
+
+model Loan {
+  id         String    @id @default(cuid())
+  dueAt      DateTime  // data de vencimento combinada no balcão
+  returnedAt DateTime? // null enquanto em aberto; preenchido na Devolução
+
+  copyId String
+  copy   Copy   @relation(fields: [copyId], references: [id])
+
+  userId String
+  user   User   @relation("reader_loans", fields: [userId], references: [id])
+
+  /// Reserva que originou este Empréstimo (RN-6 — só reservas ativas podem virar Empréstimo)
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+
+  /// Bibliotecário que efetivou o Empréstimo (RN-7)
+  librarianId String
+  librarian   User   @relation("librarian_loans", fields: [librarianId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([copyId])
+  @@index([dueAt])
+  @@map("loans")
+}
+
+// ---------------------------------------------------------------------------
+// Avaliação — nota 1–5 deixada por um Leitor sobre um Livro
+// ---------------------------------------------------------------------------
+
+model Review {
+  id      String @id @default(cuid())
+  rating  Int    // 1–5
+  text    String
+
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, userId])   // um Leitor, uma Avaliação por Livro
+  @@index([bookId, createdAt]) // recuperar as N mais recentes por livro
+  @@map("reviews")
+}

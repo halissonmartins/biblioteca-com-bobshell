@@ -1,0 +1,879 @@
+openapi: '3.1.0'
+
+info:
+  title: Biblioteca API
+  version: '1.0.0'
+  description: |
+    API REST do Sistema de Biblioteca.
+    - Autenticação via JWT em cookie `httpOnly` (ADR-0003)
+    - Dois papéis: `leitor` e `bibliotecario` (RN-7)
+    - Terminologia segue `docs/produto/glossario.md`
+  license:
+    name: Privado
+
+servers:
+  - url: http://localhost:3000
+    description: Desenvolvimento local
+  - url: https://api.biblioteca.example.com
+    description: Produção
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token JWT (15 min). Também aceito em cookie httpOnly `access_token`.
+
+  # -------------------------------------------------------------------------
+  # Schemas — espelham packages/shared/src/types/domain.ts
+  # -------------------------------------------------------------------------
+  schemas:
+
+    Role:
+      type: string
+      enum: [leitor, bibliotecario]
+      description: Papel do usuário no sistema
+
+    CopyStatus:
+      type: string
+      enum: [available, reserved, loaned]
+      description: |
+        Estado do ciclo de vida de uma Cópia.
+        `available` → pode ser reservada.
+        `reserved` → bloqueada para o Leitor que reservou.
+        `loaned` → fisicamente fora da biblioteca.
+
+    Author:
+      type: object
+      required: [id, name, slug, createdAt]
+      properties:
+        id:         { type: string }
+        name:       { type: string, example: 'José Saramago' }
+        slug:       { type: string, example: 'jose-saramago' }
+        bio:
+          oneOf:
+            - type: string
+            - type: 'null'
+        createdAt:  { type: string, format: date-time }
+
+    Book:
+      type: object
+      required: [id, isbn, title, genre, authorId, createdAt]
+      properties:
+        id:          { type: string }
+        isbn:        { type: string, example: '9780156027748' }
+        title:       { type: string, example: 'Ensaio sobre a Cegueira' }
+        synopsis:
+          oneOf:
+            - type: string
+            - type: 'null'
+        genre:       { type: string, example: 'Ficção literária' }
+        coverUrl:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+        publishedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        authorId:    { type: string }
+        createdAt:   { type: string, format: date-time }
+
+    BookListItem:
+      type: object
+      required: [id, isbn, title, genre, author, availableCopies]
+      properties:
+        id:             { type: string }
+        isbn:           { type: string }
+        title:          { type: string }
+        genre:          { type: string }
+        coverUrl:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+        availableCopies: { type: integer, minimum: 0 }
+        author:
+          type: object
+          required: [id, name, slug]
+          properties:
+            id:   { type: string }
+            name: { type: string }
+            slug: { type: string }
+
+    BookDetail:
+      allOf:
+        - $ref: '#/components/schemas/Book'
+        - type: object
+          required: [author, availableCopies, recentReviews]
+          properties:
+            author:
+              $ref: '#/components/schemas/Author'
+            availableCopies:
+              type: integer
+              minimum: 0
+              description: Número de Cópias com status `available` (Disponibilidade)
+            recentReviews:
+              type: array
+              items: { $ref: '#/components/schemas/ReviewWithUser' }
+              maxItems: 5
+              description: As 5 Avaliações mais recentes
+
+    Copy:
+      type: object
+      required: [id, code, status, bookId]
+      properties:
+        id:     { type: string }
+        code:   { type: string, example: '9780156027748-C1' }
+        status: { $ref: '#/components/schemas/CopyStatus' }
+        bookId: { type: string }
+
+    User:
+      type: object
+      required: [id, name, email, role, createdAt]
+      properties:
+        id:        { type: string }
+        name:      { type: string }
+        email:     { type: string, format: email }
+        role:      { $ref: '#/components/schemas/Role' }
+        address:
+          oneOf:
+            - type: string
+            - type: 'null'
+        createdAt: { type: string, format: date-time }
+
+    Reservation:
+      type: object
+      required: [id, expiresAt, copyId, userId, createdAt]
+      properties:
+        id:          { type: string }
+        expiresAt:   { type: string, format: date-time, description: 'createdAt + 12h (RN-1)' }
+        convertedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        cancelledAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        copyId:      { type: string }
+        userId:      { type: string }
+        createdAt:   { type: string, format: date-time }
+
+    ReservationDetail:
+      allOf:
+        - $ref: '#/components/schemas/Reservation'
+        - type: object
+          required: [copy, user]
+          properties:
+            copy:
+              allOf:
+                - $ref: '#/components/schemas/Copy'
+                - type: object
+                  required: [book]
+                  properties:
+                    book:
+                      allOf:
+                        - $ref: '#/components/schemas/Book'
+                        - type: object
+                          required: [author]
+                          properties:
+                            author:
+                              type: object
+                              required: [id, name]
+                              properties:
+                                id:   { type: string }
+                                name: { type: string }
+            user:
+              type: object
+              required: [id, name, email]
+              properties:
+                id:    { type: string }
+                name:  { type: string }
+                email: { type: string, format: email }
+
+    Loan:
+      type: object
+      required: [id, dueAt, copyId, userId, reservationId, librarianId, createdAt]
+      properties:
+        id:           { type: string }
+        dueAt:        { type: string, format: date-time }
+        returnedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        copyId:       { type: string }
+        userId:       { type: string }
+        reservationId: { type: string }
+        librarianId:  { type: string }
+        createdAt:    { type: string, format: date-time }
+
+    LoanDetail:
+      allOf:
+        - $ref: '#/components/schemas/Loan'
+        - type: object
+          required: [copy, user, librarian]
+          properties:
+            copy:
+              allOf:
+                - $ref: '#/components/schemas/Copy'
+                - type: object
+                  required: [book]
+                  properties:
+                    book:
+                      allOf:
+                        - $ref: '#/components/schemas/Book'
+                        - type: object
+                          required: [author]
+                          properties:
+                            author:
+                              type: object
+                              required: [id, name]
+                              properties:
+                                id:   { type: string }
+                                name: { type: string }
+            user:
+              type: object
+              required: [id, name, email]
+              properties:
+                id:    { type: string }
+                name:  { type: string }
+                email: { type: string, format: email }
+            librarian:
+              type: object
+              required: [id, name]
+              properties:
+                id:   { type: string }
+                name: { type: string }
+
+    Review:
+      type: object
+      required: [id, rating, text, bookId, userId, createdAt]
+      properties:
+        id:        { type: string }
+        rating:    { type: integer, minimum: 1, maximum: 5 }
+        text:      { type: string }
+        bookId:    { type: string }
+        userId:    { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ReviewWithUser:
+      allOf:
+        - $ref: '#/components/schemas/Review'
+        - type: object
+          required: [user]
+          properties:
+            user:
+              type: object
+              required: [id, name]
+              properties:
+                id:   { type: string }
+                name: { type: string }
+
+    # -----------------------------------------------------------------------
+    # Erros
+    # -----------------------------------------------------------------------
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:    { type: string, example: 'RESERVATION_NOT_FOUND' }
+            message: { type: string, example: 'Reserva não encontrada' }
+
+    Pagination:
+      type: object
+      required: [page, pageSize, total, totalPages]
+      properties:
+        page:       { type: integer, minimum: 1 }
+        pageSize:   { type: integer, minimum: 1, maximum: 100 }
+        total:      { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+
+  # -------------------------------------------------------------------------
+  # Responses reutilizáveis
+  # -------------------------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Não autenticado — token ausente ou inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+    Forbidden:
+      description: Não autorizado — papel insuficiente (RN-7)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+          example:
+            error:
+              code: FORBIDDEN
+              message: Apenas bibliotecários podem executar esta ação
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+    UnprocessableEntity:
+      description: Erro de validação ou regra de negócio
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+# ===========================================================================
+# Paths
+# ===========================================================================
+
+paths:
+
+  # -------------------------------------------------------------------------
+  # Auth
+  # -------------------------------------------------------------------------
+
+  /auth/login:
+    post:
+      summary: Autenticar usuário
+      description: |
+        Autentica com email e senha.
+        Seta cookies `access_token` (15 min) e `refresh_token` (7 dias) httpOnly.
+        Papel (`leitor` | `bibliotecario`) incluso no payload JWT.
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Login bem-sucedido
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: 'access_token=eyJ…; HttpOnly; Secure; SameSite=Strict; Path=/'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [user, accessToken]
+                    properties:
+                      user:        { $ref: '#/components/schemas/User' }
+                      accessToken: { type: string }
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /auth/refresh:
+    post:
+      summary: Renovar access token
+      description: Usa o cookie `refresh_token` para emitir novo access token. Rotaciona o refresh token.
+      operationId: refreshToken
+      tags: [Auth]
+      security: []
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [accessToken]
+                    properties:
+                      accessToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      summary: Encerrar sessão
+      description: Revoga o refresh token e limpa os cookies.
+      operationId: logout
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '204': { description: Logout bem-sucedido }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # -------------------------------------------------------------------------
+  # Livros — público (RF-L1, RF-L2)
+  # -------------------------------------------------------------------------
+
+  /books:
+    get:
+      summary: Listar livros do catálogo (RF-L1)
+      description: |
+        Listagem paginada do catálogo. Cada item inclui disponibilidade atual.
+        Público — não requer autenticação.
+      operationId: listBooks
+      tags: [Livros]
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          description: Filtra por título ou nome do autor (busca parcial)
+          schema: { type: string }
+        - name: genre
+          in: query
+          schema: { type: string }
+        - name: authorId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Lista paginada de livros
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BookListItem' }
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /books/{bookId}:
+    get:
+      summary: Detalhes de um livro (RF-L2)
+      description: |
+        Retorna título, autor, sinopse, disponibilidade e as 5 avaliações mais recentes.
+        Alvo de latência: < 300 ms (RNF-1).
+        Público — não requer autenticação.
+      operationId: getBook
+      tags: [Livros]
+      security: []
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Detalhes do livro
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/BookDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /books/{bookId}/reviews:
+    post:
+      summary: Criar avaliação para um livro
+      description: Um Leitor autenticado pode criar uma avaliação. Máximo 1 por livro por leitor.
+      operationId: createReview
+      tags: [Livros]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating, text]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                text:   { type: string, minLength: 1 }
+      responses:
+        '201':
+          description: Avaliação criada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Review' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  # -------------------------------------------------------------------------
+  # Autores — público (RF-L6)
+  # -------------------------------------------------------------------------
+
+  /authors/{authorId}:
+    get:
+      summary: Detalhes de um autor (RF-L6)
+      description: Retorna o autor e todos os livros que ele publicou no acervo, com disponibilidade.
+      operationId: getAuthor
+      tags: [Autores]
+      security: []
+      parameters:
+        - name: authorId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Dados do autor com seus livros
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Author'
+                      - type: object
+                        required: [books]
+                        properties:
+                          books:
+                            type: array
+                            items: { $ref: '#/components/schemas/BookListItem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # -------------------------------------------------------------------------
+  # Reservas — Leitor (RF-L3, RF-L4) e Bibliotecário (RF-B1)
+  # -------------------------------------------------------------------------
+
+  /reservations:
+    post:
+      summary: Criar reserva (RF-L3)
+      description: |
+        Leitor cria uma reserva para um livro com disponibilidade.
+        Vincula automaticamente a uma Cópia disponível.
+        A Reserva expira em 12h (RN-1). Requer papel `leitor`.
+      operationId: createReservation
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId]
+              properties:
+                bookId: { type: string }
+      responses:
+        '201':
+          description: Reserva criada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ReservationDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: Sem cópias disponíveis (RN-3) ou outro erro de negócio
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: NO_COPIES_AVAILABLE
+                  message: Sem cópias disponíveis para este livro
+
+    get:
+      summary: Listar todas as reservas (RF-B1, RF-B3)
+      description: |
+        Lista reservas ativas de todos os leitores.
+        Suporta filtro por `userId` (RF-B3). Requer papel `bibliotecario`.
+      operationId: listReservations
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          description: Filtrar por leitor específico (RF-B3)
+          schema: { type: string }
+        - name: bookId
+          in: query
+          description: Filtrar por livro específico
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Lista de reservas ativas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReservationDetail' }
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/reservations:
+    get:
+      summary: Listar minhas reservas ativas (RF-L4)
+      description: |
+        Retorna apenas as Reservas ativas (não expiradas) do Leitor autenticado.
+        Alvo: < 500 ms (RNF-4). Requer papel `leitor`.
+      operationId: listMyReservations
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reservas ativas do leitor
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReservationDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # -------------------------------------------------------------------------
+  # Empréstimos — Bibliotecário (RF-B2, RF-B4, RF-B5) e Leitor (RF-L5)
+  # -------------------------------------------------------------------------
+
+  /loans:
+    post:
+      summary: Efetivar empréstimo (RF-B4, RN-2, RN-6)
+      description: |
+        Bibliotecário converte uma Reserva ativa em Empréstimo.
+        Exige Reserva ativa (não expirada) — RN-6.
+        Apenas Bibliotecário pode executar — RN-2, RN-7.
+      operationId: createLoan
+      tags: [Empréstimos]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservationId, dueAt]
+              properties:
+                reservationId: { type: string }
+                dueAt:
+                  type: string
+                  format: date-time
+                  description: Data de vencimento combinada no balcão
+      responses:
+        '201':
+          description: Empréstimo efetivado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/LoanDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Reserva expirada (RN-6) ou outro erro de negócio
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: RESERVATION_EXPIRED
+                  message: Reserva expirada — criar nova reserva
+
+    get:
+      summary: Listar empréstimos ativos (RF-B2, RF-B3)
+      description: |
+        Lista todos os Empréstimos em aberto (returnedAt = null).
+        Suporta filtro por `userId` (RF-B3). Requer papel `bibliotecario`.
+      operationId: listLoans
+      tags: [Empréstimos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          description: Filtrar por leitor (RF-B3)
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Lista de empréstimos ativos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoanDetail' }
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /loans/{loanId}/return:
+    patch:
+      summary: Registrar devolução (RF-B5, RN-2)
+      description: |
+        Bibliotecário marca uma Cópia como devolvida.
+        Libera a Cópia para `available` imediatamente.
+        Requer papel `bibliotecario` — RN-2, RN-7.
+      operationId: returnLoan
+      tags: [Empréstimos]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Devolução registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/LoanDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Empréstimo já devolvido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /me/loans:
+    get:
+      summary: Listar meus empréstimos (RF-L5)
+      description: |
+        Retorna Empréstimos em aberto do Leitor autenticado, com data de vencimento.
+        Alvo: < 500 ms (RNF-4). Requer papel `leitor`.
+      operationId: listMyLoans
+      tags: [Empréstimos]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Empréstimos do leitor
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoanDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # -------------------------------------------------------------------------
+  # Health check — infraestrutura
+  # -------------------------------------------------------------------------
+
+  /health:
+    get:
+      summary: Health check da API
+      operationId: healthCheck
+      tags: [Infra]
+      security: []
+      responses:
+        '200':
+          description: API saudável
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, example: ok }
+        '503':
+          description: API indisponível
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+# ---------------------------------------------------------------------------
+# Tags para agrupar endpoints na documentação
+# ---------------------------------------------------------------------------
+
+tags:
+  - name: Auth
+    description: Autenticação e gestão de sessão (JWT + cookies httpOnly)
+  - name: Livros
+    description: Catálogo — navegação e detalhes (RF-L1, RF-L2, RF-L6)
+  - name: Autores
+    description: Página de autor e listagem de livros por autor
+  - name: Reservas
+    description: Criação e consulta de reservas (RF-L3, RF-L4, RF-B1, RF-B3)
+  - name: Empréstimos
+    description: Gestão de empréstimos e devoluções (RF-L5, RF-B2 a RF-B5)
+  - name: Infra
+    description: Health check e monitoramento
