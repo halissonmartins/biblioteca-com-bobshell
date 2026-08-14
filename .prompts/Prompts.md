@@ -98,3 +98,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 19:42]** sim
+
+---
+**[14/08/2026 19:59]** use o playwright para tirar screenshot de 3 principais funcionalidades, salvar no diretório /asserts/images depois incluir em uma sessão no readme
