@@ -92,3 +92,9 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 19:30]** faça o commite de tudo que ficou de fora
+
+---
+**[14/08/2026 19:39]** creio dentro do diretório /docs o arquivo AGENTS.md contendo referências aos arquivos de documentação dentro dela
+
+---
+**[14/08/2026 19:42]** sim
