@@ -145,3 +145,11 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 Por fim fazer o commit
 ---
 **[15/08/2026 08:05]** commite também o @docs/CLAUDE.md
+---
+**[15/08/2026 08:07]** /impeccable:impeccable critique
+---
+**[15/08/2026 08:23]** /impeccable:impeccable shape — Fluxo do balcão. Coluna de ações em BibliotecarioReservasPage.tsx com Efetivar empréstimo por linha ativa; o modal abre com Reserva, Leitor e código da Cópia já vinculados e a data de vencimento pré-preenchida; + Novo empréstimo reduzido ao caminho walk-up, com busca por Leitor. Reduz o balcão a: ler linha → clicar → confirmar.
+---
+**[15/08/2026 08:29]** sim
+---
+**[15/08/2026 08:46]** commite tudo
