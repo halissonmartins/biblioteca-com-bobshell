@@ -128,3 +128,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 22:26]** Implemente o teste de performance usando a biblioteca K6
+
+---
+**[14/08/2026 23:20]** primeiro investigue a otimização da query do catálogo como próximo passo. a primeira opção é tentar uma alteração simples no banco de dados

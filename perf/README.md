@@ -22,21 +22,18 @@ Cada cenário também impõe `http_req_failed < 1%` e `checks > 99%`.
 
 | Métrica | p95 medido | Alvo | Status |
 |---|---|---|---|
-| `book_detail` | ~30 ms | < 300 ms | ✅ |
-| `reservation` | ~17 ms | < 3 s | ✅ |
-| `loan` / `return` | ~20 ms | < 3 s | ✅ |
+| `book_detail` | ~35 ms | < 300 ms | ✅ |
+| `reservation` | ~23 ms | < 3 s | ✅ |
+| `loan` / `return` | ~25 ms | < 3 s | ✅ |
 | `my_lists` | ~350 ms | < 500 ms | ✅ (¹) |
-| `catalog_search` | **~5,6 s** | < 400 ms | ❌ (²) |
+| `catalog_search` | **~360 ms** | < 400 ms | ✅ (²) |
 
 ¹ `my_lists` cresce conforme o histórico de empréstimos do leitor se acumula entre
 execuções; rode `make perf-seed -- --reset` para uma medição limpa.
 
-² **Achado:** a busca do catálogo não atinge a meta em escala. A paginação faz
-`count(*)` com `title ILIKE '%x%' OR authors.name ILIKE '%x%'`; o `OR` que cruza a
-tabela `authors` via join impede o uso do índice trigram e força um *sequential
-scan* (parallel seq scan no `EXPLAIN`). Sob concorrência isso satura a CPU e o p95
-degrada de ~1 s (1 VU) para vários segundos. O índice `books_title_trgm_idx` (branch
-`perf/consultas-catalogo`) sozinho **não** resolve esse caminho de query.
+² A busca do catálogo era ~5,6 s antes da otimização em `bookRepository.findBooks`
+(ver "Diagnóstico" abaixo). Sob concorrência alta (`SEARCH_VUS=10`) ainda sobe para
+~700 ms — o `count(*)` exato do total continua sendo o custo dominante.
 
 ## Pré-requisitos
 
@@ -81,20 +78,30 @@ Exemplo com carga maior:
 k6 run -e VUS=50 -e DURATION=1m perf/scenarios/catalog-search.js
 ```
 
-## Diagnóstico da busca do catálogo
+## Diagnóstico da busca do catálogo (otimização aplicada)
 
-O índice `books_title_trgm_idx` acelera `title ILIKE '%x%'` **isoladamente**, mas a
-query de listagem atual (`bookRepository.findBooks`) não se beneficia dele por dois
-motivos, comprováveis via `EXPLAIN (ANALYZE)`:
+O `EXPLAIN (ANALYZE)` da query original de `bookRepository.findBooks` revelou dois
+gargalos que o índice `books_title_trgm_idx` sozinho não resolvia:
 
-1. O `OR` cruza tabelas (`books.title` **ou** `authors.name`) sobre um join → o
-   planner escolhe *hash join + seq scan* em vez do índice trigram.
-2. A paginação executa um `count(*)` sem `LIMIT`, que não pode parar cedo e varre
-   todo o conjunto filtrado.
+1. **`OR` cruzando tabelas** (`books.title` **ou** `authors.name` via join) → o
+   planner escolhia *hash join + seq scan* em `books`, ignorando o trigram.
+2. **`_count` de cópias disponíveis** gerava um `GROUP BY` sobre **toda** a tabela
+   `copies` (~500k linhas) a cada listagem, mesmo sem busca.
 
-Caminhos possíveis (fora do escopo destes testes, decisão do time): denormalizar o
-nome do autor em `books` (e indexá-lo com trigram), separar a busca por título e por
-autor, ou substituir o `count` exato por uma contagem aproximada/keyset pagination.
+Correção (só reescrita de query, sem mudar o schema):
+
+1. Resolver primeiro os IDs dos Autores que casam (tabela pequena) e filtrar por
+   `title ILIKE '%x%' OR authorId IN (...)` — assim o trigram de título é usado e o
+   `OR` fica todo em `books`. Resultado idêntico ao anterior.
+2. Contar as Cópias `available` **apenas dos livros da página** (`groupBy` com
+   `bookId IN (...)`), em vez de agregar toda a tabela `copies`.
+
+Efeito: p95 da busca caiu de **~5,6 s → ~360 ms** (SEARCH_VUS=4). O custo remanescente
+é o `count(*)` exato do total — se necessário, avaliar keyset pagination ou contagem
+aproximada.
+
+> A migration `seed-perf.ts` roda `VACUUM (ANALYZE)` após o bulk insert para atualizar
+> estatísticas e o *visibility map* (index-only scans sem heap fetches).
 
 ## Estrutura
 

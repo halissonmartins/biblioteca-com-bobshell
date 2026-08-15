@@ -137,11 +137,11 @@ async function main(): Promise<void> {
   `);
 
   // ------------------------------------------------------------------
-  // ANALYZE — atualiza as estatísticas do planner após o bulk insert
-  // (sem isso o Postgres pode ignorar índices e escolher planos ruins).
+  // VACUUM (ANALYZE) — após o bulk insert, atualiza as estatísticas do planner
+  // E o visibility map (habilita index-only scans sem heap fetches).
   // ------------------------------------------------------------------
-  console.info('  → ANALYZE (estatísticas do planner)…');
-  await prisma.$executeRawUnsafe('ANALYZE authors, books, copies');
+  console.info('  → VACUUM (ANALYZE)…');
+  await prisma.$executeRawUnsafe('VACUUM (ANALYZE) authors, books, copies');
 
   // ------------------------------------------------------------------
   // Resumo
