@@ -20,7 +20,9 @@ export default function App() {
     <>
       {!naEntrada && <Navbar />}
       {/* O trilho de zona vira coluna fixa a partir de lg — o conteúdo abre espaço para ele */}
-      <main className={naEntrada ? undefined : 'lg:pl-60'}>
+      {/* tabIndex -1: alvo de foco programático quando o Modal fecha e o
+          elemento que o abriu já não existe. Não entra na ordem de Tab. */}
+      <main tabIndex={-1} className={naEntrada ? undefined : 'lg:pl-60 focus:outline-none'}>
         <Routes>
           {/* Público */}
           <Route path="/login"             element={<LoginPage />} />

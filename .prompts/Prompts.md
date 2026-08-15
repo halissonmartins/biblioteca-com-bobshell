@@ -177,3 +177,9 @@ Por fim fazer o commit
 **[15/08/2026 13:56]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
 ---
 **[15/08/2026 14:16]** sim
+---
+**[15/08/2026 14:41]** /impeccable:impeccable audit — contraste (o .btn-primary a 3,7:1 medido), alvos de toque, lang, focus trap no Modal — e o overflow do Navbar no mobile
+---
+**[15/08/2026 15:00]** /impeccable:impeccable harden
+---
+**[15/08/2026 15:19]** sim
