@@ -195,3 +195,7 @@ Por fim fazer o commit
 **[15/08/2026 15:51]** /impeccable:impeccable polish
 ---
 **[15/08/2026 16:18]** sim
+---
+**[15/08/2026 16:26]** atualiza os screen shots no diretório ./assets/images
+---
+**[15/08/2026 16:32]** sim
