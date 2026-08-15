@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================================
    BASE LAYER — estilos globais, nunca usar valores ad-hoc aqui
+   Mundo: chapa de esmalte vitrificado (contrato em index.html)
    ============================================================ */
 @layer base {
   *,
@@ -22,24 +23,59 @@
     @apply bg-surface-50 text-surface-900 font-sans text-base;
   }
 
-  /* Foco visível obrigatório — acessibilidade AA */
-  :focus-visible {
-    @apply outline-2 outline-offset-2 outline-primary-500;
+  /* Superfícies do navegador também são sinalização: a seleção usa o amarelo
+     cromo do prazo, e a barra de rolagem vira um filete de esmalte. */
+  ::selection {
+    @apply bg-warning-500 text-surface-900;
   }
 
-  /* Remover outline padrão apenas para mouse (não teclado) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.surface.300') theme('colors.surface.100');
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300;
+    border: 2px solid theme('colors.surface.100');
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-700;
+  }
+
+  /* Foco visível obrigatório — acessibilidade AA.
+     Na chapa o foco é um filete grafite, legível sobre esmalte e sobre porcelana. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-surface-900;
+  }
+
   :focus:not(:focus-visible) {
     outline: none;
   }
 
-  h1 { @apply text-3xl font-bold text-surface-900; }
-  h2 { @apply text-2xl font-semibold text-surface-900; }
-  h3 { @apply text-xl font-semibold text-surface-900; }
-  h4 { @apply text-lg font-medium text-surface-900; }
+  /* Voz de sinalização: título é chapa, sempre condensada em caixa alta. */
+  h1 { @apply font-display text-4xl font-bold uppercase tracking-placa text-surface-900; }
+  h2 { @apply font-display text-2xl font-semibold uppercase tracking-placa text-surface-900; }
+  h3 { @apply font-display text-xl font-semibold uppercase tracking-placa text-surface-900; }
+  h4 { @apply font-sans text-lg font-semibold text-surface-900; }
 
-  /* Label obrigatório em todo input — acessibilidade */
   label {
     @apply text-sm font-medium text-surface-700;
+  }
+
+  /* Números tabulares em toda a interface: código de Cópia, prazo e contagem
+     precisam alinhar coluna a coluna. */
+  table, .font-mono, time {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -48,53 +84,61 @@
    Fonte de verdade para o agente: copiar, não reinventar
    ============================================================ */
 @layer components {
-  /* --- Botões --- */
+  /* --- Legenda de sinalização: o rótulo miúdo em caixa alta --- */
+  .legenda {
+    @apply font-display text-xs font-semibold uppercase tracking-legenda text-surface-700;
+  }
+
+  /* --- Botões: chapa esmaltada, canto duro, sem sombra --- */
   .btn {
     @apply inline-flex items-center justify-center gap-2
-           px-4 py-2 rounded text-sm font-medium
-           transition-colors duration-150
+           px-5 py-2.5 rounded-sm
+           font-display text-base font-semibold uppercase tracking-placa
+           transition-colors duration-100
            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed;
+           disabled:opacity-40 disabled:cursor-not-allowed;
   }
 
   .btn-primary {
-    @apply btn bg-primary-500 text-white
+    @apply btn bg-primary-500 text-surface-0
            hover:bg-primary-600 active:bg-primary-700
-           focus-visible:outline-primary-500;
+           focus-visible:outline-surface-900;
   }
 
   .btn-secondary {
-    @apply btn bg-surface-0 text-surface-900 border border-surface-200
+    @apply btn bg-surface-0 text-surface-900 border border-surface-300
            hover:bg-surface-100 active:bg-surface-200
-           focus-visible:outline-primary-500;
+           focus-visible:outline-surface-900;
   }
 
   .btn-danger {
-    @apply btn bg-danger-500 text-white
+    @apply btn bg-danger-500 text-surface-0
            hover:bg-danger-600 active:bg-danger-700
-           focus-visible:outline-danger-500;
+           focus-visible:outline-surface-900;
   }
 
   .btn-ghost {
-    @apply btn bg-transparent text-primary-600
+    @apply btn bg-transparent text-primary-500 border border-transparent
            hover:bg-primary-50 active:bg-primary-100
-           focus-visible:outline-primary-500;
+           focus-visible:outline-surface-900;
   }
 
+  /* 44px de alvo mínimo já no tamanho pequeno — o balcão é mouse, mas o Leitor
+     é polegar. */
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply px-4 py-2 text-sm min-h-[44px];
   }
 
   .btn-lg {
-    @apply px-6 py-3 text-base;
+    @apply px-8 py-4 text-lg;
   }
 
-  /* --- Inputs --- */
+  /* --- Inputs: campo fresado na chapa --- */
   .input {
-    @apply block w-full rounded border border-surface-200 bg-surface-0
-           px-3 py-2 text-sm text-surface-900 placeholder-surface-300
-           transition-colors duration-150
-           focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+    @apply block w-full rounded-sm border border-surface-300 bg-surface-0
+           px-3 py-3 text-base text-surface-900 placeholder-surface-300
+           transition-colors duration-100
+           focus:border-surface-900 focus:ring-1 focus:ring-surface-900
            disabled:bg-surface-100 disabled:cursor-not-allowed;
   }
 
@@ -102,52 +146,78 @@
     @apply border-danger-500 focus:border-danger-500 focus:ring-danger-500;
   }
 
-  /* --- Labels de campo --- */
   .field-label {
-    @apply block text-sm font-medium text-surface-700 mb-1;
+    @apply legenda block mb-1.5;
   }
 
   .field-error {
-    @apply mt-1 text-xs text-danger-600;
+    @apply mt-1 text-xs font-medium text-danger-700;
   }
 
   .field-hint {
     @apply mt-1 text-xs text-surface-700;
   }
 
-  /* --- Cards --- */
+  /* --- Chapas (cards) — plana, filete no lugar da sombra --- */
   .card {
-    @apply bg-surface-0 rounded-md border border-surface-200 shadow-sm;
+    @apply bg-surface-0 rounded-sm border border-surface-200;
   }
 
   .card-body {
     @apply p-4 sm:p-6;
   }
 
-  /* --- Badges de status --- */
+  /* --- Chips de status: quadrados, com banda de cor na borda esquerda.
+         A cor nunca lava o fundo do texto — o campo de leitura fica acromático
+         para o turno de oito horas do balcão. --- */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-2 rounded-none
+           border-l bg-surface-0 pl-2 pr-2.5 py-1
+           font-display text-xs font-semibold uppercase tracking-legenda;
   }
 
   .badge-success {
-    @apply badge bg-success-100 text-success-700;
+    @apply badge border-l-success-500 text-success-700;
   }
 
   .badge-warning {
-    @apply badge bg-warning-100 text-warning-700;
+    @apply badge border-l-warning-500 text-warning-700;
   }
 
   .badge-danger {
-    @apply badge bg-danger-100 text-danger-700;
+    @apply badge border-l-danger-500 text-danger-700;
   }
 
   .badge-neutral {
-    @apply badge bg-surface-100 text-surface-700;
+    @apply badge border-l-surface-300 text-surface-700;
   }
 
-  /* --- Tabela --- */
+  /* Link de registro: o título do Livro dentro de uma linha de tabela.
+     Não é um link no meio de uma frase — é um alvo isolado numa célula, então
+     a exceção "inline" da WCAG 2.5.8 não o cobre. A altura é medida, não
+     estimada: 17–20px antes desta regra.
+
+     O piso segue o método de entrada, não a largura da tela. O Bibliotecário
+     opera com mouse num widescreen o dia inteiro e uma lista com 44px por
+     linha só afastaria o que ele precisa varrer; o Leitor no celular precisa
+     de polegar. Daí 24px no ponteiro fino (mínimo da 2.5.8) e 44px no
+     grosso (2.5.5). */
+  .link-registro {
+    @apply inline-flex items-center min-h-[24px]
+           text-primary-600 font-medium text-sm
+           hover:underline
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900;
+  }
+
+  @media (pointer: coarse) {
+    .link-registro {
+      @apply min-h-[44px];
+    }
+  }
+
+  /* --- Tabela: registro de circulação, filete fino, cabeçalho em legenda --- */
   .table-container {
-    @apply overflow-x-auto rounded-md border border-surface-200;
+    @apply overflow-x-auto rounded-sm border border-surface-200 bg-surface-0;
   }
 
   .table {
@@ -155,11 +225,11 @@
   }
 
   .table thead {
-    @apply bg-surface-50;
+    @apply bg-surface-100;
   }
 
   .table th {
-    @apply px-4 py-3 text-left text-xs font-semibold text-surface-700 uppercase tracking-wider;
+    @apply px-4 py-3 text-left legenda;
   }
 
   .table tbody {
@@ -167,52 +237,127 @@
   }
 
   .table td {
-    @apply px-4 py-3 text-surface-900;
+    @apply px-4 py-3 text-surface-900 align-top;
   }
 
   .table tbody tr:hover {
-    @apply bg-surface-50;
+    @apply bg-surface-100;
+  }
+
+  /* Abaixo de sm a linha vira ficha: sem isso a coluna de ação do balcão
+     ficava fora do quadro dentro de um overflow silencioso, e a tarefa que o
+     produto existe para cumprir sumia da tela do celular. */
+  @media (max-width: 639px) {
+    .table-empilha thead {
+      @apply sr-only;
+    }
+
+    .table-empilha,
+    .table-empilha tbody,
+    .table-empilha tr,
+    .table-empilha td {
+      @apply block w-full;
+    }
+
+    .table-empilha tbody {
+      @apply divide-y-0;
+    }
+
+    .table-empilha tr {
+      @apply border-b border-surface-200 py-2;
+    }
+
+    .table-empilha td {
+      @apply flex items-start justify-between gap-4 px-4 py-2;
+    }
+
+    .table-empilha td::before {
+      content: attr(data-coluna);
+      @apply legenda shrink-0 pt-0.5;
+    }
+
+    /* A célula sem cabeçalho é a das ações: ocupa a linha inteira */
+    .table-empilha td[data-coluna='']::before {
+      @apply hidden;
+    }
+
+    .table-empilha td[data-coluna=''] {
+      @apply justify-stretch;
+    }
+
+    .table-empilha td[data-coluna=''] > * {
+      @apply w-full;
+    }
   }
 
   /* --- Overlay de Modal --- */
   .modal-overlay {
-    @apply fixed inset-0 bg-surface-900/60 flex items-center justify-center z-50 p-4;
+    @apply fixed inset-0 bg-surface-900/70 flex items-center justify-center z-50 p-4;
   }
 
   .modal {
-    @apply bg-surface-0 rounded-lg shadow-modal w-full max-w-lg;
+    @apply bg-surface-0 rounded-sm shadow-modal w-full max-w-lg;
   }
 
+  /* O cabeçalho do modal é uma placa: chapa oxblood cheia, título em caixa
+     alta clara. A identidade vem do campo de cor, não de um filete no topo. */
   .modal-header {
-    @apply flex items-center justify-between px-6 py-4 border-b border-surface-200;
+    @apply flex items-center justify-between px-6 py-4 bg-primary-500 text-surface-0;
   }
 
   .modal-body {
-    @apply px-6 py-4;
+    @apply px-6 py-5;
   }
 
   .modal-footer {
     @apply flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-200;
   }
 
-  /* --- Alertas de estado --- */
+  /* --- Alertas: chapa de aviso. A cor é filete de contorno e ícone; o campo
+         de texto fica acromático, do mesmo jeito que nos chips. --- */
   .alert {
-    @apply flex items-start gap-3 p-4 rounded-md text-sm;
+    @apply flex items-start gap-3 p-4 rounded-sm text-sm
+           bg-surface-0 border text-surface-900;
   }
 
-  .alert-success {
-    @apply alert bg-success-50 text-success-700 border border-success-100;
+  .alert-success { @apply alert border-success-500; }
+  .alert-error   { @apply alert border-danger-500; }
+  .alert-warning { @apply alert border-warning-500; }
+  .alert-info    { @apply alert border-primary-500; }
+
+  /* O ícone é quem carrega a cor do estado dentro da chapa */
+  .alert-icone-success { @apply text-success-600; }
+  .alert-icone-error   { @apply text-danger-600; }
+  .alert-icone-warning { @apply text-warning-700; }
+  .alert-icone-info    { @apply text-primary-500; }
+
+  /* --- Faixa de gênero: a placa de zona do acervo virou controle --- */
+  .faixa-genero {
+    @apply inline-flex items-center rounded-sm px-3 py-2 min-h-[44px]
+           font-display text-sm font-semibold uppercase tracking-placa
+           transition-opacity duration-100
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900;
   }
 
-  .alert-error {
-    @apply alert bg-danger-50 text-danger-700 border border-danger-100;
+  /* --- Trilho de zona: a navegação drenada que dá nome ao mundo --- */
+  .zona-rail {
+    @apply bg-primary-500 text-surface-0;
   }
 
-  .alert-warning {
-    @apply alert bg-warning-50 text-warning-700 border border-warning-100;
+  .zona-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-none whitespace-nowrap
+           font-display text-base font-semibold uppercase tracking-placa
+           text-surface-0/75
+           transition-colors duration-100
+           hover:bg-primary-600 hover:text-surface-0
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-surface-0;
   }
 
-  .alert-info {
-    @apply alert bg-primary-50 text-primary-700 border border-primary-100;
+  /* O estado ativo é inversão pura, como uma placa de sinalização acesa: a
+     zona em que você está imprime escuro sobre porcelana. Sem filete de
+     destaque — a chapa inteira vira o indicador. */
+  .zona-link-ativo {
+    @apply zona-link bg-surface-50 text-primary-700
+           hover:bg-surface-50 hover:text-primary-700;
   }
 }

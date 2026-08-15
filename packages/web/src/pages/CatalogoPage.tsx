@@ -1,40 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listBooks } from '@/api/books'
-import { Input, Alert, LoadingPage, EmptyState } from '@/components'
-import { getErrorMessage } from '@/utils/format'
+import { Input, Alert, Button, LoadingPage, EmptyState, BookPlate } from '@/components'
+import { formatAvailableCopies, getErrorMessage } from '@/utils/format'
+import { zoneBackground } from '@/utils/zone'
 import type { BookListItem } from '../../../shared/src/types/domain'
 
 function BookCard({ book }: { book: BookListItem }) {
   return (
     <Link
       to={`/livros/${book.id}`}
-      className="card hover:shadow-md transition-shadow flex flex-col"
+      className="group card flex flex-col transition-colors hover:border-surface-900
+                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900"
       aria-label={`Ver detalhes de ${book.title}`}
     >
-      {/* Capa */}
-      <div className="aspect-[2/3] bg-surface-100 rounded-t-md overflow-hidden flex items-center justify-center">
-        {book.coverUrl ? (
-          <img
-            src={book.coverUrl}
-            alt={`Capa de ${book.title}`}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="text-4xl" aria-hidden="true">📖</span>
-        )}
+      <div className="aspect-[2/3] overflow-hidden">
+        <BookPlate
+          title={book.title}
+          author={book.author.name}
+          genre={book.genre}
+          coverUrl={book.coverUrl}
+          code={book.isbn}
+          asHeading
+        />
       </div>
-      {/* Info */}
-      <div className="card-body flex-1 flex flex-col gap-1">
-        <h3 className="text-sm font-semibold text-surface-900 line-clamp-2">{book.title}</h3>
-        <p className="text-xs text-surface-700">{book.author.name}</p>
-        <p className="text-xs text-surface-700 mt-auto">{book.genre}</p>
-        <p className={`text-xs font-medium mt-1 ${book.availableCopies > 0 ? 'text-success-600' : 'text-danger-500'}`}>
-          {book.availableCopies > 0
-            ? `${book.availableCopies} cópia${book.availableCopies > 1 ? 's' : ''} disponível${book.availableCopies > 1 ? 'eis' : ''}`
-            : 'Indisponível'}
-        </p>
+      {/* O pé da placa é a legenda da chapa: só disponibilidade, em borda dura */}
+      <div className="border-t border-surface-200 px-3 py-2.5">
+        {book.availableCopies > 0 ? (
+          <span className="badge-success">{formatAvailableCopies(book.availableCopies)}</span>
+        ) : (
+          <span className="badge-neutral">Indisponível</span>
+        )}
       </div>
     </Link>
   )
@@ -44,6 +41,10 @@ export function CatalogoPage() {
   const [search, setSearch]   = useState('')
   const [genre, setGenre]     = useState('')
   const [page, setPage]       = useState(1)
+  // As faixas vêm do primeiro carregamento sem filtro. A API não expõe a lista
+  // de gêneros do acervo; enquanto não expuser, a faixa cobre o que o Catálogo
+  // realmente mostrou — nunca uma string que o Leitor tinha de adivinhar.
+  const [generos, setGeneros] = useState<string[]>([])
   const pageSize = 20
 
   const { data, isLoading, isError, error } = useQuery({
@@ -51,6 +52,11 @@ export function CatalogoPage() {
     queryFn: () => listBooks({ search: search || undefined, genre: genre || undefined, page, pageSize }),
     placeholderData: (prev) => prev,
   })
+
+  useEffect(() => {
+    if (generos.length > 0 || !data || search || genre) return
+    setGeneros([...new Set(data.data.map((b) => b.genre))].sort((a, b) => a.localeCompare(b, 'pt-BR')))
+  }, [data, generos.length, search, genre])
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -63,27 +69,57 @@ export function CatalogoPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-3xl font-bold mb-6">Catálogo de Livros</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6 pb-4 border-b-2 border-surface-900">
+        <h1>Catálogo de Livros</h1>
+      </div>
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="flex-1">
-          <Input
-            label="Buscar"
-            placeholder="Título, autor ou ISBN…"
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            hint="Busca por título, autor ou ISBN"
-          />
-        </div>
-        <div className="sm:w-48">
-          <Input
-            label="Gênero"
-            placeholder="Ex: Romance"
-            value={genre}
-            onChange={(e) => handleGenre(e.target.value)}
-          />
+      <div className="mb-6 flex flex-col gap-4">
+        <Input
+          label="Buscar"
+          placeholder="Título, autor ou ISBN…"
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+
+        {/* Faixas de gênero: a codificação por zona vira o próprio controle,
+            em vez de um campo de texto onde era preciso adivinhar a string. */}
+        <div>
+          <p className="legenda mb-2" id="faixas-genero">Gênero</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="faixas-genero">
+            <button
+              type="button"
+              onClick={() => handleGenre('')}
+              aria-pressed={genre === ''}
+              className={[
+                'faixa-genero',
+                genre === ''
+                  ? 'bg-surface-50 text-surface-900 border-2 border-surface-900'
+                  : 'bg-surface-100 text-surface-700 border border-surface-300',
+              ].join(' ')}
+            >
+              Todos
+            </button>
+            {generos.map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => handleGenre(g)}
+                aria-pressed={genre === g}
+                // Ativo é inversão para porcelana, a mesma regra do trilho —
+                // o dispositivo mais novo não pode inventar um estado próprio.
+                className={[
+                  'faixa-genero',
+                  genre === g
+                    ? 'bg-surface-50 text-surface-900 border-2 border-surface-900'
+                    : `text-surface-0 ${zoneBackground(g)} opacity-90 hover:opacity-100`,
+                ].join(' ')}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -102,10 +138,10 @@ export function CatalogoPage() {
         <>
           {data && data.data.length > 0 ? (
             <>
-              <p className="text-sm text-surface-700 mb-4">
+              <p className="legenda mb-4">
                 {data.pagination.total} livro{data.pagination.total !== 1 ? 's' : ''} encontrado{data.pagination.total !== 1 ? 's' : ''}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                 {data.data.map((book) => (
                   <BookCard key={book.id} book={book} />
                 ))}
@@ -113,26 +149,29 @@ export function CatalogoPage() {
 
               {/* Paginação */}
               {data.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-center gap-3 mt-8">
-                  <button
-                    className="btn-secondary btn-sm"
+                <div className="flex items-center justify-center gap-4 mt-10 pt-6 border-t border-surface-200">
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
                     aria-label="Página anterior"
                   >
-                    ← Anterior
-                  </button>
-                  <span className="text-sm text-surface-700">
-                    Página {page} de {data.pagination.totalPages}
+                    Anterior
+                  </Button>
+                  <span className="legenda whitespace-nowrap">
+                    Página <span className="font-mono text-surface-900">{page}</span> de{' '}
+                    <span className="font-mono text-surface-900">{data.pagination.totalPages}</span>
                   </span>
-                  <button
-                    className="btn-secondary btn-sm"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
                     disabled={page === data.pagination.totalPages}
                     aria-label="Próxima página"
                   >
-                    Próxima →
-                  </button>
+                    Próxima
+                  </Button>
                 </div>
               )}
             </>

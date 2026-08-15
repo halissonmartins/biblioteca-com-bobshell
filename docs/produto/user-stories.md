@@ -95,7 +95,15 @@ E a Cópia volta ao estado disponível
 Dado que sou um Leitor autenticado com Reservas ativas
 Quando acesso "Minhas reservas" (alvo: < 500 ms)
 Então vejo apenas as Reservas não expiradas
-E cada Reserva exibe título do Livro e data/hora de expiração
+E cada Reserva exibe título do Livro, o tempo que resta para retirar
+  ("11 h 49 min") e a data/hora de expiração como referência
+E o tempo restante avança sozinho, sem recarregar a página
+
+Dado que uma Reserva minha expira em menos de 1 hora
+Quando acesso "Minhas reservas"
+Então a Reserva aparece destacada como "Expira em breve"
+E vejo um aviso de retirada urgente nomeando o Livro, o tempo restante
+  e o que acontece se eu não retirar
 
 Dado que todas as minhas Reservas expiraram
 Quando acesso "Minhas reservas"
@@ -206,14 +214,16 @@ E o filtro pode ser limpo para voltar à lista completa
 
 ```gherkin
 Dado que um Leitor tem uma Reserva ativa para um Livro
-Quando o Bibliotecário efetiva o empréstimo (alvo: < 3 s)
+Quando o Bibliotecário efetiva o empréstimo a partir da linha da Reserva (alvo: < 3 s)
 Então a Reserva é convertida em Empréstimo
 E a Cópia muda de estado "reservada" para "emprestada"
-E a data de vencimento do Empréstimo é registrada
+E a data de vencimento do Empréstimo é registrada com 7 dias corridos (RN-8)
+E a confirmação informa a data de devolução ao Bibliotecário
 
 Dado que a Reserva está expirada
 Quando o Bibliotecário tenta efetivar o empréstimo
-Então recebe erro "Reserva expirada — criar nova reserva"
+Então recebe erro "A Reserva expirou e a Cópia voltou ao acervo. Peça ao Leitor para reservar novamente."
+E o erro aparece no próprio modal, sem perder a Reserva selecionada
 E nenhum Empréstimo é criado
 
 Dado que sou um Leitor autenticado

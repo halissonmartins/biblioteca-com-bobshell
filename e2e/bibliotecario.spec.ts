@@ -40,7 +40,10 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     await page.getByRole('link', { name: 'Reservas', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Reservas' })).toBeVisible()
 
-    const filtro = page.getByPlaceholder('ID do usuário ou e-mail')
+    // A lista abre em "Ativas"; o filtro por Leitor é exercido sobre a lista completa
+    await page.getByRole('button', { name: /^Todas/ }).click()
+
+    const filtro = page.getByPlaceholder('ID do usuário')
 
     // Filtra pelo Leitor → vê seus registros
     await filtro.fill(leitor.id)
@@ -51,34 +54,46 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     await page.getByRole('button', { name: 'Limpar' }).click()
     await expect(page.getByText(LEITOR.email).first()).toBeVisible()
 
-    // Filtro sem correspondência → lista vazia
+    // Filtro sem correspondência → lista vazia, e a mensagem fala do filtro,
+    // não do acervo: dizer "não há livro separado" seria falso aqui
     await filtro.fill('id-inexistente-000')
     await page.getByRole('button', { name: 'Filtrar' }).click()
-    await expect(page.getByText('Nenhuma reserva encontrada.')).toBeVisible()
+    await expect(page.getByText('Nenhuma reserva para o leitor id-inexistente-000.')).toBeVisible()
   })
 
-  test('US-10 — efetiva Empréstimo a partir de uma Reserva ativa (RF-B4, RN-6)', async ({ page, request }) => {
+  test('US-10 — efetiva Empréstimo a partir da linha da Reserva (RF-B4, RN-6)', async ({ page, request }) => {
     // Arrange: Leitor reserva um Livro dedicado (via API)
     const { token: leitorToken } = await apiLogin(request, LEITOR.email)
     await apiReserveByTitle(request, leitorToken, 'Cem Anos de Solidão')
 
     await loginUI(page, BIBLIOTECARIO.email)
-    await page.getByRole('link', { name: 'Empréstimos', exact: true }).click()
-    await page.getByRole('button', { name: '+ Novo empréstimo' }).click()
+    await page.getByRole('link', { name: 'Reservas', exact: true }).click()
 
-    // Seleciona a reserva no modal e define o vencimento
-    const opcao = page.locator('label', { hasText: 'Cem Anos de Solidão' })
-    await expect(opcao).toBeVisible()
-    await opcao.click()
-    const vencimento = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    await page.locator('input[type="date"]').fill(vencimento)
+    // Ler linha → clicar: a Reserva já está escolhida, sem etapa de seleção
+    const reserva = page.getByRole('row', { name: /Cem Anos de Solidão/ }).first()
+    await expect(reserva).toBeVisible()
+    await reserva.getByRole('button', { name: 'Efetivar empréstimo' }).click()
+
+    // O modal abre vinculado à Reserva, com o vencimento já preenchido (hoje + 7 dias)
+    await expect(page.getByRole('heading', { name: 'Efetivar empréstimo' })).toBeVisible()
+    const padrao = new Date()
+    padrao.setDate(padrao.getDate() + 7)
+    const esperado = [
+      padrao.getFullYear(),
+      String(padrao.getMonth() + 1).padStart(2, '0'),
+      String(padrao.getDate()).padStart(2, '0'),
+    ].join('-')
+    await expect(page.locator('input[type="date"]')).toHaveValue(esperado)
+
+    // Confirmar: nenhuma digitação foi necessária
     await page.getByRole('button', { name: 'Confirmar empréstimo' }).click()
+    await expect(page.getByText(/Empréstimo registrado\. Devolução até \d{2}\/\d{2}\/\d{4}\./)).toBeVisible()
 
-    // Reserva convertida em Empréstimo
-    await expect(page.getByText('Empréstimo registrado com sucesso.')).toBeVisible()
-    const linha = page.getByRole('row', { name: /Cem Anos de Solidão/ }).first()
-    await expect(linha).toBeVisible()
-    await expect(linha).toContainText('Em curso')
+    // A Reserva virou Empréstimo em curso
+    await page.getByRole('link', { name: 'Empréstimos', exact: true }).click()
+    const emprestimo = page.getByRole('row', { name: /Cem Anos de Solidão/ }).first()
+    await expect(emprestimo).toBeVisible()
+    await expect(emprestimo).toContainText('Em curso')
   })
 
   test('US-11 — registra Devolução e libera a Cópia (RF-B5, RN-5)', async ({ page, playwright }) => {

@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAuthor } from '@/api/authors'
-import { Alert, LoadingPage, EmptyState } from '@/components'
+import { Alert, LoadingPage, EmptyState, BookPlate } from '@/components'
 import { getErrorMessage } from '@/utils/format'
 import type { BookListItem } from '../../../shared/src/types/domain'
 
@@ -9,22 +9,30 @@ function MiniBookCard({ book }: { book: BookListItem }) {
   return (
     <Link
       to={`/livros/${book.id}`}
-      className="card hover:shadow-md transition-shadow flex gap-3 p-3"
+      className="card flex gap-3 p-3 transition-colors hover:border-surface-900
+                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900"
       aria-label={`Ver detalhes de ${book.title}`}
     >
-      <div className="shrink-0 w-12 h-16 bg-surface-100 rounded overflow-hidden flex items-center justify-center">
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-xl" aria-hidden="true">📖</span>
-        )}
+      <div className="shrink-0 w-16 h-24 overflow-hidden">
+        <BookPlate
+          title={book.title}
+          author={book.author.name}
+          genre={book.genre}
+          coverUrl={book.coverUrl}
+        />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm text-surface-900 line-clamp-2">{book.title}</p>
-        <p className="text-xs text-surface-700 mt-1">{book.genre}</p>
-        <p className={`text-xs mt-1 ${book.availableCopies > 0 ? 'text-success-600' : 'text-danger-500'}`}>
-          {book.availableCopies > 0 ? 'Disponível' : 'Indisponível'}
-        </p>
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <h3 className="font-display text-base font-semibold uppercase tracking-placa text-surface-900 line-clamp-2 leading-tight">
+          {book.title}
+        </h3>
+        <p className="legenda">{book.genre}</p>
+        <div className="mt-auto">
+          {book.availableCopies > 0 ? (
+            <span className="badge-success">Disponível</span>
+          ) : (
+            <span className="badge-neutral">Indisponível</span>
+          )}
+        </div>
       </div>
     </Link>
   )
@@ -62,7 +70,7 @@ export function DetalhesAutorPage() {
 
       {/* Header do autor */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-surface-900">{author.name}</h1>
+        <h1>{author.name}</h1>
         {author.bio && (
           <p className="text-sm text-surface-700 mt-3 leading-relaxed max-w-2xl">{author.bio}</p>
         )}
@@ -70,7 +78,7 @@ export function DetalhesAutorPage() {
 
       {/* Lista de livros */}
       <section aria-labelledby="author-books-heading">
-        <h2 id="author-books-heading" className="text-xl font-semibold mb-4">
+        <h2 id="author-books-heading" className="mb-4">
           Livros publicados ({author.books.length})
         </h2>
         {author.books.length > 0 ? (

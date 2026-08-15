@@ -11,7 +11,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Glossário: [`docs/produto/glossario.md`](docs/produto/glossario.md) — use **exatamente** estes termos no código
 - User stories: [`docs/produto/user-stories.md`](docs/produto/user-stories.md)
 - Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
-- Design system: [`docs/design/design-system.md`](docs/design/design-system.md) — **leia antes de gerar qualquer UI**
+- Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
 
 ## Stack
 
@@ -73,6 +73,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
 - Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
 - Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
+- Empréstimo vence em **7 dias corridos**, ajustável pelo Bibliotecário no balcão (RN-8) — o padrão vive em `LOAN_PERIOD_DAYS` (`packages/web/src/utils/loan.ts`); a API ainda aceita qualquer `dueAt`
 - Toda transação de reserva/empréstimo/devolução usa `BEGIN/COMMIT` explícito (race condition)
 
 ## Convenções obrigatórias

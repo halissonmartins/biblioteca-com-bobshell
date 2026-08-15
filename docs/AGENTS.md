@@ -9,6 +9,9 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 - [PRD — Sistema de Biblioteca](prd-sistema-biblioteca.md) — visão, escopo,
   regras de negócio (RN-*) e requisitos funcionais (RF-*). **Leia antes de
   implementar qualquer feature.**
+- [PRODUCT.md](produto/PRODUCT.md) — usuários, propósito, posicionamento,
+  capacidades, restrições e princípios do produto. **Leia antes de gerar
+  qualquer UI ou copy.**
 - [Glossário do Domínio](produto/glossario.md) — termos canônicos
   (`Livro`, `Cópia`, `Leitor`, `Bibliotecário`, `Reserva`, `Empréstimo`,
   `Devolução`, `Disponibilidade`, `Avaliação`). Use **exatamente** no código.
@@ -31,8 +34,10 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 
 ## Design
 
-- [Design System](design/design-system.md) — tokens, componentes e padrões de
-  UI. **Leia antes de gerar qualquer UI.**
+- [Design System](../DESIGN.md) — tokens, componentes, mapeamento de status e
+  regras do mundo visual. **Leia antes de gerar qualquer UI.**
+  ([design/design-system.md](design/design-system.md) descreve o mundo anterior
+  e hoje só redireciona para cá.)
 - [Fluxos do Usuário](design/fluxos.md) — jornadas de Leitor e Bibliotecário.
 
 ## API

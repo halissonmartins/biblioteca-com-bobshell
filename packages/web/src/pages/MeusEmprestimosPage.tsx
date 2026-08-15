@@ -13,7 +13,7 @@ const columns: Column<LoanDetail>[] = [
     render: (r) => (
       <Link
         to={`/livros/${r.copy.book.id}`}
-        className="text-primary-600 hover:underline font-medium text-sm"
+        className="link-registro"
       >
         {r.copy.book.title}
       </Link>
@@ -29,10 +29,17 @@ const columns: Column<LoanDetail>[] = [
     header: 'Vencimento',
     render: (r) => {
       const overdue = !r.returnedAt && new Date(r.dueAt) < new Date()
+      // Vencido é rótulo, não emoji: o ⚠️ era texto puro, sem nome acessível,
+      // e lia como "sinal de aviso" sem dizer o que estava vencido.
       return (
-        <span className={`text-sm ${overdue ? 'text-danger-500 font-medium' : ''}`}>
-          {formatDate(r.dueAt)}
-          {overdue && ' ⚠️'}
+        <span className="text-sm whitespace-nowrap">
+          <span className="font-mono">{formatDate(r.dueAt)}</span>
+          {overdue && (
+            <>
+              <br />
+              <span className="badge-danger mt-1">Vencido</span>
+            </>
+          )}
         </span>
       )
     },
@@ -67,7 +74,9 @@ export function MeusEmprestimosPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-3xl font-bold mb-6">Meus Empréstimos</h1>
+      <div className="mb-6 pb-4 border-b-2 border-surface-900">
+        <h1>Meus Empréstimos</h1>
+      </div>
       <Table
         columns={columns}
         data={data ?? []}

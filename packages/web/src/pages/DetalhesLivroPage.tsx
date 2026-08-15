@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getBook } from '@/api/books'
 import { createReservation } from '@/api/reservations'
 import { useAuth } from '@/hooks/useAuthHook'
-import { Button, Modal, Alert, CopyStatusBadge, LoadingPage } from '@/components'
-import { formatDateTime, getErrorMessage } from '@/utils/format'
+import { Button, Modal, Alert, BookAvailabilityBadge, BookPlate, Rating, LoadingPage } from '@/components'
+import { formatAvailableCopies, formatDateTime, getErrorMessage } from '@/utils/format'
 import { isApiRequestError } from '@/api/client'
 
 export function DetalhesLivroPage() {
@@ -82,24 +82,23 @@ export function DetalhesLivroPage() {
       {/* Layout principal */}
       <div className="flex flex-col sm:flex-row gap-8">
         {/* Capa */}
-        <div className="shrink-0 w-full sm:w-48">
-          <div className="aspect-[2/3] bg-surface-100 rounded-lg overflow-hidden flex items-center justify-center">
-            {book.coverUrl ? (
-              <img
-                src={book.coverUrl}
-                alt={`Capa de ${book.title}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-6xl" aria-hidden="true">📖</span>
-            )}
+        <div className="shrink-0 w-full sm:w-56">
+          <div className="aspect-[2/3] overflow-hidden border border-surface-200">
+            <BookPlate
+              title={book.title}
+              author={book.author.name}
+              genre={book.genre}
+              coverUrl={book.coverUrl}
+              code={book.isbn}
+              size="hero"
+            />
           </div>
         </div>
 
         {/* Detalhes */}
         <div className="flex-1 flex flex-col gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-surface-900">{book.title}</h1>
+            <h1 className="text-3xl sm:text-4xl">{book.title}</h1>
             <p className="mt-1 text-surface-700">
               por{' '}
               <Link
@@ -122,10 +121,10 @@ export function DetalhesLivroPage() {
 
           {/* Disponibilidade */}
           <div className="card p-4 flex items-center gap-3">
-            <CopyStatusBadge status={book.availableCopies > 0 ? 'available' : 'loaned'} />
+            <BookAvailabilityBadge availableCopies={book.availableCopies} />
             <span className="text-sm text-surface-700">
               {book.availableCopies > 0
-                ? `${book.availableCopies} cópia${book.availableCopies > 1 ? 's' : ''} disponível${book.availableCopies > 1 ? 'eis' : ''}`
+                ? formatAvailableCopies(book.availableCopies)
                 : 'Sem cópias disponíveis no momento'}
             </span>
           </div>
@@ -133,7 +132,7 @@ export function DetalhesLivroPage() {
           {/* Sinopse */}
           {book.synopsis && (
             <div>
-              <h2 className="text-lg font-semibold mb-2">Sinopse</h2>
+              <h2 className="mb-2">Sinopse</h2>
               <p className="text-sm text-surface-700 leading-relaxed">{book.synopsis}</p>
             </div>
           )}
@@ -171,15 +170,13 @@ export function DetalhesLivroPage() {
       {/* Avaliações recentes */}
       {book.recentReviews.length > 0 && (
         <section className="mt-10" aria-labelledby="reviews-heading">
-          <h2 id="reviews-heading" className="text-xl font-semibold mb-4">Avaliações</h2>
+          <h2 id="reviews-heading" className="mb-4">Avaliações</h2>
           <div className="flex flex-col gap-3">
             {book.recentReviews.map((review) => (
               <div key={review.id} className="card card-body">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-medium text-sm text-surface-900">{review.user.name}</span>
-                  <span className="text-warning-500 text-sm" aria-label={`Nota ${review.rating} de 5`}>
-                    {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
-                  </span>
+                  <Rating value={review.rating} />
                   <span className="text-xs text-surface-700 ml-auto">{formatDateTime(review.createdAt)}</span>
                 </div>
                 <p className="text-sm text-surface-700">{review.text}</p>

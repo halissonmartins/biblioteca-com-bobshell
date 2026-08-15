@@ -44,6 +44,17 @@ components:
         `reserved` → bloqueada para o Leitor que reservou.
         `loaned` → fisicamente fora da biblioteca.
 
+    ReservationStatus:
+      type: string
+      enum: [active, expired, converted, cancelled]
+      description: |
+        Estado da Reserva, **derivado a cada leitura** — nunca persiste como coluna.
+        `active` → dentro das 12h, não convertida nem cancelada (RN-1).
+        `expired` → prazo vencido.
+        `converted` → virou Empréstimo (RN-6). É um sucesso, não uma falha.
+        `cancelled` → ver a observação em `Reservation.cancelledAt`: hoje este
+        valor indica expiração registrada pelo job, não cancelamento pelo Leitor.
+
     Author:
       type: object
       required: [id, name, slug, createdAt]
@@ -131,6 +142,30 @@ components:
         status: { $ref: '#/components/schemas/CopyStatus' }
         bookId: { type: string }
 
+    CopyRef:
+      type: object
+      description: |
+        Projeção da Cópia embutida em Reserva e Empréstimo. **Não é uma `Copy`
+        completa**: as respostas trazem apenas identificação e o Livro, sem
+        `status` nem `bookId`. Um cliente que assumir `Copy` aqui lê `undefined`
+        em campos que o schema prometeria como obrigatórios.
+      required: [id, code, book]
+      properties:
+        id:   { type: string }
+        code: { type: string, example: '9780156027748-C1' }
+        book:
+          allOf:
+            - $ref: '#/components/schemas/Book'
+            - type: object
+              required: [author]
+              properties:
+                author:
+                  type: object
+                  required: [id, name]
+                  properties:
+                    id:   { type: string }
+                    name: { type: string }
+
     User:
       type: object
       required: [id, name, email, role, createdAt]
@@ -161,6 +196,13 @@ components:
             - type: string
               format: date-time
             - type: 'null'
+          description: |
+            **Atenção — o nome engana.** Este campo NÃO significa apenas
+            "o Leitor cancelou". O job de expiração (`expireReservationsTx`)
+            grava `cancelledAt` para registrar que a Reserva expirou e que a
+            Cópia voltou ao acervo (RN-1, RN-5). Como o produto ainda não tem
+            cancelamento pelo Leitor, hoje **todo `cancelledAt` preenchido é uma
+            expiração**. Não exiba "cancelada" ao usuário a partir deste campo.
         copyId:      { type: string }
         userId:      { type: string }
         createdAt:   { type: string, format: date-time }
@@ -172,23 +214,14 @@ components:
           required: [copy, user]
           properties:
             copy:
+              $ref: '#/components/schemas/CopyRef'
+            status:
               allOf:
-                - $ref: '#/components/schemas/Copy'
-                - type: object
-                  required: [book]
-                  properties:
-                    book:
-                      allOf:
-                        - $ref: '#/components/schemas/Book'
-                        - type: object
-                          required: [author]
-                          properties:
-                            author:
-                              type: object
-                              required: [id, name]
-                              properties:
-                                id:   { type: string }
-                                name: { type: string }
+                - $ref: '#/components/schemas/ReservationStatus'
+              description: |
+                Enviado por `GET /reservations`. **Ausente em
+                `GET /me/reservations`**, que já filtra no banco e devolve
+                somente Reservas ativas — ali a ausência significa `active`.
             user:
               type: object
               required: [id, name, email]
@@ -221,23 +254,7 @@ components:
           required: [copy, user, librarian]
           properties:
             copy:
-              allOf:
-                - $ref: '#/components/schemas/Copy'
-                - type: object
-                  required: [book]
-                  properties:
-                    book:
-                      allOf:
-                        - $ref: '#/components/schemas/Book'
-                        - type: object
-                          required: [author]
-                          properties:
-                            author:
-                              type: object
-                              required: [id, name]
-                              properties:
-                                id:   { type: string }
-                                name: { type: string }
+              $ref: '#/components/schemas/CopyRef'
             user:
               type: object
               required: [id, name, email]

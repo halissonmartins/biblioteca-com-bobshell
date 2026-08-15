@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuthHook'
 import { Button, Input, Form, Alert } from '@/components'
 import { getErrorMessage } from '@/utils/format'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail]         = useState('')
@@ -36,14 +36,22 @@ export function LoginPage() {
     }
   }
 
+  // Quem já entrou não tem o que fazer na porta
+  if (isAuthenticated) return <Navigate to="/" replace />
+
   return (
-    <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
+    // A entrada é o campo de esmalte com a chapa branca aparafusada nele — sem
+    // o trilho de sessão, era a única tela do build que não tinha mundo nenhum.
+    <div className="min-h-screen bg-primary-500 flex flex-col items-center justify-center gap-6 p-4">
+      <p className="font-display text-3xl sm:text-4xl font-bold uppercase tracking-placa text-surface-0">
+        Biblioteca
+      </p>
+
       <div className="card w-full max-w-sm">
         <div className="card-body">
-          <div className="mb-6 text-center">
-            <div className="text-4xl mb-2">📚</div>
-            <h1 className="text-2xl font-semibold text-surface-900">Biblioteca</h1>
-            <p className="text-sm text-surface-700 mt-1">Entre para acessar sua conta</p>
+          <div className="mb-6 pb-4 border-b border-surface-200">
+            <h1 className="text-2xl">Acesso</h1>
+            <p className="text-sm text-surface-700 mt-1">Acesse sua conta para reservar Livros</p>
           </div>
 
           {error && (

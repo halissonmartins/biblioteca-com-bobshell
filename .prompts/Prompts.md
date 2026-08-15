@@ -131,3 +131,71 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 23:20]** primeiro investigue a otimização da query do catálogo como próximo passo. a primeira opção é tentar uma alteração simples no banco de dados
+
+---
+**[14/08/2026 23:44]** gere um PR para branche main. monitore a execução CI no Github actions
+
+---
+**[14/08/2026 23:50]** Apenas crie uma nova branch beautify
+
+---
+**[15/08/2026 00:03]** /impeccable:impeccable init
+---
+**[15/08/2026 08:01]** Mover o arquivo PRODUCT.md para o diretório ./docs/produto e referênciar nos arquivos ./README.md e ./docs/AGENTS.md
+Por fim fazer o commit
+---
+**[15/08/2026 08:05]** commite também o @docs/CLAUDE.md
+---
+**[15/08/2026 08:07]** /impeccable:impeccable critique
+---
+**[15/08/2026 08:23]** /impeccable:impeccable shape — Fluxo do balcão. Coluna de ações em BibliotecarioReservasPage.tsx com Efetivar empréstimo por linha ativa; o modal abre com Reserva, Leitor e código da Cópia já vinculados e a data de vencimento pré-preenchida; + Novo empréstimo reduzido ao caminho walk-up, com busca por Leitor. Reduz o balcão a: ler linha → clicar → confirmar.
+---
+**[15/08/2026 08:29]** sim
+---
+**[15/08/2026 08:46]** commite tudo
+---
+**[15/08/2026 08:48]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
+---
+**[15/08/2026 08:53]** Corrigir também o AGENTS.md
+---
+**[15/08/2026 08:56]** Sobre "Bibliotecário busca o Leitor pelo nome ou email", Criar uma sessão "Melhorias futuras" no @README.md e adicionar um item explicando essa regra negocial
+---
+**[15/08/2026 08:57]** commite tudo
+---
+**[15/08/2026 08:58]** /impeccable:impeccable harden — Verdade dos status. ReservationStatusBadge com quatro estados reais (Convertida em success, não "Expirada"); CopyStatusBadge recebendo o status real da Cópia em vez de derivá-lo de availableCopies; isReservationActive() com tick vivo e prazo em tempo relativo. Os tokens warning-500 e Alert variant="warning" já existem documentados para "reserva expirando" e nunca foram usados.
+---
+**[15/08/2026 09:22]** sim
+---
+**[15/08/2026 09:23]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
+---
+**[15/08/2026 09:28]** sim
+---
+**[15/08/2026 09:30]** /impeccable:impeccable bolder — Mundo visual novo. Este é o passo que entra em new-work para escolher um mundo substituto e reescrever o DESIGN.md: sai o Tailwind-azul-padrão, saem os dez 📖 idênticos, entram capas tipográficas geradas de título/autor/gênero.
+---
+**[15/08/2026 11:57]** sim
+---
+**[15/08/2026 13:56]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
+---
+**[15/08/2026 14:16]** sim
+---
+**[15/08/2026 14:41]** /impeccable:impeccable audit — contraste (o .btn-primary a 3,7:1 medido), alvos de toque, lang, focus trap no Modal — e o overflow do Navbar no mobile
+---
+**[15/08/2026 15:00]** /impeccable:impeccable harden
+---
+**[15/08/2026 15:19]** sim
+---
+**[15/08/2026 15:23]** /impeccable:impeccable polish — warning-600 → warning-700 no prazo; ISBN de 60% para 70%
+---
+**[15/08/2026 15:35]** sim
+---
+**[15/08/2026 15:37]** /impeccable:impeccable adapt — altura dos links de título em tabela
+---
+**[15/08/2026 15:50]** sim
+---
+**[15/08/2026 15:51]** /impeccable:impeccable polish
+---
+**[15/08/2026 16:18]** sim
+---
+**[15/08/2026 16:26]** atualiza os screen shots no diretório ./assets/images
+---
+**[15/08/2026 16:32]** sim

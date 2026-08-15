@@ -41,9 +41,10 @@ packages/
 ├── web/                        ← SPA React 18 + TypeScript
 │   └── src/
 │       ├── pages/              ← Uma pasta por rota principal
-│       ├── components/         ← Componentes reutilizáveis (seguem design-system.md)
+│       ├── components/         ← Componentes reutilizáveis (seguem DESIGN.md)
 │       ├── hooks/              ← React hooks de lógica de UI
-│       └── api/                ← Chamadas HTTP tipadas (geradas do OpenAPI)
+│       ├── api/                ← Chamadas HTTP tipadas (geradas do OpenAPI)
+│       └── utils/              ← Formatação e regras de produto aplicadas no cliente
 │
 └── shared/
     └── types/                  ← Tipos TypeScript compartilhados entre api e web

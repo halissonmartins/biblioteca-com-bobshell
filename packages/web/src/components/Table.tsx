@@ -47,7 +47,7 @@ export function Table<T>({
 }: TableProps<T>) {
   return (
     <div className="table-container" role="region" aria-label={caption} aria-busy={loading}>
-      <table className="table">
+      <table className="table table-empilha">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr>
@@ -78,7 +78,7 @@ export function Table<T>({
             data.map((row) => (
               <tr key={String(row[keyField])}>
                 {columns.map((col) => (
-                  <td key={col.key} className={col.className}>
+                  <td key={col.key} data-coluna={col.header} className={col.className}>
                     {col.render ? col.render(row) : String(row[col.key as keyof T] ?? '')}
                   </td>
                 ))}
