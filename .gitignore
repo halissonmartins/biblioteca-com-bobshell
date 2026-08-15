@@ -5,6 +5,7 @@ build/
 .env.local
 *.log
 .DS_Store
+.impeccable/
 
 # Playwright (E2E)
 /e2e/test-results/
