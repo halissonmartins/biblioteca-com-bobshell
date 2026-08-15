@@ -1,12 +1,12 @@
 /**
  * Regra de produto do Empréstimo aplicada no cliente.
  *
- * O período padrão não vem do PRD nem da API: `POST /loans` aceita qualquer
- * `dueAt`. Este valor apenas dispensa a digitação no caso típico do balcão —
- * o Bibliotecário continua podendo ajustar a data antes de confirmar.
+ * RN-8 vive aqui por enquanto: `POST /loans` aceita qualquer `dueAt`, então o
+ * padrão não é imposto pelo servidor. Este valor dispensa a digitação no caso
+ * típico do balcão — o Bibliotecário continua podendo ajustar antes de confirmar.
  */
 
-/** Período padrão do Empréstimo, em dias corridos */
+/** RN-8: Empréstimo vence 7 dias corridos após a efetivação */
 export const LOAN_PERIOD_DAYS = 7
 
 /**

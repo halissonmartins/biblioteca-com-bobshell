@@ -36,12 +36,14 @@
 ```
 [1] Leitor chega ao balcão com intenção de retirar o livro reservado
       ↓
-[2] Bibliotecário busca o Leitor pelo nome ou email
+[2] Bibliotecário filtra as Reservas pelo ID do Leitor (opcional)
       ↓
-[3] Vê a lista de Reservas ativas do Leitor
+[3] Vê a lista de Reservas ativas, com Livro, Leitor, Cópia e expiração
       ├── [ERR] Reserva expirada → avisa Leitor, sugere nova reserva → FIM
       ↓
-[4] Seleciona a Reserva e clica em "Emprestar"
+[4] Clica em "Efetivar empréstimo" na linha da Reserva
+      ├── O modal abre já vinculado à Reserva, sem etapa de seleção
+      └── A data de vencimento vem preenchida com 7 dias (RN-8), editável
       ↓
 [5] Sistema converte Reserva em Empréstimo (< 3 s)
       ↓

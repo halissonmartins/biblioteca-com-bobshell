@@ -153,3 +153,11 @@ Por fim fazer o commit
 **[15/08/2026 08:29]** sim
 ---
 **[15/08/2026 08:46]** commite tudo
+---
+**[15/08/2026 08:48]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
+---
+**[15/08/2026 08:53]** Corrigir também o AGENTS.md
+---
+**[15/08/2026 08:56]** Sobre "Bibliotecário busca o Leitor pelo nome ou email", Criar uma sessão "Melhorias futuras" no @README.md e adicionar um item explicando essa regra negocial
+---
+**[15/08/2026 08:57]** commite tudo

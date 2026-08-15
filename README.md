@@ -73,3 +73,29 @@ Copie `.env.example` para `.env` e preencha os valores. Nunca commite `.env`.
 - Node.js 20+
 - Docker + Docker Compose
 - `make`
+
+## Melhorias futuras
+
+### Buscar o Leitor por nome ou e-mail no balcão
+
+O [Fluxo 2](docs/design/fluxos.md) descreve o Bibliotecário localizando o Leitor
+que acabou de chegar ao balcão. Hoje isso só é possível pelo **ID exato** do
+usuário: `findAllReservations` e `findLoans` filtram por `where: { userId }`,
+correspondência exata — não há busca parcial, por nome nem por e-mail.
+
+Na prática, o Leitor que chega para retirar o livro não sabe o próprio UUID e o
+Bibliotecário não tem como obtê-lo pela pessoa à sua frente. O filtro por ID
+serve para suporte e depuração; **não serve para atender no balcão**. O fluxo
+funciona hoje porque a lista de Reservas ativas é curta o bastante para ser lida
+na tela — o que deixa de valer na escala de 10.000 Leitores prevista no PRD.
+
+Implementar exige mudança na API, não apenas na interface:
+
+- aceitar um termo de busca livre em `GET /reservations` e `GET /loans`, além do
+  `userId` atual;
+- casar o termo contra nome e e-mail do Leitor, com correspondência parcial e
+  sem diferenciar acentos ou caixa;
+- paginar o resultado — hoje as duas rotas devolvem arrays sem limite.
+
+Enquanto isso não existe, a etapa "ler linha" do balcão depende de rolagem, e a
+página de Reservas abre filtrada em **Ativas** justamente para encurtá-la.

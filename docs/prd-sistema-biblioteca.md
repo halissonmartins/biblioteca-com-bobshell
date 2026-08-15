@@ -75,6 +75,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | RN-5 | Ao expirar, a reserva libera a cópia de volta ao acervo disponível. |
 | RN-6 | Só reservas ativas (não expiradas) podem ser convertidas em empréstimo. |
 | RN-7 | Um usuário tem função de **leitor** ou **bibliotecário**; ações de balcão são restritas a bibliotecários. |
+| RN-8 | O empréstimo vence em **7 dias corridos** a partir da efetivação. O bibliotecário pode ajustar a data no balcão. |
 
 ## 7. Requisitos de performance
 
