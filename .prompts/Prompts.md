@@ -113,3 +113,12 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 20:53]** sim
+
+---
+**[14/08/2026 22:12]** Adicionar Makefile e docker-compose para alinhar com os comandos documentados no AGENTS.md
+
+---
+**[14/08/2026 22:14]** adiciona um alvo e2e no Makefile
+
+---
+**[14/08/2026 22:15]** commita tudo
