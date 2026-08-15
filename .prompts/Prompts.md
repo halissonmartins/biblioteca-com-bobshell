@@ -125,3 +125,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 22:16]** roda make setup para validar
+
+---
+**[14/08/2026 22:26]** Implemente o teste de performance usando a biblioteca K6

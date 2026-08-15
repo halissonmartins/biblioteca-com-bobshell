@@ -6,7 +6,7 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup
+.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup perf-seed perf-smoke perf
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -61,6 +61,19 @@ e2e-setup: ## Instala deps do e2e + baixa o Chromium (primeira vez)
 
 e2e: db-up ## Testes end-to-end (Playwright) — sobe API+Web, migra e popula automaticamente
 	cd $(E2E) && npm test
+
+perf-seed: ## Popula ~250k livros para os testes de performance (use -- --reset p/ recriar)
+	cd $(API) && npm run db:seed:perf
+
+perf-smoke: ## Sanidade K6 — bate em todos os endpoints uma vez (API precisa estar no ar)
+	k6 run perf/smoke.js
+
+perf: ## Testes de performance K6 — todos os cenários (requer 'make dev' + 'make perf-seed')
+	@rc=0; for f in perf/scenarios/*.js; do \
+		echo "▶ $$f"; k6 run "$$f" || rc=1; \
+	done; \
+	[ $$rc -eq 0 ] && echo "✅ Todos os thresholds passaram." || echo "❌ Algum threshold foi violado (ver acima)."; \
+	exit $$rc
 
 clean: ## Para o Postgres e remove o volume de dados
 	docker compose down -v
