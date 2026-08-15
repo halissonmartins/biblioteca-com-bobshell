@@ -6,14 +6,22 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install db-up migrate seed clean e2e e2e-setup
+.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
-setup: install db-up migrate seed ## Instala deps + sobe Postgres + migra + popula o banco
+setup: env install db-up migrate seed ## Cria .env + instala deps + sobe Postgres + migra + popula o banco
 	@echo "Setup concluído. Rode 'make dev'."
+
+env: ## Cria packages/api/.env a partir do .env.example (se ainda não existir)
+	@if [ ! -f $(API)/.env ]; then \
+		cp .env.example $(API)/.env; \
+		echo "Criado $(API)/.env a partir do .env.example."; \
+	else \
+		echo "$(API)/.env já existe — mantido."; \
+	fi
 
 install: ## Instala dependências de todos os pacotes
 	cd $(API) && npm install

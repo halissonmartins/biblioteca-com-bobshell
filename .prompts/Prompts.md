@@ -122,3 +122,6 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 22:15]** commita tudo
+
+---
+**[14/08/2026 22:16]** roda make setup para validar
