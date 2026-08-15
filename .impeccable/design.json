@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T00:00:00Z",
+  "title": "Design System: Biblioteca",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Oxblood Drenado",
+        "canonical": "#7B1E24",
+        "tonalRamp": ["#280709", "#3D0A0E", "#520E13", "#661319", "#7B1E24", "#A44D53", "#C88387", "#E0B6B8", "#F2DDDE", "#FAF1F1"]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Verde Sinal",
+        "canonical": "#12664A",
+        "tonalRamp": ["#0A3D2C", "#0D5039", "#12664A", "#D2E7DD", "#EDF5F1"]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Amarelo Cromo",
+        "canonical": "#E8A200",
+        "tonalRamp": ["#8A5E00", "#B87E00", "#E8A200", "#F9E8BC", "#FDF6E3"]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Vermelho Sinal",
+        "canonical": "#C0341B",
+        "tonalRamp": ["#7F1D0F", "#A22815", "#C0341B", "#F9DAD2", "#FDF1EE"]
+      },
+      "surface-ink": {
+        "role": "neutral",
+        "displayName": "Grafite",
+        "canonical": "#16191A",
+        "tonalRamp": ["#16191A", "#3C4441", "#9BA5A0", "#D3D8D5", "#E7EAE8", "#F2F4F3", "#FFFFFF"]
+      },
+      "surface-porcelain": {
+        "role": "neutral",
+        "displayName": "Porcelana Fria",
+        "canonical": "#F2F4F3",
+        "tonalRamp": ["#16191A", "#3C4441", "#9BA5A0", "#D3D8D5", "#E7EAE8", "#F2F4F3", "#FFFFFF"]
+      },
+      "zone-verde": { "role": "tertiary", "displayName": "Zona Verde", "canonical": "#12664A" },
+      "zone-petroleo": { "role": "tertiary", "displayName": "Zona Petróleo", "canonical": "#12545F" },
+      "zone-indigo": { "role": "tertiary", "displayName": "Zona Índigo", "canonical": "#2B3A72" },
+      "zone-laranja": { "role": "tertiary", "displayName": "Zona Laranja", "canonical": "#A8471B" },
+      "zone-ameixa": { "role": "tertiary", "displayName": "Zona Ameixa", "canonical": "#5B2B58" },
+      "zone-oliva": { "role": "tertiary", "displayName": "Zona Oliva", "canonical": "#4A5320" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Placa", "purpose": "Título de página. Barlow Condensed 700 caixa alta, abertura de 0.08em." },
+      "headline": { "displayName": "Seção", "purpose": "Título de seção — Sinopse, Avaliações, painéis do balcão." },
+      "title": { "displayName": "Rótulo de Chapa", "purpose": "Título de card e Modal, texto de botão, link do trilho." },
+      "body": { "displayName": "Prosa", "purpose": "Barlow. Toda prosa, célula de tabela e valor de campo." },
+      "label": { "displayName": "Legenda", "purpose": "Rótulo miúdo em caixa alta com abertura de 0.14em: label de campo, cabeçalho de tabela, chip." },
+      "code": { "displayName": "Código", "purpose": "Azeret Mono. Código de Cópia, ISBN, prazo, número de página. Sempre tabular." }
+    },
+    "shadows": [
+      {
+        "name": "modal",
+        "value": "0 24px 64px -12px rgb(22 25 26 / 0.45)",
+        "purpose": "Única sombra do sistema. O Modal é a única superfície que flutua; toda a escala restante do Tailwind foi anulada para none de propósito."
+      }
+    ],
+    "motion": [
+      { "name": "state-color", "value": "transition-colors 100ms", "purpose": "Toda mudança de estado é transição de cor. Sem transform, sem escala, sem lift." },
+      { "name": "faixa-opacity", "value": "transition-opacity 100ms", "purpose": "Faixa de gênero inativa a 90% de opacidade, sobe a 100% no hover." },
+      { "name": "spinner", "value": "animate-spin", "purpose": "Único movimento contínuo, restrito ao indicador de carregamento." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal: Reservar, Confirmar Empréstimo, Registrar Devolução. Chapa oxblood cheia, canto duro, sem sombra.",
+      "html": "<button class=\"ds-btn-primary\">Reservar</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: none; border-radius: 2px; background: #7B1E24; color: #FFFFFF; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; transition: background-color 100ms; } .ds-btn-primary:hover { background: #661319; } .ds-btn-primary:active { background: #520E13; } .ds-btn-primary:focus-visible { outline: 2px solid #16191A; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Botão Secundário",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação de apoio: Cancelar, Sair, paginação. Chapa branca com filete.",
+      "html": "<button class=\"ds-btn-secondary\">Cancelar</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: 1px solid #9BA5A0; border-radius: 2px; background: #FFFFFF; color: #16191A; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; transition: background-color 100ms; } .ds-btn-secondary:hover { background: #E7EAE8; } .ds-btn-secondary:active { background: #D3D8D5; } .ds-btn-secondary:focus-visible { outline: 2px solid #16191A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Botão Fantasma",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação terciária dentro de uma chapa já densa. Tinta oxblood sobre transparente.",
+      "html": "<button class=\"ds-btn-ghost\">Ver todas</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border: 1px solid transparent; border-radius: 2px; background: transparent; color: #7B1E24; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; transition: background-color 100ms; } .ds-btn-ghost:hover { background: #FAF1F1; } .ds-btn-ghost:active { background: #F2DDDE; } .ds-btn-ghost:focus-visible { outline: 2px solid #16191A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Campo de Texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo fresado na chapa. Label é obrigatório no componente canônico.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-busca\">Buscar</label><input class=\"ds-input\" id=\"ds-busca\" placeholder=\"Título, autor ou ISBN...\" /></div>",
+      "css": ".ds-field { width: 100%; font-family: Barlow, system-ui, sans-serif; } .ds-field-label { display: block; margin-bottom: 6px; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #3C4441; } .ds-input { display: block; width: 100%; padding: 12px; border: 1px solid #9BA5A0; border-radius: 2px; background: #FFFFFF; color: #16191A; font-family: Barlow, system-ui, sans-serif; font-size: 1rem; transition: border-color 100ms, box-shadow 100ms; } .ds-input::placeholder { color: #9BA5A0; } .ds-input:focus { outline: none; border-color: #16191A; box-shadow: 0 0 0 1px #16191A; }"
+    },
+    {
+      "name": "Chip de Status",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Status de Cópia, Reserva e Empréstimo. Quadrado, filete de cor só na borda esquerda, campo de texto acromático.",
+      "html": "<span class=\"ds-badge ds-badge-success\">Disponível</span> <span class=\"ds-badge ds-badge-warning\">Expira em breve</span> <span class=\"ds-badge ds-badge-danger\">Emprestado</span> <span class=\"ds-badge ds-badge-neutral\">Expirada</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 8px; border-radius: 0; border-left: 1px solid transparent; background: #FFFFFF; padding: 4px 10px 4px 8px; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; } .ds-badge-success { border-left-color: #12664A; color: #0A3D2C; } .ds-badge-warning { border-left-color: #E8A200; color: #8A5E00; } .ds-badge-danger { border-left-color: #C0341B; color: #7F1D0F; } .ds-badge-neutral { border-left-color: #9BA5A0; color: #3C4441; }"
+    },
+    {
+      "name": "Trilho de Zona",
+      "kind": "nav",
+      "refersTo": "zona-rail",
+      "description": "Navegação drenada que dá nome ao mundo. O estado ativo é inversão pura para porcelana, sem filete de destaque.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-link ds-rail-link-ativo\" href=\"#\" aria-current=\"page\">Catálogo</a><a class=\"ds-rail-link\" href=\"#\">Reservas</a><a class=\"ds-rail-link\" href=\"#\">Empréstimos</a></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; width: 240px; background: #7B1E24; color: #FFFFFF; } .ds-rail-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 0; white-space: nowrap; text-decoration: none; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(255 255 255 / 0.75); transition: background-color 100ms, color 100ms; } .ds-rail-link:hover { background: #661319; color: #FFFFFF; } .ds-rail-link:focus-visible { outline: 2px solid #FFFFFF; outline-offset: -2px; } .ds-rail-link-ativo, .ds-rail-link-ativo:hover { background: #F2F4F3; color: #520E13; }"
+    },
+    {
+      "name": "Chapa de Conteúdo (Card)",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superfície plana. Filete de 1px no lugar da sombra; no catálogo a borda escurece para grafite no hover.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-body\"><h3 class=\"ds-card-title\">Reservas ativas</h3><p class=\"ds-card-text\">Três Cópias separadas aguardando retirada.</p></div></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #D3D8D5; border-radius: 2px; transition: border-color 100ms; } .ds-card:hover { border-color: #16191A; } .ds-card-body { padding: 24px; } .ds-card-title { margin: 0 0 8px; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1.25rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #16191A; } .ds-card-text { margin: 0; font-family: Barlow, system-ui, sans-serif; font-size: 1rem; line-height: 1.5rem; color: #16191A; }"
+    },
+    {
+      "name": "Alerta",
+      "kind": "custom",
+      "refersTo": "alert",
+      "description": "Feedback de operação. A cor vive no filete de contorno e no ícone; o texto fica grafite.",
+      "html": "<div class=\"ds-alert ds-alert-success\" role=\"alert\"><svg class=\"ds-alert-icone ds-alert-icone-success\" aria-hidden=\"true\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z\" clip-rule=\"evenodd\"/></svg><div><p class=\"ds-alert-titulo\">Reserva confirmada</p><div class=\"ds-alert-texto\">Retire a Cópia até 15/08/2026, 22:36.</div></div></div>",
+      "css": ".ds-alert { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid transparent; border-radius: 2px; background: #FFFFFF; color: #16191A; font-family: Barlow, system-ui, sans-serif; font-size: 0.875rem; } .ds-alert-success { border-color: #12664A; } .ds-alert-icone { height: 20px; width: 20px; flex-shrink: 0; } .ds-alert-icone-success { color: #0D5039; } .ds-alert-titulo { margin: 0 0 2px; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; } .ds-alert-texto { font-size: 0.875rem; }"
+    },
+    {
+      "name": "Placa Tipográfica de Livro (BookPlate)",
+      "kind": "custom",
+      "refersTo": "book-plate",
+      "description": "Capa gerada de título, autor, gênero e código. Sem imagem, sem ícone, sem emoji. O campo é a zona de gênero derivada por FNV-1a; o corpo do título tem três degraus por comprimento e palavra mais longa. Depende de lang=\"pt-BR\" para a quebra hifenizada.",
+      "html": "<div class=\"ds-plate ds-plate-indigo\"><div class=\"ds-plate-topo\"><p class=\"ds-plate-genero\">Ficção Brasileira</p><p class=\"ds-plate-codigo\">9788535922783</p></div><div><p class=\"ds-plate-titulo\">A Hora da Estrela</p><div class=\"ds-plate-filete\"></div><p class=\"ds-plate-autor\">Clarice Lispector</p></div></div>",
+      "css": ".ds-plate { display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; aspect-ratio: 2 / 3; width: 220px; padding: 12px; } .ds-plate-indigo { background: #2B3A72; } .ds-plate-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-shrink: 0; } .ds-plate-genero { margin: 0; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 0.625rem; line-height: 0.75rem; text-transform: uppercase; letter-spacing: 0.14em; color: rgb(255 255 255 / 0.7); } .ds-plate-codigo { margin: 0; font-family: 'Azeret Mono', ui-monospace, monospace; font-size: 0.5625rem; line-height: 0.75rem; text-align: right; color: rgb(255 255 255 / 0.6); } .ds-plate-titulo { margin: 0 0 10px; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 1.5rem; font-weight: 700; line-height: 0.92; text-transform: uppercase; letter-spacing: 0.08em; color: #FFFFFF; hyphens: auto; overflow-wrap: break-word; } .ds-plate-filete { height: 1px; width: 100%; background: rgb(255 255 255 / 0.35); margin-bottom: 6px; } .ds-plate-autor { margin: 0; font-family: Barlow, system-ui, sans-serif; font-size: 0.6875rem; line-height: 1.25; color: rgb(255 255 255 / 0.85); }"
+    },
+    {
+      "name": "Faixa de Gênero",
+      "kind": "chip",
+      "refersTo": "faixa-genero",
+      "description": "Filtro de Catálogo que reusa a codificação por zona. O ativo usa a mesma inversão do trilho, com borda grafite de 2px. Piso de 44px de alvo.",
+      "html": "<div><button class=\"ds-faixa ds-faixa-ativa\">Todos</button><button class=\"ds-faixa ds-faixa-petroleo\">Ficção Absurda</button><button class=\"ds-faixa ds-faixa-oliva\">Ficção Literária</button></div>",
+      "css": ".ds-faixa { display: inline-flex; align-items: center; min-height: 44px; margin-right: 8px; padding: 8px 12px; border-radius: 2px; border: 1px solid transparent; font-family: 'Barlow Condensed', Haettenschweiler, Impact, sans-serif; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #FFFFFF; cursor: pointer; opacity: 0.9; transition: opacity 100ms; } .ds-faixa:hover { opacity: 1; } .ds-faixa:focus-visible { outline: 2px solid #16191A; outline-offset: 2px; } .ds-faixa-petroleo { background: #12545F; } .ds-faixa-oliva { background: #4A5320; } .ds-faixa-ativa { background: #F2F4F3; color: #16191A; border: 2px solid #16191A; opacity: 1; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Chapa de Esmalte Vitrificado",
+    "overview": "Esta interface se lê como o prédio da biblioteca se lê por dentro: sinalização cívica esmaltada, aparafusada na parede, que existe para levar uma pessoa até um lugar físico. Não há grade de cards com miniatura de capa e sombra suave — o mundo recusa explicitamente esse padrão, que é o que todo catálogo entrega e o que este repositório entregava antes. O campo é porcelana fria (#F2F4F3), a tinta é grafite, e um trilho oxblood drenado (#7B1E24) corre pela lateral carregando a navegação em caixa alta condensada branca.\n\nA densidade é de registro operacional, não de vitrine. O Bibliotecário passa oito horas na mesma tela: por isso a cor de estado nunca lava o campo de leitura — ela vive no filete e no ícone, e o texto fica acromático. A hierarquia é feita de peso, caixa e filete, nunca de elevação: a chapa é plana e a separação é uma linha de 1px. O amarelo cromo (#E8A200) pertence exclusivamente ao prazo correndo; o verde sinal (#12664A) à Disponibilidade. Nenhuma outra cor pode assumir esses cargos.\n\nA capa de Livro é uma placa tipográfica gerada de título, autor, gênero e código — sem imagem, sem ícone, sem emoji. É essa disciplina que dá ao acervo de 250 mil Livros uma superfície visual sem depender de arte que não existe: duas placas nunca saem iguais porque dois Livros nunca têm o mesmo título.",
+    "keyCharacteristics": [
+      "Campo porcelana fria, nunca creme — o material é esmalte, não papel",
+      "Cantos duros de 2px; a pílula está banida da interface",
+      "Zero sombra, exceto o Modal que realmente flutua",
+      "Barlow Condensed em caixa alta espaçada faz toda a voz de sinalização",
+      "Cor de estado no filete e no ícone; campo de texto acromático",
+      "Codificação por zona de gênero derivada por hash, seis cores, oxblood excluído"
+    ],
+    "rules": [
+      { "name": "A Regra do Cargo Fixo", "body": "Cromo é prazo. Verde é Disponibilidade. Oxblood é ação principal e navegação. Nenhuma dessas cores pode ser reaproveitada para decoração, ênfase genérica ou dado neutro.", "section": "colors" },
+      { "name": "A Regra do Campo Acromático", "body": "Nenhum bloco de texto recebe fundo colorido. A cor de estado entra pelo filete de borda e pelo ícone; o campo de leitura permanece chapa branca com tinta grafite. Vale para chips, alertas e linhas de tabela.", "section": "colors" },
+      { "name": "A Regra do Oxblood Excluído", "body": "Oxblood nunca é cor de zona. Uma placa de Livro em oxblood leria como \"este Livro é o menu\"; o hash de gênero sorteia entre as seis zonas restantes.", "section": "colors" },
+      { "name": "A Regra das Duas Vozes", "body": "Condensada em caixa alta é voz de sinalização: título, botão, rótulo, navegação, chip. Barlow em caixa mista é voz de conteúdo: prosa, dado, nome de pessoa. Um parágrafo em condensada, ou um botão em caixa mista, quebra o mundo.", "section": "typography" },
+      { "name": "A Regra da Caixa Alta Aberta", "body": "Nada em caixa alta anda sem letterSpacing: 0.08em para placa (títulos, botões, navegação), 0.14em para legenda (rótulos miúdos). Caixa alta apertada lê como erro de renderização.", "section": "typography" },
+      { "name": "A Regra do lang", "body": "A placa tipográfica depende de hyphens-auto para quebrar títulos longos com hífen. Isso só funciona com lang=\"pt-BR\" no <html>; sem o atributo a palavra parte no meio sem hífen. Esse atributo é parte do sistema visual, não configuração incidental — foi um defeito real neste build.", "section": "typography" },
+      { "name": "A Regra da Ficha no Celular", "body": "Abaixo de sm (640px) toda tabela empilha: o cabeçalho vira leitura de tela apenas, cada linha vira uma ficha com borda inferior, e cada célula imprime seu rótulo à esquerda a partir de data-coluna. A célula sem cabeçalho é a das ações e ocupa a linha inteira. Sem isso a coluna de ação do balcão desaparecia num overflow horizontal silencioso.", "section": "layout" },
+      { "name": "A Regra da Chapa Plana", "body": "Separação é filete, não elevação. Se uma superfície precisa se destacar, ela ganha borda, muda de tom ou inverte — nunca levanta.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do construir toda UI a partir dos componentes canônicos (Button, Input, Table, Modal, Badge, Alert, Rating, BookPlate) e das classes de index.css. Copiar, não reinventar.",
+      "Do usar exatamente os termos do glossário na interface: Livro, Cópia, Leitor, Bibliotecário, Reserva, Empréstimo, Devolução, Disponibilidade, Avaliação. Catálogo e Acervo são termos distintos e não são intercambiáveis — trocá-los foi um defeito real neste build.",
+      "Do manter cromo para prazo e verde para Disponibilidade, sempre acompanhados do rótulo em texto.",
+      "Do dar label a todo campo, foco visível a todo interativo, role=\"alert\" a toda mensagem de estado e aria-busy a todo carregamento.",
+      "Do usar inversão para porcelana como o estado ativo de qualquer controle de navegação ou filtro.",
+      "Do manter lang=\"pt-BR\" no <html>; a quebra hifenizada da placa depende disso.",
+      "Do manter 44px de altura mínima em controles que o Leitor toca no celular."
+    ],
+    "donts": [
+      "Don't introduzir sombra. A escala está anulada de propósito; shadow-modal é a única exceção e pertence ao Modal.",
+      "Don't arredondar além de 2px, e nunca usar pílula (rounded-full) fora do spinner.",
+      "Don't lavar um bloco de texto com cor de estado. O filete e o ícone carregam a cor; o campo fica acromático.",
+      "Don't usar imagem, ícone decorativo ou emoji como capa ou identidade de Livro — a placa tipográfica é o padrão, não o fallback.",
+      "Don't usar glifo Unicode (★, ✓, →) como ícone; ícone é SVG inline.",
+      "Don't usar oxblood como cor de zona de gênero, nem cromo como cor de nota ou de ênfase genérica.",
+      "Don't escrever prosa em Barlow Condensed nem botão em caixa mista.",
+      "Don't criar <button>, <input> ou <table> ad-hoc, nem valores arbitrários de cor, espaçamento ou raio fora dos tokens.",
+      "Don't tratar docs/design/design-system.md como fonte de tokens; ele descreve o mundo anterior."
+    ]
+  }
+}
