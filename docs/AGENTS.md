@@ -34,8 +34,10 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 
 ## Design
 
-- [Design System](design/design-system.md) — tokens, componentes e padrões de
-  UI. **Leia antes de gerar qualquer UI.**
+- [Design System](../DESIGN.md) — tokens, componentes, mapeamento de status e
+  regras do mundo visual. **Leia antes de gerar qualquer UI.**
+  ([design/design-system.md](design/design-system.md) descreve o mundo anterior
+  e hoje só redireciona para cá.)
 - [Fluxos do Usuário](design/fluxos.md) — jornadas de Leitor e Bibliotecário.
 
 ## API

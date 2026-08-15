@@ -56,6 +56,7 @@ packages/
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | Como escrever código neste projeto |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Onde ficam as coisas e quais fronteiras não se atravessa |
+| [`DESIGN.md`](DESIGN.md) | O mundo visual: tokens, componentes e regras da interface |
 | [`docs/prd-sistema-biblioteca.md`](docs/prd-sistema-biblioteca.md) | O que construir e por quê |
 | [`docs/produto/PRODUCT.md`](docs/produto/PRODUCT.md) | Usuários, propósito, princípios e compromissos do produto |
 | [`docs/produto/glossario.md`](docs/produto/glossario.md) | Linguagem ubíqua do domínio |

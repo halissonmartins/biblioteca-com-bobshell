@@ -63,7 +63,9 @@ A disponibilidade tem **fonte única de verdade**: o que o Leitor vê no site é
 
 ## Brand Commitments
 
-Nenhum. Não existe instituição real por trás deste build. O nome "Biblioteca", o emoji 📚 do cabeçalho e a paleta azul atual são **placeholders** — trabalho visual futuro pode substituí-los livremente.
+Nenhum. Não existe instituição real por trás deste build, e o nome "Biblioteca" é um **placeholder** — trabalho visual futuro pode substituí-lo livremente.
+
+O sistema visual atual (sinalização cívica esmaltada, documentado em [`DESIGN.md`](../../DESIGN.md)) é uma decisão de design tomada e implementada, não um compromisso de marca: nada obriga um redesign futuro a preservá-lo.
 
 Autoridade de linguagem: os termos do glossário são vinculantes na UI, na copy e no código, mesmo quando a identidade visual mudar.
 

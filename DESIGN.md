@@ -264,6 +264,30 @@ A silhueta recorrente é o retângulo de proporção 2:3 da placa de Livro, e a 
 - **Style:** quadrado (`rounded-none`), chapa branca, **filete de cor só na borda esquerda**, texto no tom escuro do esmalte, tipografia de legenda.
 - **State:** quatro variantes de cargo — sucesso (Disponibilidade, Reserva ativa/convertida), aviso (Cópia reservada, Reserva expirando), perigo (Cópia emprestada), neutro (cancelada, expirada, indisponível). O status é sempre texto do glossário, nunca só cor.
 
+#### Mapeamento de status → chip
+
+Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Empréstimo
+é um sucesso e jamais aparece como expirada.
+
+| Situação | Componente | Variante | Rótulo |
+|---|---|---|---|
+| Cópia disponível | `<CopyStatusBadge status="available">` | `success` | Disponível |
+| Cópia reservada | `<CopyStatusBadge status="reserved">` | `warning` | Reservado |
+| Cópia emprestada | `<CopyStatusBadge status="loaned">` | `danger` | Emprestado |
+| Reserva ativa | `<ReservationStatusBadge state="ativa">` | `success` | Ativa |
+| Reserva a < 1 h do prazo | `<ReservationStatusBadge state="ativa" expiringSoon>` | `warning` | Expira em breve |
+| Reserva virou Empréstimo | `<ReservationStatusBadge state="convertida">` | `success` | Convertida |
+| Reserva encerrada sem retirada | `<ReservationStatusBadge state="expirada">` | `neutral` | Expirada |
+| Livro com Disponibilidade | `<BookAvailabilityBadge availableCopies={n}>` | `success` / `neutral` | Disponível / Indisponível |
+
+`<BookAvailabilityBadge>` existe porque a API entrega apenas a contagem de Cópias
+de um Livro (`BookDetail.availableCopies`), sem os estados individuais — usar
+`<CopyStatusBadge>` ali obrigava a inventar um status e imprimia "Emprestado"
+para Cópias que estavam apenas reservadas.
+
+Não existe rótulo "Cancelada": ver [glossário](docs/produto/glossario.md), verbete
+*Reserva expirada*.
+
 ### Cards / Containers
 - **Corner Style:** 2px.
 - **Background:** chapa branca sobre campo porcelana.
