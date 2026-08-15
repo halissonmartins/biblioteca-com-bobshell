@@ -57,6 +57,7 @@ packages/
 | [`AGENTS.md`](AGENTS.md) | Como escrever código neste projeto |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Onde ficam as coisas e quais fronteiras não se atravessa |
 | [`docs/prd-sistema-biblioteca.md`](docs/prd-sistema-biblioteca.md) | O que construir e por quê |
+| [`docs/produto/PRODUCT.md`](docs/produto/PRODUCT.md) | Usuários, propósito, princípios e compromissos do produto |
 | [`docs/produto/glossario.md`](docs/produto/glossario.md) | Linguagem ubíqua do domínio |
 | [`docs/produto/user-stories.md`](docs/produto/user-stories.md) | Histórias com critério de aceite testável |
 | [`docs/design/fluxos.md`](docs/design/fluxos.md) | Fluxos principais com estados de erro |
