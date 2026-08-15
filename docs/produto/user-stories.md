@@ -95,7 +95,15 @@ E a Cópia volta ao estado disponível
 Dado que sou um Leitor autenticado com Reservas ativas
 Quando acesso "Minhas reservas" (alvo: < 500 ms)
 Então vejo apenas as Reservas não expiradas
-E cada Reserva exibe título do Livro e data/hora de expiração
+E cada Reserva exibe título do Livro, o tempo que resta para retirar
+  ("11 h 49 min") e a data/hora de expiração como referência
+E o tempo restante avança sozinho, sem recarregar a página
+
+Dado que uma Reserva minha expira em menos de 1 hora
+Quando acesso "Minhas reservas"
+Então a Reserva aparece destacada como "Expira em breve"
+E vejo um aviso de retirada urgente nomeando o Livro, o tempo restante
+  e o que acontece se eu não retirar
 
 Dado que todas as minhas Reservas expiraram
 Quando acesso "Minhas reservas"

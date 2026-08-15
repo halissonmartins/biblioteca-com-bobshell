@@ -20,7 +20,7 @@
 | **Disponibilidade** | Número de Cópias de um Livro que não estão nem reservadas nem emprestadas no momento. |
 | **Reserva** | Intenção de retirada registrada on-line por um Leitor. Vincula um Leitor a uma Cópia por até 12 horas. |
 | **Reserva ativa** | Reserva criada há menos de 12 horas e ainda não convertida em Empréstimo nem cancelada. |
-| **Reserva expirada** | Reserva que atingiu o prazo de 12 horas sem ser convertida. Libera a Cópia de volta ao acervo. |
+| **Reserva expirada** | Reserva que atingiu o prazo de 12 horas sem ser convertida. Libera a Cópia de volta ao acervo. No banco a expiração é registrada em `cancelledAt` — o produto não tem cancelamento pelo Leitor, então hoje esse campo preenchido sempre significa expiração, nunca "cancelada". |
 | **Empréstimo** | Registro da retirada física de uma Cópia por um Leitor, efetivado por um Bibliotecário no balcão. Vence em 7 dias corridos por padrão (RN-8), ajustável no balcão. |
 | **Devolução** | Ato de um Bibliotecário marcar uma Cópia emprestada como devolvida. Libera a Cópia para reserva. |
 | **Avaliação** | Texto e nota (1–5) deixados por um Leitor sobre um Livro após leitura. |

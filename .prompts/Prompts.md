@@ -165,3 +165,7 @@ Por fim fazer o commit
 **[15/08/2026 08:58]** /impeccable:impeccable harden — Verdade dos status. ReservationStatusBadge com quatro estados reais (Convertida em success, não "Expirada"); CopyStatusBadge recebendo o status real da Cópia em vez de derivá-lo de availableCopies; isReservationActive() com tick vivo e prazo em tempo relativo. Os tokens warning-500 e Alert variant="warning" já existem documentados para "reserva expirando" e nunca foram usados.
 ---
 **[15/08/2026 09:22]** sim
+---
+**[15/08/2026 09:23]** Antes de seguirmos para o próximo passo, analise se a última mudança impactou a documentação do projeto.
+---
+**[15/08/2026 09:28]** sim

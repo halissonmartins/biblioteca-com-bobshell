@@ -69,11 +69,35 @@ Apenas múltiplos de 4px (`p-1=4px`, `p-2=8px`, `p-3=12px`, `p-4=16px`, `p-6=24p
 | `<Form>` + `<Form.Field>` + `<Form.Actions>` | [`Form.tsx`](../../packages/web/src/components/Form.tsx) | Todo formulário |
 | `<Table>` | [`Table.tsx`](../../packages/web/src/components/Table.tsx) | Toda lista de dados tabulares |
 | `<Modal>` | [`Modal.tsx`](../../packages/web/src/components/Modal.tsx) | Confirmações, detalhes em overlay |
-| `<Badge>` / `<CopyStatusBadge>` / `<ReservationStatusBadge>` | [`Badge.tsx`](../../packages/web/src/components/Badge.tsx) | Status de Cópia e Reserva |
+| `<Badge>` / `<CopyStatusBadge>` / `<ReservationStatusBadge>` / `<BookAvailabilityBadge>` | [`Badge.tsx`](../../packages/web/src/components/Badge.tsx) | Status de Cópia e Reserva, Disponibilidade de Livro |
 | `<Alert>` | [`Alert.tsx`](../../packages/web/src/components/Alert.tsx) | Feedback de operação (sucesso, erro, aviso, info) |
 | `<LoadingPage>` / `<EmptyState>` | [`Table.tsx`](../../packages/web/src/components/Table.tsx) | Estado de carregamento e lista vazia |
 
 Showcase completo com exemplos reais: [`App.tsx`](../../packages/web/src/App.tsx).
+
+### Mapeamento de status → badge
+
+Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Empréstimo
+é um sucesso e jamais aparece como expirada.
+
+| Situação | Componente | Variante | Rótulo |
+|---|---|---|---|
+| Cópia disponível | `<CopyStatusBadge status="available">` | `success` | Disponível |
+| Cópia reservada | `<CopyStatusBadge status="reserved">` | `warning` | Reservado |
+| Cópia emprestada | `<CopyStatusBadge status="loaned">` | `danger` | Emprestado |
+| Reserva ativa | `<ReservationStatusBadge state="ativa">` | `success` | Ativa |
+| Reserva a < 1 h do prazo | `<ReservationStatusBadge state="ativa" expiringSoon>` | `warning` | Expira em breve |
+| Reserva virou Empréstimo | `<ReservationStatusBadge state="convertida">` | `success` | Convertida |
+| Reserva encerrada sem retirada | `<ReservationStatusBadge state="expirada">` | `neutral` | Expirada |
+| Livro com Disponibilidade | `<BookAvailabilityBadge availableCopies={n}>` | `success` / `neutral` | Disponível / Indisponível |
+
+`<BookAvailabilityBadge>` existe porque a API entrega apenas a contagem de Cópias
+de um Livro (`BookDetail.availableCopies`), sem os estados individuais — usar
+`<CopyStatusBadge>` ali obrigava a inventar um status e imprimia "Emprestado"
+para Cópias que estavam apenas reservadas.
+
+Não existe rótulo "Cancelada": ver [glossário](../produto/glossario.md), verbete
+*Reserva expirada*.
 
 ---
 
