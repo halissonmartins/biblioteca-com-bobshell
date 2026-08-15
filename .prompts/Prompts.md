@@ -143,3 +143,5 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 ---
 **[15/08/2026 08:01]** Mover o arquivo PRODUCT.md para o diretório ./docs/produto e referênciar nos arquivos ./README.md e ./docs/AGENTS.md
 Por fim fazer o commit
+---
+**[15/08/2026 08:05]** commite também o @docs/CLAUDE.md
