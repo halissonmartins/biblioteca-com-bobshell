@@ -113,3 +113,21 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 20:53]** sim
+
+---
+**[14/08/2026 22:12]** Adicionar Makefile e docker-compose para alinhar com os comandos documentados no AGENTS.md
+
+---
+**[14/08/2026 22:14]** adiciona um alvo e2e no Makefile
+
+---
+**[14/08/2026 22:15]** commita tudo
+
+---
+**[14/08/2026 22:16]** roda make setup para validar
+
+---
+**[14/08/2026 22:26]** Implemente o teste de performance usando a biblioteca K6
+
+---
+**[14/08/2026 23:20]** primeiro investigue a otimização da query do catálogo como próximo passo. a primeira opção é tentar uma alteração simples no banco de dados

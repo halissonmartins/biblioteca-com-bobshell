@@ -27,59 +27,72 @@ export async function findBooks(
   const { search, genre, page, pageSize } = filter;
   const skip = (page - 1) * pageSize;
 
-  // Prisma não suporta OR cross-field num único where trivialmente — usamos where com OR
-  const where = {
-    AND: [
-      genre ? { genre } : {},
-      search
-        ? {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' as const } },
-              { author: { name: { contains: search, mode: 'insensitive' as const } } },
-            ],
-          }
-        : {},
-    ],
-  };
+  // Busca por texto (RF-L1): um Livro casa se o título OU o nome do Autor casam.
+  // Em vez de um OR cruzando `authors` via join (que impede o índice trigram de
+  // `books.title` e força seq scan em escala), resolvemos primeiro os Autores que
+  // casam (tabela pequena) e filtramos por `authorId IN (...)`. Assim o trigram de
+  // título é usado e o OR fica todo em `books`. Semanticamente equivalente.
+  let searchWhere: object = {};
+  if (search) {
+    const matchingAuthors = await prisma.author.findMany({
+      where: { name: { contains: search, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    const authorIds = matchingAuthors.map((a) => a.id);
+    searchWhere = {
+      OR: [
+        { title: { contains: search, mode: 'insensitive' as const } },
+        ...(authorIds.length > 0 ? [{ authorId: { in: authorIds } }] : []),
+      ],
+    };
+  }
 
-  const [rows, total] = await prisma.$transaction([
-    prisma.book.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { title: 'asc' },
-      select: {
-        id: true,
-        isbn: true,
-        title: true,
-        genre: true,
-        coverUrl: true,
-        author: {
-          select: { id: true, name: true, slug: true },
+  const where = { AND: [genre ? { genre } : {}, searchWhere] };
+
+  return prisma.$transaction(async (tx) => {
+    const [rows, total] = await Promise.all([
+      tx.book.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { title: 'asc' },
+        select: {
+          id: true,
+          isbn: true,
+          title: true,
+          genre: true,
+          coverUrl: true,
+          author: { select: { id: true, name: true, slug: true } },
         },
-        _count: {
-          select: {
-            copies: {
-              where: { status: 'available' },
-            },
-          },
-        },
-      },
-    }),
-    prisma.book.count({ where }),
-  ]);
+      }),
+      tx.book.count({ where }),
+    ]);
 
-  const books: BookSummary[] = rows.map((row) => ({
-    id: row.id,
-    isbn: row.isbn,
-    title: row.title,
-    genre: row.genre,
-    coverUrl: row.coverUrl,
-    author: row.author,
-    availableCopies: row._count.copies,
-  }));
+    // Disponibilidade: conta as Cópias 'available' APENAS dos Livros desta página,
+    // em vez de agregar toda a tabela `copies` (RN-3, índice [bookId, status]).
+    const bookIds = rows.map((r) => r.id);
+    const grouped =
+      bookIds.length > 0
+        ? await tx.copy.groupBy({
+            by: ['bookId'],
+            where: { bookId: { in: bookIds }, status: 'available' },
+            _count: { _all: true },
+          })
+        : [];
+    const availableByBook = new Map(grouped.map((g) => [g.bookId, g._count._all]));
 
-  return { books, total };
+    const books: BookSummary[] = rows.map((row) => ({
+      id: row.id,
+      isbn: row.isbn,
+      title: row.title,
+      genre: row.genre,
+      coverUrl: row.coverUrl,
+      author: row.author,
+      availableCopies: availableByBook.get(row.id) ?? 0,
+    }));
+
+    return { books, total };
+  });
 }
 
 // ---------------------------------------------------------------------------

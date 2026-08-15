@@ -3,12 +3,15 @@
 // Toda mudança exige nova migration em prisma/migrations/
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // pg_trgm acelera a busca do catálogo (ILIKE '%termo%') em escala (250k livros)
+  extensions = [pg_trgm]
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +43,8 @@ model Author {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Busca por nome do autor no catálogo (RF-L1) — trigram para ILIKE '%termo%'
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "authors_name_trgm_idx")
   @@map("authors")
 }
 
@@ -68,6 +73,8 @@ model Book {
   @@index([title])
   @@index([genre])
   @@index([authorId])
+  // Busca por título no catálogo (RF-L1) — trigram para ILIKE '%termo%'
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "books_title_trgm_idx")
   @@map("books")
 }
 
