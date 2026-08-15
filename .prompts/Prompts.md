@@ -199,3 +199,7 @@ Por fim fazer o commit
 **[15/08/2026 16:26]** atualiza os screen shots no diretório ./assets/images
 ---
 **[15/08/2026 16:32]** sim
+---
+**[15/08/2026 16:35]** crie um pr para main
+---
+**[15/08/2026 16:47]** monitora se o CD github action executou com sucesso
