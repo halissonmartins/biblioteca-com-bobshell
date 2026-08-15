@@ -118,7 +118,7 @@ export async function findBookById(id: string): Promise<BookDetail | null> {
           rating: true,
           text: true,
           createdAt: true,
-          user: { select: { name: true } },
+          user: { select: { id: true, name: true } },
         },
       },
     },
@@ -140,8 +140,8 @@ export async function findBookById(id: string): Promise<BookDetail | null> {
       id: r.id,
       rating: r.rating,
       text: r.text,
-      userName: r.user.name,
       createdAt: r.createdAt.toISOString(),
+      user: { id: r.user.id, name: r.user.name },
     })),
   };
 }

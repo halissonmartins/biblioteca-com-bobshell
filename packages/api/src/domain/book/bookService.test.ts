@@ -78,9 +78,10 @@ describe('listBooks()', () => {
     const result = await listBooks({}, deps);
 
     expect(result.data).toEqual(books);
-    expect(result.total).toBe(1);
-    expect(result.page).toBe(1);
-    expect(result.pageSize).toBe(20);
+    expect(result.pagination.total).toBe(1);
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.pageSize).toBe(20);
+    expect(result.pagination.totalPages).toBe(1);
     expect(deps.findBooks).toHaveBeenCalledWith({
       search: undefined,
       genre: undefined,

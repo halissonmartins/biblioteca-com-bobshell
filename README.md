@@ -2,6 +2,24 @@
 
 Sistema web híbrido de catálogo, reservas e empréstimos de biblioteca.
 
+## 📸 Telas
+
+Fluxo híbrido do produto: o **Leitor** navega o catálogo e reserva on-line; o **Bibliotecário** acompanha e efetiva o empréstimo presencialmente.
+
+### Catálogo de Livros (Leitor)
+
+![Catálogo de Livros](assets/images/catalogo.png)
+
+### Detalhes do Livro e Reserva (Leitor)
+
+![Detalhes do Livro](assets/images/detalhe-livro.png)
+
+### Painel do Bibliotecário — Reservas
+
+![Reservas do Bibliotecário](assets/images/bibliotecario-reservas.png)
+
+> Capturas geradas com Playwright a partir da UI real (`e2e/`).
+
 ## Rodar em 3 comandos
 
 ```bash

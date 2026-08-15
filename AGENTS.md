@@ -36,7 +36,15 @@ make build    # build de produção
 **Rodar um único teste:**
 ```bash
 npx vitest run packages/api/src/domain/reservation/reservation.test.ts
-npx playwright test e2e/reservation.spec.ts
+cd e2e && npx playwright test catalogo.spec.ts
+```
+
+**E2E (Playwright — dirige a UI real):**
+```bash
+docker compose up -d        # sobe o Postgres (raiz do repo)
+cd e2e && npm install        # primeira vez
+npm run install:browsers     # baixa o Chromium (primeira vez)
+npm test                     # webServer sobe API+Web; globalSetup migra+popula
 ```
 
 **Comandos individuais (packages/api):**

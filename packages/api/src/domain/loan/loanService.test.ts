@@ -59,9 +59,9 @@ function makeLoanSummary(overrides?: Partial<LoanSummary>): LoanSummary {
     copy: {
       id: 'copy-1',
       code: 'LIV-001',
-      book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null },
+      book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null, author: { id: 'author-1', name: 'Machado de Assis' } },
     },
-    reader: { id: 'user-1', name: 'João Leitor', email: 'joao@example.com' },
+    user: { id: 'user-1', name: 'João Leitor', email: 'joao@example.com' },
     librarian: { id: 'lib-1', name: 'Ana Bibliotecária' },
     ...overrides,
   };

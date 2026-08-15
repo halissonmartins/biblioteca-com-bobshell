@@ -42,6 +42,7 @@ function makeReservationSummary(overrides?: Partial<ReservationSummary>): Reserv
         id: 'book-1',
         title: 'Dom Casmurro',
         coverUrl: null,
+        author: { id: 'author-1', name: 'Machado de Assis' },
       },
     },
     ...overrides,
@@ -51,7 +52,7 @@ function makeReservationSummary(overrides?: Partial<ReservationSummary>): Reserv
 function makeReservationDetail(overrides?: Partial<ReservationDetail>): ReservationDetail {
   return {
     ...makeReservationSummary(),
-    reader: { id: 'user-1', name: 'João Leitor', email: 'joao@example.com' },
+    user: { id: 'user-1', name: 'João Leitor', email: 'joao@example.com' },
     status: 'active',
     convertedAt: null,
     cancelledAt: null,
@@ -209,7 +210,7 @@ describe('listBookReservations()', () => {
 
   it('inclui dados do Leitor em cada Reserva (RF-B1)', async () => {
     const detail = makeReservationDetail({
-      reader: { id: 'user-2', name: 'Maria Leitora', email: 'maria@example.com' },
+      user: { id: 'user-2', name: 'Maria Leitora', email: 'maria@example.com' },
     });
     const deps = makeDeps({
       findReservationsByBook: vi.fn().mockResolvedValue([detail]),
@@ -217,8 +218,8 @@ describe('listBookReservations()', () => {
 
     const [reservation] = await listBookReservations({ bookId: 'book-1' }, deps);
 
-    expect(reservation?.reader.name).toBe('Maria Leitora');
-    expect(reservation?.reader.email).toBe('maria@example.com');
+    expect(reservation?.user.name).toBe('Maria Leitora');
+    expect(reservation?.user.email).toBe('maria@example.com');
   });
 
   it('retorna Reservas com status derivado correto', async () => {

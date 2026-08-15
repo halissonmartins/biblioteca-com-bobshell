@@ -74,3 +74,42 @@ antes de começarmos, crie um hook nesse projeto que salve todos os meus prompts
 
 ---
 **[14/08/2026 17:20]** faça o commit, que eu faço o push manualmente
+
+---
+**[14/08/2026 17:46]** Inicializar o projeto e executar um teste ad-hoc detalhado. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 17:57]** Inicializar o projeto e executar um teste E2E ad-hoc detalhado. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 18:07]** Inicializar o projeto e executar um teste ad-hoc E2E através do playwright cli. Ao final gere no console um relatório.
+
+---
+**[14/08/2026 18:39]** sim
+
+---
+**[14/08/2026 19:21]** sim
+
+---
+**[14/08/2026 19:30]** faça o commite de tudo que ficou de fora
+
+---
+**[14/08/2026 19:39]** creio dentro do diretório /docs o arquivo AGENTS.md contendo referências aos arquivos de documentação dentro dela
+
+---
+**[14/08/2026 19:42]** sim
+
+---
+**[14/08/2026 19:59]** use o playwright para tirar screenshot de 3 principais funcionalidades, salvar no diretório /asserts/images depois incluir em uma sessão no readme
+
+---
+**[14/08/2026 20:08]** use o playwright para tirar screenshot das demais funcionalidades, salvar no diretório /assets/images dessa vez não incluir em uma sessão no readme
+
+---
+**[14/08/2026 20:31]** analise os cenários e implementa completamente os testes e2e do projeto
+
+---
+**[14/08/2026 20:49]** crie um pr para main
+
+---
+**[14/08/2026 20:53]** sim
