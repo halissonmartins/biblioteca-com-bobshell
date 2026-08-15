@@ -76,8 +76,15 @@ function reservationColumns(
       // não descreve mais nada — pode até ser uma data futura.
       render: (r) =>
         reservationState(r, now) === 'ativa' ? (
-          <span className="text-sm whitespace-nowrap">
-            <strong className={isExpiringSoon(r, now) ? 'text-warning-700' : 'text-surface-900'}>
+          <span className="block text-right whitespace-nowrap">
+            {/* Amarelo cromo é do prazo correndo (OWN-WORLD), em mono e colado
+                na margem; a última hora escurece para o âmbar de aviso. */}
+            <strong
+              className={[
+                'font-mono text-sm font-medium',
+                isExpiringSoon(r, now) ? 'text-warning-700' : 'text-warning-600',
+              ].join(' ')}
+            >
               {formatDuration(r.expiresAt, now)}
             </strong>
             <br />
@@ -180,7 +187,9 @@ export function BibliotecarioReservasPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="text-3xl font-bold">Reservas</h1>
+        <div>
+          <h1>Reservas</h1>
+        </div>
         <div className="flex gap-2" role="group" aria-label="Filtrar reservas por status">
           <Button
             variant={statusFilter === 'ativas' ? 'primary' : 'secondary'}

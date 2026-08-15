@@ -37,6 +37,14 @@ const variantClass = {
   info:    'alert-info',
 }
 
+/** A cor do estado vive no ícone e no filete; o texto fica acromático */
+const iconClass = {
+  success: 'alert-icone-success',
+  error:   'alert-icone-error',
+  warning: 'alert-icone-warning',
+  info:    'alert-icone-info',
+}
+
 /**
  * Componente canônico de alerta / mensagem de estado.
  * Usar para feedback de operações: sucesso, erro, aviso, informação.
@@ -51,9 +59,9 @@ const variantClass = {
 export function Alert({ variant, title, children, className = '' }: AlertProps) {
   return (
     <div className={[variantClass[variant], className].filter(Boolean).join(' ')} role="alert">
-      {icons[variant]}
+      <span className={iconClass[variant]}>{icons[variant]}</span>
       <div className="flex flex-col gap-0.5">
-        {title && <p className="font-medium">{title}</p>}
+        {title && <p className="font-display uppercase tracking-placa font-semibold">{title}</p>}
         <div className="text-sm">{children}</div>
       </div>
     </div>

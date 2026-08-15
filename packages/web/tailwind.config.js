@@ -4,67 +4,91 @@ export default {
   theme: {
     extend: {
       colors: {
-        // === TOKENS DE COR ===
-        // Primária — ações principais (reservar, emprestar, devolver)
+        // === TOKENS DE COR — chapa de esmalte vitrificado ===
+        // Ver o contrato de direção em index.html.
+        // Primária — o oxblood do trilho de zona e de toda ação principal
         primary: {
-          50:  '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',  // base
-          600: '#2563eb',  // hover
-          700: '#1d4ed8',  // active / pressed
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50:  '#FAF1F1',
+          100: '#F2DDDE',
+          200: '#E0B6B8',
+          300: '#C88387',
+          400: '#A44D53',
+          500: '#7B1E24',  // base — chapa de sinalização
+          600: '#661319',  // hover
+          700: '#520E13',  // active / pressed
+          800: '#3D0A0E',
+          900: '#280709',
         },
-        // Danger — ações destrutivas, erros
+        // Danger — falha e ação destrutiva. Vermelho sinal, mais claro que o
+        // oxblood do trilho para não se confundir com "ação principal".
         danger: {
-          50:  '#fef2f2',
-          100: '#fee2e2',
-          500: '#ef4444',  // base
-          600: '#dc2626',  // hover
-          700: '#b91c1c',
+          50:  '#FDF1EE',
+          100: '#F9DAD2',
+          500: '#C0341B',
+          600: '#A22815',
+          700: '#7F1D0F',
         },
-        // Success — confirmações, disponibilidade
+        // Success — Disponibilidade. Verde sinal de esmalte.
         success: {
-          50:  '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',  // base
-          600: '#16a34a',  // hover
-          700: '#15803d',
+          50:  '#EDF5F1',
+          100: '#D2E7DD',
+          500: '#12664A',
+          600: '#0D5039',
+          700: '#0A3D2C',
         },
-        // Warning — reservas próximas de expirar
+        // Warning — prazo correndo. Amarelo cromo.
         warning: {
-          50:  '#fffbeb',
-          100: '#fef3c7',
-          500: '#f59e0b',  // base
-          600: '#d97706',
-          700: '#b45309',
+          50:  '#FDF6E3',
+          100: '#F9E8BC',
+          500: '#E8A200',
+          600: '#B87E00',
+          700: '#8A5E00',
         },
-        // Surface — fundos, cards, bordas
+        // Surface — porcelana fria. Nunca creme: o campo é esmalte, não papel.
         surface: {
-          0:   '#ffffff',  // fundo de card / modal
-          50:  '#f8fafc',  // fundo da página
-          100: '#f1f5f9',  // fundo de input, tabela zebrada
-          200: '#e2e8f0',  // borda padrão
-          300: '#cbd5e1',  // borda de foco (sem foco)
-          700: '#334155',  // texto secundário
-          900: '#0f172a',  // texto principal
+          0:   '#FFFFFF',  // chapa de conteúdo
+          50:  '#F2F4F3',  // fundo da página — porcelana
+          100: '#E7EAE8',  // campo de input, faixa de tabela
+          200: '#D3D8D5',  // filete padrão
+          300: '#9BA5A0',  // filete forte / placeholder
+          700: '#3C4441',  // texto secundário
+          900: '#16191A',  // grafite — texto principal
+        },
+        // Zonas — codificação por gênero, do jeito que a sinalização do prédio
+        // separa seções. Todas passam AA com texto branco por cima.
+        zone: {
+          oxblood: '#7B1E24',
+          verde:   '#12664A',
+          petroleo:'#12545F',
+          indigo:  '#2B3A72',
+          laranja: '#A8471B',
+          ameixa:  '#5B2B58',
+          oliva:   '#4A5320',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Barlow Condensed: voz de sinalização, sempre em caixa alta.
+        // Barlow: toda prosa, tabela e controle.
+        // Azeret Mono: código de Cópia, ISBN, tempo corrido.
+        display: ['"Barlow Condensed"', 'Haettenschweiler', 'Impact', 'sans-serif'],
+        sans:    ['Barlow', 'system-ui', 'sans-serif'],
+        mono:    ['"Azeret Mono"', 'ui-monospace', 'monospace'],
       },
       fontSize: {
-        // Escala tipográfica
         xs:   ['0.75rem',  { lineHeight: '1rem' }],
         sm:   ['0.875rem', { lineHeight: '1.25rem' }],
         base: ['1rem',     { lineHeight: '1.5rem' }],
         lg:   ['1.125rem', { lineHeight: '1.75rem' }],
         xl:   ['1.25rem',  { lineHeight: '1.75rem' }],
-        '2xl':['1.5rem',   { lineHeight: '2rem' }],
-        '3xl':['1.875rem', { lineHeight: '2.25rem' }],
+        '2xl':['1.5rem',   { lineHeight: '1.875rem' }],
+        '3xl':['2rem',     { lineHeight: '2.125rem' }],
+        '4xl':['2.75rem',  { lineHeight: '2.75rem' }],
+        '5xl':['3.75rem',  { lineHeight: '3.5rem' }],
+      },
+      letterSpacing: {
+        // Caixa alta de sinalização pede abertura; a condensada em display aperta.
+        placa: '0.08em',
+        legenda: '0.14em',
       },
       spacing: {
         // Escala de espaçamento — apenas múltiplos de 4px
@@ -72,21 +96,24 @@ export default {
         // Não usar valores arbitrários fora desta escala
       },
       borderRadius: {
+        // Esmalte é cortado, não moldado. O raio existe para não ferir, não para
+        // suavizar: 2px em tudo, e `full` só sobrevive para o spinner.
         none: '0',
-        sm:   '0.25rem',   // 4px — inputs pequenos
-        DEFAULT: '0.375rem', // 6px — padrão
-        md:   '0.5rem',    // 8px — cards, modais
-        lg:   '0.75rem',   // 12px — cards grandes
-        xl:   '1rem',      // 16px — banners
-        full: '9999px',    // badges, avatares
+        sm:   '2px',
+        DEFAULT: '2px',
+        md:   '2px',
+        lg:   '2px',
+        xl:   '2px',
+        full: '9999px',
       },
       boxShadow: {
-        sm:     '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        DEFAULT:'0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-        md:     '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-        lg:     '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-        // Sombra de modal
-        modal:  '0 20px 60px -10px rgb(0 0 0 / 0.3)',
+        // Chapa é plana. Separação é filete, não elevação — só o modal, que
+        // realmente flutua sobre a página, ganha profundidade.
+        sm:     'none',
+        DEFAULT:'none',
+        md:     'none',
+        lg:     'none',
+        modal:  '0 24px 64px -12px rgb(22 25 26 / 0.45)',
       },
     },
   },

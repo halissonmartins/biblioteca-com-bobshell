@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Navbar } from '@/components/Navbar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { LoginPage }                    from '@/pages/LoginPage'
@@ -11,10 +11,16 @@ import { BibliotecarioReservasPage }    from '@/pages/BibliotecarioReservasPage'
 import { BibliotecarioEmprestimosPage } from '@/pages/BibliotecarioEmprestimosPage'
 
 export default function App() {
+  // A rota de entrada não tem trilho: o rail é mobiliário de sessão, e exibi-lo
+  // ao lado do formulário mostrava o nome de outra pessoa e um botão "Sair"
+  // para quem ainda não entrou.
+  const naEntrada = useLocation().pathname === '/login'
+
   return (
     <>
-      <Navbar />
-      <main>
+      {!naEntrada && <Navbar />}
+      {/* O trilho de zona vira coluna fixa a partir de lg — o conteúdo abre espaço para ele */}
+      <main className={naEntrada ? undefined : 'lg:pl-60'}>
         <Routes>
           {/* Público */}
           <Route path="/login"             element={<LoginPage />} />

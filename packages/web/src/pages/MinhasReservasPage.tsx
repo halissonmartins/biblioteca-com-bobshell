@@ -40,8 +40,15 @@ function reservationColumns(now: Date): Column<ReservationDetail>[] {
       // encerrada não tem prazo nenhum a mostrar.
       render: (r) =>
         reservationState(r, now) === 'ativa' ? (
-          <span className="text-sm whitespace-nowrap">
-            <strong className={isExpiringSoon(r, now) ? 'text-warning-700' : 'text-surface-900'}>
+          <span className="block text-right whitespace-nowrap">
+            {/* Amarelo cromo é do prazo correndo (OWN-WORLD), em mono e colado
+                na margem; a última hora escurece para o âmbar de aviso. */}
+            <strong
+              className={[
+                'font-mono text-sm font-medium',
+                isExpiringSoon(r, now) ? 'text-warning-700' : 'text-warning-600',
+              ].join(' ')}
+            >
               {formatDuration(r.expiresAt, now)}
             </strong>
             <br />
@@ -84,7 +91,9 @@ export function MinhasReservasPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-3xl font-bold mb-6">Minhas Reservas</h1>
+      <div className="mb-6 pb-4 border-b-2 border-surface-900">
+        <h1>Minhas Reservas</h1>
+      </div>
 
       {expiring.length > 0 && (
         <Alert variant="warning" title="Retirada urgente" className="mb-4">

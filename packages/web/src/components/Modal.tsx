@@ -77,7 +77,7 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id={titleId} className="text-lg font-semibold text-surface-900">
+          <h2 id={titleId} className="font-display text-xl font-semibold uppercase tracking-placa text-surface-0">
             {title}
           </h2>
           {!persistent && (

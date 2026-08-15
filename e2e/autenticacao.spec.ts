@@ -53,7 +53,8 @@ test.describe('Autenticação e controle de acesso (RN-7)', () => {
     await loginUI(page, LEITOR.email)
     await page.getByRole('button', { name: 'Sair' }).click()
     await expect(page).toHaveURL(/\/login/)
-    // Na tela de login há dois "Entrar" (navbar + formulário); a navbar prova o logout
-    await expect(page.getByRole('banner').getByRole('button', { name: 'Entrar' })).toBeVisible()
+    // A rota de entrada não tem trilho de sessão: o formulário de volta prova o logout
+    await expect(page.getByRole('main').getByRole('button', { name: 'Entrar' })).toBeVisible()
+    await expect(page.getByRole('banner')).toHaveCount(0)
   })
 })
