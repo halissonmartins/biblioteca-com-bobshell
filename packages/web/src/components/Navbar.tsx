@@ -63,7 +63,8 @@ export function Navbar() {
       <div className="flex items-center justify-between gap-3 px-4 py-3 lg:py-6 lg:px-4">
         <Link
           to="/"
-          className="font-display text-xl lg:text-2xl font-bold uppercase tracking-placa text-surface-0 shrink-0
+          className="inline-flex items-center min-h-[44px] shrink-0
+                     font-display text-xl lg:text-2xl font-bold uppercase tracking-placa text-surface-0
                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-0"
         >
           Biblioteca

@@ -25,15 +25,6 @@ const ZONE_BG: Record<Zone, string> = {
   oliva:    'bg-zone-oliva',
 }
 
-const ZONE_BORDER: Record<Zone, string> = {
-  verde:    'border-zone-verde',
-  petroleo: 'border-zone-petroleo',
-  indigo:   'border-zone-indigo',
-  laranja:  'border-zone-laranja',
-  ameixa:   'border-zone-ameixa',
-  oliva:    'border-zone-oliva',
-}
-
 /**
  * FNV-1a de 32 bits com avalanche final.
  *
@@ -57,8 +48,4 @@ export function zoneForGenre(genre: string): Zone {
 
 export function zoneBackground(genre: string): string {
   return ZONE_BG[zoneForGenre(genre)]
-}
-
-export function zoneBorder(genre: string): string {
-  return ZONE_BORDER[zoneForGenre(genre)]
 }

@@ -7,7 +7,14 @@ interface ModalProps {
   title:      string
   children:   ReactNode
   footer?:    ReactNode
-  /** Impede fechar clicando no overlay — usar em operações destrutivas */
+  /**
+   * Impede fechar com clique no overlay — usar em operações irreversíveis,
+   * onde um clique perdido no fundo não pode ser o gatilho.
+   *
+   * Não bloqueia Esc nem o botão de fechar: sair da confirmação continua
+   * sendo trivial e explícito. Um diálogo do qual não se sai por teclado
+   * seria um defeito maior que o clique acidental que ele evita.
+   */
   persistent?: boolean
 }
 
@@ -64,7 +71,7 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
     if (!open) return
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !persistent) {
+      if (e.key === 'Escape') {
         onClose()
         return
       }
@@ -98,7 +105,7 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose, persistent, focusaveis])
+  }, [open, onClose, focusaveis])
 
   // Scroll-lock no body quando modal está aberto
   useEffect(() => {
@@ -148,19 +155,17 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
           <h2 id={titleId} className="font-display text-xl font-semibold uppercase tracking-placa text-surface-0">
             {title}
           </h2>
-          {!persistent && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              aria-label="Fechar modal"
-              className="!p-1 text-surface-0 hover:bg-primary-600"
-            >
-              <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Fechar modal"
+            className="!p-1 text-surface-0 hover:bg-primary-600"
+          >
+            <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </Button>
         </div>
 
         <div className="modal-body">

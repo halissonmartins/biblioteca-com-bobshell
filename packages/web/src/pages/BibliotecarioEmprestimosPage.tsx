@@ -164,7 +164,7 @@ export function BibliotecarioEmprestimosPage() {
         data={loansQuery.data ?? []}
         keyField="id"
         caption="Empréstimos do sistema"
-        emptyMessage="Nenhum empréstimo encontrado."
+        emptyMessage={appliedFilter ? `Nenhum empréstimo para o leitor ${appliedFilter}.` : 'Nenhum empréstimo registrado.'}
         loading={loansQuery.isLoading}
       />
 
@@ -173,6 +173,9 @@ export function BibliotecarioEmprestimosPage() {
         open={returnTarget !== null}
         onClose={() => setReturnTarget(null)}
         title="Confirmar devolução"
+        // Devolução não tem desfazer: a Cópia volta ao acervo e o Empréstimo
+        // encerra. Um clique perdido no overlay não pode ser o gatilho.
+        persistent
         footer={
           <>
             <Button variant="secondary" onClick={() => setReturnTarget(null)}>

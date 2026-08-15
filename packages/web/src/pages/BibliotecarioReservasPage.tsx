@@ -247,9 +247,14 @@ export function BibliotecarioReservasPage() {
         keyField="id"
         caption="Reservas do sistema"
         emptyMessage={
-          statusFilter === 'ativas'
-            ? 'Nenhuma Reserva ativa — não há livro separado para retirar agora.'
-            : 'Nenhuma reserva encontrada.'
+          // Com filtro aplicado a lista vazia fala do filtro, não do acervo:
+          // "não há livro separado para retirar" seria uma afirmação sobre a
+          // biblioteca inteira quando o que está vazio é a busca.
+          appliedFilter
+            ? `Nenhuma reserva para o leitor ${appliedFilter}.`
+            : statusFilter === 'ativas'
+              ? 'Nenhuma Reserva ativa — não há livro separado para retirar agora.'
+              : 'Nenhuma reserva encontrada.'
         }
         loading={isLoading}
       />

@@ -54,10 +54,11 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     await page.getByRole('button', { name: 'Limpar' }).click()
     await expect(page.getByText(LEITOR.email).first()).toBeVisible()
 
-    // Filtro sem correspondência → lista vazia
+    // Filtro sem correspondência → lista vazia, e a mensagem fala do filtro,
+    // não do acervo: dizer "não há livro separado" seria falso aqui
     await filtro.fill('id-inexistente-000')
     await page.getByRole('button', { name: 'Filtrar' }).click()
-    await expect(page.getByText('Nenhuma reserva encontrada.')).toBeVisible()
+    await expect(page.getByText('Nenhuma reserva para o leitor id-inexistente-000.')).toBeVisible()
   })
 
   test('US-10 — efetiva Empréstimo a partir da linha da Reserva (RF-B4, RN-6)', async ({ page, request }) => {

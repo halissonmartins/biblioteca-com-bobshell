@@ -191,3 +191,7 @@ Por fim fazer o commit
 **[15/08/2026 15:37]** /impeccable:impeccable adapt — altura dos links de título em tabela
 ---
 **[15/08/2026 15:50]** sim
+---
+**[15/08/2026 15:51]** /impeccable:impeccable polish
+---
+**[15/08/2026 16:18]** sim
