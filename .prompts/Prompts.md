@@ -183,3 +183,7 @@ Por fim fazer o commit
 **[15/08/2026 15:00]** /impeccable:impeccable harden
 ---
 **[15/08/2026 15:19]** sim
+---
+**[15/08/2026 15:23]** /impeccable:impeccable polish — warning-600 → warning-700 no prazo; ISBN de 60% para 70%
+---
+**[15/08/2026 15:35]** sim

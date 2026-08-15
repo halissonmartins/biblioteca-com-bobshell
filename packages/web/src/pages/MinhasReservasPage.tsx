@@ -46,7 +46,7 @@ function reservationColumns(now: Date): Column<ReservationDetail>[] {
             <strong
               className={[
                 'font-mono text-sm font-medium',
-                isExpiringSoon(r, now) ? 'text-warning-700' : 'text-warning-600',
+                isExpiringSoon(r, now) ? 'text-warning-800' : 'text-warning-700',
               ].join(' ')}
             >
               {formatDuration(r.expiresAt, now)}

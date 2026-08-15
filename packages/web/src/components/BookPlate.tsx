@@ -72,10 +72,10 @@ export function BookPlate({ title, author, genre, coverUrl, code, size = 'card',
           mesma linha abaixo do menor degrau da rampa tipográfica, e 9px não é
           tamanho de texto. */}
       <div className="shrink-0 flex flex-col gap-0.5">
-        <p className="font-display text-xs uppercase tracking-legenda text-surface-0/70">
+        <p className="font-display text-xs uppercase tracking-legenda text-surface-0/85">
           {genre}
         </p>
-        {code && <p className="font-mono text-xs text-surface-0/60">{code}</p>}
+        {code && <p className="font-mono text-xs text-surface-0/85">{code}</p>}
       </div>
 
       {/* O título sangra até a margem da chapa e ocupa o campo que sobrava:

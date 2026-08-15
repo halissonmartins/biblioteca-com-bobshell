@@ -40,9 +40,10 @@ export default {
         warning: {
           50:  '#FDF6E3',
           100: '#F9E8BC',
-          500: '#E8A200',
-          600: '#B87E00',
-          700: '#8A5E00',
+          500: '#E8A200',  // chapa e filete — só sobre campo escuro ou como banda
+          600: '#B87E00',  // 3,49:1 sobre branco — NÃO usar em texto
+          700: '#8A5E00',  // 5,70:1 — o prazo correndo
+          800: '#6B4900',  // 8,15:1 — a última hora, um degrau acima do prazo
         },
         // Surface — porcelana fria. Nunca creme: o campo é esmalte, não papel.
         surface: {
