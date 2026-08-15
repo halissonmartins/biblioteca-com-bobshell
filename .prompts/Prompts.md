@@ -161,3 +161,7 @@ Por fim fazer o commit
 **[15/08/2026 08:56]** Sobre "Bibliotecário busca o Leitor pelo nome ou email", Criar uma sessão "Melhorias futuras" no @README.md e adicionar um item explicando essa regra negocial
 ---
 **[15/08/2026 08:57]** commite tudo
+---
+**[15/08/2026 08:58]** /impeccable:impeccable harden — Verdade dos status. ReservationStatusBadge com quatro estados reais (Convertida em success, não "Expirada"); CopyStatusBadge recebendo o status real da Cópia em vez de derivá-lo de availableCopies; isReservationActive() com tick vivo e prazo em tempo relativo. Os tokens warning-500 e Alert variant="warning" já existem documentados para "reserva expirando" e nunca foram usados.
+---
+**[15/08/2026 09:22]** sim

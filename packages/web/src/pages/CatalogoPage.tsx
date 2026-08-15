@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listBooks } from '@/api/books'
 import { Input, Alert, LoadingPage, EmptyState } from '@/components'
-import { getErrorMessage } from '@/utils/format'
+import { formatAvailableCopies, getErrorMessage } from '@/utils/format'
 import type { BookListItem } from '../../../shared/src/types/domain'
 
 function BookCard({ book }: { book: BookListItem }) {
@@ -31,9 +31,7 @@ function BookCard({ book }: { book: BookListItem }) {
         <p className="text-xs text-surface-700">{book.author.name}</p>
         <p className="text-xs text-surface-700 mt-auto">{book.genre}</p>
         <p className={`text-xs font-medium mt-1 ${book.availableCopies > 0 ? 'text-success-600' : 'text-danger-500'}`}>
-          {book.availableCopies > 0
-            ? `${book.availableCopies} cópia${book.availableCopies > 1 ? 's' : ''} disponível${book.availableCopies > 1 ? 'eis' : ''}`
-            : 'Indisponível'}
+          {book.availableCopies > 0 ? formatAvailableCopies(book.availableCopies) : 'Indisponível'}
         </p>
       </div>
     </Link>

@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getBook } from '@/api/books'
 import { createReservation } from '@/api/reservations'
 import { useAuth } from '@/hooks/useAuthHook'
-import { Button, Modal, Alert, CopyStatusBadge, LoadingPage } from '@/components'
-import { formatDateTime, getErrorMessage } from '@/utils/format'
+import { Button, Modal, Alert, BookAvailabilityBadge, LoadingPage } from '@/components'
+import { formatAvailableCopies, formatDateTime, getErrorMessage } from '@/utils/format'
 import { isApiRequestError } from '@/api/client'
 
 export function DetalhesLivroPage() {
@@ -122,10 +122,10 @@ export function DetalhesLivroPage() {
 
           {/* Disponibilidade */}
           <div className="card p-4 flex items-center gap-3">
-            <CopyStatusBadge status={book.availableCopies > 0 ? 'available' : 'loaned'} />
+            <BookAvailabilityBadge availableCopies={book.availableCopies} />
             <span className="text-sm text-surface-700">
               {book.availableCopies > 0
-                ? `${book.availableCopies} cópia${book.availableCopies > 1 ? 's' : ''} disponível${book.availableCopies > 1 ? 'eis' : ''}`
+                ? formatAvailableCopies(book.availableCopies)
                 : 'Sem cópias disponíveis no momento'}
             </span>
           </div>

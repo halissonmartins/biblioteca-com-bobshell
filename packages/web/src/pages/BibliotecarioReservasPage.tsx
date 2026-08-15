@@ -5,16 +5,21 @@ import { getAllReservations } from '@/api/reservations'
 import { createLoan } from '@/api/loans'
 import { isApiRequestError } from '@/api/client'
 import { Table, Input, Alert, Button, Modal, LoadingPage, ReservationStatusBadge } from '@/components'
-import { formatDate, formatDateTime, isReservationActive, getErrorMessage } from '@/utils/format'
+import { useNow } from '@/hooks/useNow'
+import {
+  formatDate,
+  formatDateTime,
+  formatDuration,
+  isExpiringSoon,
+  isReservationActive,
+  reservationState,
+  getErrorMessage,
+} from '@/utils/format'
 import { LOAN_PERIOD_DAYS, defaultDueDate, dueDateToISO, todayInputValue } from '@/utils/loan'
 import type { ReservationDetail } from '../../../shared/src/types/domain'
 import type { Column } from '@/components/Table'
 
 type StatusFilter = 'ativas' | 'todas'
-
-function isActive(r: ReservationDetail): boolean {
-  return isReservationActive(r.expiresAt, r.convertedAt, r.cancelledAt)
-}
 
 /**
  * Traduz o erro da API para linguagem de balcão.
@@ -36,6 +41,7 @@ function counterErrorMessage(err: unknown): string {
 
 function reservationColumns(
   onEfetivar: (reservation: ReservationDetail) => void,
+  now: Date,
 ): Column<ReservationDetail>[] {
   return [
     {
@@ -66,19 +72,34 @@ function reservationColumns(
     {
       key: 'expiresAt',
       header: 'Expira em',
-      render: (r) => <span className="text-sm">{formatDateTime(r.expiresAt)}</span>,
+      // Só a Reserva viva tem prazo: numa Reserva encerrada o expiresAt agendado
+      // não descreve mais nada — pode até ser uma data futura.
+      render: (r) =>
+        reservationState(r, now) === 'ativa' ? (
+          <span className="text-sm whitespace-nowrap">
+            <strong className={isExpiringSoon(r, now) ? 'text-warning-700' : 'text-surface-900'}>
+              {formatDuration(r.expiresAt, now)}
+            </strong>
+            <br />
+            <span className="text-xs text-surface-700">{formatDateTime(r.expiresAt)}</span>
+          </span>
+        ) : (
+          <span className="text-sm text-surface-700">—</span>
+        ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (r) => <ReservationStatusBadge active={isActive(r)} />,
+      render: (r) => (
+        <ReservationStatusBadge state={reservationState(r, now)} expiringSoon={isExpiringSoon(r, now)} />
+      ),
     },
     {
       key: 'actions',
       header: '',
       className: 'text-right',
       render: (r) =>
-        isActive(r) ? (
+        isReservationActive(r, now) ? (
           <Button size="sm" onClick={() => onEfetivar(r)}>
             Efetivar empréstimo
           </Button>
@@ -89,6 +110,7 @@ function reservationColumns(
 
 export function BibliotecarioReservasPage() {
   const queryClient = useQueryClient()
+  const now = useNow()
 
   const [userFilter, setUserFilter]       = useState('')
   const [appliedFilter, setAppliedFilter] = useState('')
@@ -104,7 +126,9 @@ export function BibliotecarioReservasPage() {
   })
 
   const reservations = useMemo(() => data ?? [], [data])
-  const active       = useMemo(() => reservations.filter(isActive), [reservations])
+  // Recalculado a cada tick: uma Reserva que expira com a tela aberta sai da
+  // lista "Ativas" e perde o botão sozinha, sem esperar um refetch.
+  const active       = useMemo(() => reservations.filter((r) => isReservationActive(r, now)), [reservations, now])
   const visible      = statusFilter === 'ativas' ? active : reservations
 
   // Efetivação do Empréstimo a partir da Reserva já escolhida na linha (RF-B4, RN-6)
@@ -149,7 +173,7 @@ export function BibliotecarioReservasPage() {
     setAppliedFilter('')
   }
 
-  const columns = reservationColumns(handleEfetivar)
+  const columns = reservationColumns(handleEfetivar, now)
 
   if (isLoading) return <LoadingPage />
 
