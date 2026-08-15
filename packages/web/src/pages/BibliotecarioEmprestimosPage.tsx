@@ -16,7 +16,7 @@ function LoanColumns(
       key: 'book',
       header: 'Livro',
       render: (r) => (
-        <Link to={`/livros/${r.copy.book.id}`} className="text-primary-600 hover:underline font-medium text-sm">
+        <Link to={`/livros/${r.copy.book.id}`} className="link-registro">
           {r.copy.book.title}
         </Link>
       ),

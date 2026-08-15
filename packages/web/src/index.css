@@ -192,6 +192,29 @@
     @apply badge border-l-surface-300 text-surface-700;
   }
 
+  /* Link de registro: o título do Livro dentro de uma linha de tabela.
+     Não é um link no meio de uma frase — é um alvo isolado numa célula, então
+     a exceção "inline" da WCAG 2.5.8 não o cobre. A altura é medida, não
+     estimada: 17–20px antes desta regra.
+
+     O piso segue o método de entrada, não a largura da tela. O Bibliotecário
+     opera com mouse num widescreen o dia inteiro e uma lista com 44px por
+     linha só afastaria o que ele precisa varrer; o Leitor no celular precisa
+     de polegar. Daí 24px no ponteiro fino (mínimo da 2.5.8) e 44px no
+     grosso (2.5.5). */
+  .link-registro {
+    @apply inline-flex items-center min-h-[24px]
+           text-primary-600 font-medium text-sm
+           hover:underline
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900;
+  }
+
+  @media (pointer: coarse) {
+    .link-registro {
+      @apply min-h-[44px];
+    }
+  }
+
   /* --- Tabela: registro de circulação, filete fino, cabeçalho em legenda --- */
   .table-container {
     @apply overflow-x-auto rounded-sm border border-surface-200 bg-surface-0;
