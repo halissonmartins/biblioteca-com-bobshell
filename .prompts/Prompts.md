@@ -203,3 +203,44 @@ Por fim fazer o commit
 **[15/08/2026 16:35]** crie um pr para main
 ---
 **[15/08/2026 16:47]** monitora se o CD github action executou com sucesso
+
+---
+**[15/08/2026 19:01]** Planejar a implementação da observabilidade no módulo backend. 
+Utilizar OpenTelemetry como padrão de instrumentação, coletando os sinais de logs, métricas e traces de forma unificada e exportando (via OTLP) para backends especializados, visualizados no Grafana.
+
+Passos sugeridos:
+- Melhorar os logs no projeto
+- Adicionar spans ao projeto
+- Criar o arquivo ./docs/observabilidade.md explicando como funciona a observabilidade no projeto e definindo as métricas customizadas que serão criadas no módulo backend
+- Adicionar no arquivo ./docs/observabilidade.md uma sessão explicando os dashboards customizados que serão criados para exibir as métricas customizadas do módulo backend 
+- Referenciar o arquivo ./docs/observabilidade.md no ./README.md
+- Adicionar no docker-compose.yml do projeto a stack de observabilidade
+- Incluir e configurar no módulo backend o SDK do OpenTelemetry. 
+- Implementar as métricas customizadas que estão definidas em ./docs/observabilidade.md no módulo backend
+- Validar se as métricas, traces e logs estão sendo enviadas para o OTel Collector
+- Validar se os traces estão aparecendo no Jaeger
+- Validar se os logs estão aparecendo no Graylog
+- Validar se todas as métricas estão aparecendo no Prometheus
+- Validar se o Grafana consegue acessar as métricas do datasource 
+- Implementar os dashboards customizados que estão definidos em ./docs/observabilidade.md no módulo backend
+- Validar se todos os dashboards exibem os dados corretamente
+- Executar teste de performance leve para gerar gerar as métricas e popular os dashboards
+- Tirar screenshots de todos dashboards e salvar no diretório ./assets/images/dashboards
+- Referenciar os screenshots no arquivo ./docs/observabilidade.md
+
+Stack de observabilidade:
+- OpenTelemetry SDK: Instrumentação no processo; o export OTLP só efetiva quando o Collector estiver no ar. Desabilitado no perfil de teste.
+- OTel Collector
+- Prometheus (métricas)
+- Grafana (dashboards)
+- Jaeger (traces)
+- Graylog (logs)
+
+---
+**[15/08/2026 21:17]** Analise se tudo que solicitei no meu último plano foi implementado completamente.
+
+---
+**[15/08/2026 21:17]** sim
+
+---
+**[15/08/2026 21:17]** faça o commit de tudo o que foi implemntado

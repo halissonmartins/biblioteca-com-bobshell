@@ -1,0 +1,89 @@
+# OpenTelemetry Collector — ponto único de entrada dos três sinais da API.
+#
+# A API exporta tudo por OTLP/gRPC para :4317. O Collector faz o fan-out:
+#   traces  → Jaeger      (OTLP/gRPC interno)
+#   metrics → Prometheus  (exposto em :8889 para scrape)
+#   logs    → Graylog     (input OpenTelemetry gRPC)
+#
+# Ver docs/observabilidade.md.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Primeiro da cadeia: rejeita dados quando a memória aperta, em vez de
+  # deixar o container ser morto pelo mem_limit (256m no docker-compose.yml).
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 180
+    spike_limit_mib: 40
+
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Graylog 6.2+ tem input OpenTelemetry gRPC nativo. Exige que o input exista
+  # (observabilidade/graylog/provisionar-input.sh) com "Allow Insecure
+  # Connections" marcado — sem TLS em desenvolvimento.
+  otlp/graylog:
+    endpoint: graylog:4317
+    tls:
+      insecure: true
+
+  # resource_to_telemetry_conversion fica DESLIGADO de propósito: ligado, ele
+  # promove todo resource attribute a label — inclusive process.pid e
+  # process.command_args, que mudam a cada reload do `tsx watch` e criariam uma
+  # série nova por reinício. O exporter já deriva `job` (de service.name) e
+  # `instance` (de service.instance.id), que é o suficiente para os dashboards;
+  # o resto do resource fica disponível na métrica `target_info`.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: false
+    enable_open_metrics: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/graylog]
+
+  # Telemetria interna do próprio Collector em :8888 — é ela que responde
+  # "os sinais estão chegando e saindo?" (otelcol_receiver_accepted_*,
+  # otelcol_exporter_send_failed_*). O Prometheus raspa esse endpoint também.
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

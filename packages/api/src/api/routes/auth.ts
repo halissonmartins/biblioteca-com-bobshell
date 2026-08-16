@@ -14,6 +14,7 @@ import {
 } from '../../domain/auth/authService.js';
 import * as userRepo from '../../infra/repositories/userRepository.js';
 import * as tokenRepo from '../../infra/repositories/refreshTokenRepository.js';
+import { logins } from '../../infra/telemetry/metrics.js';
 import { AppError } from '../../shared/errors.js';
 import { authenticate } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
@@ -101,7 +102,16 @@ router.post('/login', asyncHandler(async (req, res, next) => {
   }
 
   const { email, password } = parsed.data;
-  const result = await login(email, password, deps);
+
+  // Sem e-mail nem id como atributo: cardinalidade de métrica (ver metrics.ts).
+  let result;
+  try {
+    result = await login(email, password, deps);
+    logins.add(1, { resultado: 'sucesso', papel: result.user.role });
+  } catch (err) {
+    logins.add(1, { resultado: 'falha' });
+    throw err;
+  }
 
   setTokenCookies(res, result.accessToken, result.refreshToken);
 

@@ -10,6 +10,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import { errorHandler } from './middleware/errorHandler.js';
+import { httpLogger, requestId } from './middleware/requestContext.js';
 import authRouter from './routes/auth.js';
 import healthRouter from './routes/health.js';
 import booksRouter from './routes/books.js';
@@ -22,10 +23,16 @@ export function createApp(): express.Application {
   const app = express();
 
   // ── Middlewares globais ────────────────────────────────────────────────────
+  // requestId primeiro: o genReqId do httpLogger depende dele, e o header
+  // precisa existir mesmo em preflight e em resposta de erro.
+  app.use(requestId);
+  app.use(httpLogger);
   app.use(
     cors({
       origin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
       credentials: true,
+      // Permite que a SPA leia o id e o mostre numa tela de erro/suporte.
+      exposedHeaders: ['X-Request-Id'],
     }),
   );
   app.use(express.json());

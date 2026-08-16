@@ -20,6 +20,7 @@ import {
   findAllReservations,
 } from '../../infra/repositories/reservationRepository.js';
 import { AppError } from '../../shared/errors.js';
+import { reservasCriadas } from '../../infra/telemetry/metrics.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -62,10 +63,20 @@ router.post(
     }
 
     const { sub: userId } = (req as AuthenticatedRequest).user;
-    const result = await createReservation(
-      { userId, bookId: parsed.data.bookId },
-      reservationRepoDeps,
-    );
+
+    // A métrica fica aqui, e não no domínio, porque `domain/` é regra de
+    // negócio pura e não emite efeito colateral (ARCHITECTURE.md). O erro é
+    // re-lançado: o contrato da rota não muda.
+    let result;
+    try {
+      result = await createReservation({ userId, bookId: parsed.data.bookId }, reservationRepoDeps);
+      reservasCriadas.add(1, { resultado: 'criada' });
+    } catch (err) {
+      // RN-3: não havia Cópia disponível no momento da tentativa.
+      const semCopia = err instanceof AppError && err.code === 'NO_COPY_AVAILABLE';
+      reservasCriadas.add(1, { resultado: semCopia ? 'sem_copia' : 'erro' });
+      throw err;
+    }
 
     const reservation = await findReservationDetail(result.reservationId);
     res.status(201).json({ data: { reservation } });

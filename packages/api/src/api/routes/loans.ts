@@ -16,6 +16,7 @@ import { createLoan, returnLoan, listLoans } from '../../domain/loan/loanService
 import type { ListLoansFilter } from '../../domain/loan/loanTypes.js';
 import { loanRepoDeps, findLoanDetail } from '../../infra/repositories/loanRepository.js';
 import { AppError } from '../../shared/errors.js';
+import { devolucoes, emprestimosEfetivados } from '../../infra/telemetry/metrics.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -66,6 +67,7 @@ router.post(
       },
       loanRepoDeps,
     );
+    emprestimosEfetivados.add(1);
 
     const loan = await findLoanDetail(result.loanId);
     res.status(201).json({ data: { loan } });
@@ -87,6 +89,11 @@ router.patch(
     await returnLoan({ loanId, librarianId }, loanRepoDeps);
 
     const loan = await findLoanDetail(loanId);
+    // RN-8: dueAt e returnedAt vêm como ISO-8601 UTC, cuja ordem lexicográfica
+    // é a ordem cronológica.
+    const atrasado = loan !== null && loan.returnedAt !== null && loan.returnedAt > loan.dueAt;
+    devolucoes.add(1, { situacao: atrasado ? 'atrasado' : 'em_dia' });
+
     res.status(200).json({ data: { loan } });
   }),
 );

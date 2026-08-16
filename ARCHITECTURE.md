@@ -29,10 +29,11 @@ packages/
 │   │   ├── api/                ← Rotas HTTP e validação de entrada (Express)
 │   │   │   ├── routes/         ← Definição de rotas por recurso
 │   │   │   └── middleware/     ← Auth (JWT), autorização por papel, erros
-│   │   ├── infra/              ← Acesso externo: banco e jobs de fundo
+│   │   ├── infra/              ← Acesso externo: banco, jobs de fundo, telemetria
 │   │   │   ├── repositories/   ← ÚNICO ponto de acesso ao banco (via Prisma)
-│   │   │   └── jobs/           ← Job de expiração de reservas (se cron)
-│   │   └── shared/             ← Erros tipados, utilitários transversais
+│   │   │   ├── jobs/           ← Job de expiração de reservas (se cron)
+│   │   │   └── telemetry/      ← SDK OpenTelemetry, métricas e gauges de negócio
+│   │   └── shared/             ← Erros tipados, logger, utilitários transversais
 │   └── prisma/
 │       ├── schema.prisma       ← Schema do banco (fonte de verdade do modelo)
 │       ├── migrations/         ← Migrations imutáveis após aplicadas
@@ -55,7 +56,7 @@ packages/
 
 > **Estas são proibições. O agente não consegue inferir uma proibição a partir da ausência de exemplos — se não estiver escrito, ele viola.**
 
-- `domain/` **NÃO importa** nada de `infra/`, `api/` nem de bibliotecas HTTP/banco
+- `domain/` **NÃO importa** nada de `infra/`, `api/` nem de bibliotecas HTTP/banco — isso inclui `@opentelemetry/api` e o logger (ver ADR-0007)
 - `api/routes/` **NÃO acessa** o banco diretamente — chama serviços de `domain/`
 - `infra/repositories/` é o **ÚNICO** ponto de acesso ao banco em toda a aplicação
 - `infra/` **NÃO contém** regra de negócio — apenas persistência e leitura
@@ -89,6 +90,8 @@ PostgreSQL
 | Mudar schema do banco | `packages/api/prisma/schema.prisma` → gerar migration → atualizar tipos |
 | Adicionar tela nova | `packages/web/src/pages/` |
 | Tipos compartilhados | `packages/shared/types/` |
+| Adicionar métrica ou span | `packages/api/src/infra/telemetry/` → documentar em `docs/observabilidade.md` |
+| Mexer na stack de observabilidade | `observabilidade/` + perfil `obs` do `docker-compose.yml` |
 
 ## Decisões arquiteturais
 
@@ -102,3 +105,4 @@ Cada decisão estruturante está em `docs/decisoes/`. Resumo dos ADRs ativos:
 | [0004](docs/decisoes/0004-deploy-e-ambientes.md) | Docker + plataforma gerenciada; CI/CD via GitHub Actions |
 | [0005](docs/decisoes/0005-monolito-modular.md) | Monolito modular com camadas explícitas; sem microserviços na v1 |
 | [0006](docs/decisoes/0006-estrategia-de-testes.md) | Vitest (unit + integração) + Playwright (e2e); TDD por critério de aceite |
+| [0007](docs/decisoes/0007-observabilidade.md) | OpenTelemetry + OTLP → Collector → Jaeger/Prometheus/Graylog, visualizado no Grafana |

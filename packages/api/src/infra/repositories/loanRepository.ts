@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '../prisma.js';
+import { conversaoDuracao } from '../telemetry/metrics.js';
 import type { LoanServiceDeps, ReservationForLoan, LoanForReturn } from '../../domain/loan/loanService.js';
 import type { LoanSummary } from '../../domain/loan/loanTypes.js';
 
@@ -62,7 +63,7 @@ export async function createLoanTx(params: {
   const { reservationId, copyId, userId, librarianId, dueAt } = params;
   const now = new Date();
 
-  const [loan] = await prisma.$transaction([
+  const [loan, , reservation] = await prisma.$transaction([
     prisma.loan.create({
       data: { reservationId, copyId, userId, librarianId, dueAt },
       select: { id: true },
@@ -74,8 +75,14 @@ export async function createLoanTx(params: {
     prisma.reservation.update({
       where: { id: reservationId },
       data: { convertedAt: now },
+      // createdAt sai da mesma transação: mede o tempo entre a Reserva e a
+      // retirada sem custar uma query extra. Alimenta a taxa de conversão
+      // Reserva→Empréstimo do PRD §11.
+      select: { createdAt: true },
     }),
   ]);
+
+  conversaoDuracao.record((now.getTime() - reservation.createdAt.getTime()) / 1000);
 
   return { loanId: loan.id };
 }

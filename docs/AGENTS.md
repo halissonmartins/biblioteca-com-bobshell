@@ -31,6 +31,7 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 - [ADR-0004 — Estratégia de deploy e ambientes](decisoes/0004-deploy-e-ambientes.md)
 - [ADR-0005 — Arquitetura: monolito modular](decisoes/0005-monolito-modular.md)
 - [ADR-0006 — Estratégia de testes](decisoes/0006-estrategia-de-testes.md)
+- [ADR-0007 — Observabilidade: OpenTelemetry e stack local](decisoes/0007-observabilidade.md)
 
 ## Design
 
@@ -44,6 +45,12 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 
 - [openapi.yaml](openapi.yaml) — especificação OpenAPI dos endpoints da API
   (contrato de request/response).
+
+## Operação
+
+- [Observabilidade](observabilidade.md) — logs, métricas e traces do backend via
+  OpenTelemetry; métricas customizadas e dashboards. **Leia antes de adicionar
+  métrica, span ou log novo.**
 
 ## Guias
 

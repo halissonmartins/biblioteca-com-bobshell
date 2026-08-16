@@ -21,6 +21,10 @@ const apiEnv = {
     process.env['JWT_REFRESH_SECRET'] ?? 'e2e-jwt-refresh-secret-string-longa',
   PORT: String(API_PORT),
   NODE_ENV: 'development',
+  // O e2e sobe a API em modo development; sem isto o exportador OTLP tentaria
+  // o Collector a cada 15 s e encheria o log do webServer de erros de conexão
+  // quando o perfil `obs` não está no ar.
+  OTEL_SDK_DISABLED: 'true',
 }
 
 export default defineConfig({
