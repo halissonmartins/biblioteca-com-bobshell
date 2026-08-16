@@ -4,6 +4,8 @@ import { expect, type Page, type APIRequestContext } from '@playwright/test'
 export const API = 'http://localhost:3000'
 
 export const LEITOR = { email: 'leitor@biblioteca.dev', senha: 'senha123' }
+/** Segundo Leitor do seed — sem Reserva nem Empréstimo (isolamento de /me/*) */
+export const LEITOR_2 = { email: 'leitor2@biblioteca.dev', senha: 'senha123' }
 export const BIBLIOTECARIO = { email: 'bibliotecario@biblioteca.dev', senha: 'senha123' }
 
 // ---------------------------------------------------------------------------
@@ -24,7 +26,7 @@ export async function loginUI(page: Page, email: string, senha = 'senha123'): Pr
 // API (arrange de dados e verificações de contrato/autorização)
 // ---------------------------------------------------------------------------
 
-const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
+export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
 
 export interface ApiUser {
   id: string
@@ -70,7 +72,11 @@ export async function apiGetBook(request: APIRequestContext, id: string): Promis
 
 export interface ReservationDto {
   id: string
-  copy: { book: { title: string } }
+  expiresAt: string
+  createdAt: string
+  status: 'active' | 'expired' | 'converted' | 'cancelled'
+  copy: { id: string; code: string; book: { id: string; title: string } }
+  user: { id: string; name: string; email: string }
 }
 
 export async function apiCreateReservation(
@@ -95,7 +101,12 @@ export async function apiReserveByTitle(
 
 export interface LoanDto {
   id: string
-  copy: { book: { title: string } }
+  dueAt: string
+  returnedAt: string | null
+  createdAt: string
+  copy: { id: string; code: string; book: { id: string; title: string } }
+  user: { id: string; name: string; email: string }
+  librarian: { id: string; name: string }
 }
 
 export async function apiCreateLoan(
@@ -115,4 +126,48 @@ export async function apiCreateLoan(
 /** Data ISO 8601 N dias no futuro (para dueAt). */
 export function inDaysISO(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+// ---------------------------------------------------------------------------
+// Atores isolados
+// ---------------------------------------------------------------------------
+
+export interface Actor {
+  ctx: APIRequestContext
+  token: string
+  user: ApiUser
+  dispose: () => Promise<void>
+}
+
+/**
+ * Cria um contexto HTTP próprio já autenticado.
+ *
+ * A API dá precedência ao cookie `access_token` sobre o header Authorization, então
+ * dois atores no mesmo contexto sobrescrevem a sessão um do outro — quem entra por
+ * último responde por ambos, e um teste de isolamento passaria por acidente.
+ */
+export async function newActor(
+  playwright: { request: { newContext: () => Promise<APIRequestContext> } },
+  email: string,
+  senha = 'senha123',
+): Promise<Actor> {
+  const ctx = await playwright.request.newContext()
+  const { token, user } = await apiLogin(ctx, email, senha)
+  return { ctx, token, user, dispose: () => ctx.dispose() }
+}
+
+// ---------------------------------------------------------------------------
+// Contrato de erro
+// ---------------------------------------------------------------------------
+
+/** Envelope de erro da API (errorHandler): `{ error: { code, message } }`. */
+export interface ApiError {
+  code: string
+  message: string
+}
+
+export async function apiErrorOf(res: { json: () => Promise<unknown> }): Promise<ApiError> {
+  const body = (await res.json()) as { error?: ApiError }
+  if (!body.error) throw new Error(`Resposta sem envelope de erro: ${JSON.stringify(body)}`)
+  return body.error
 }

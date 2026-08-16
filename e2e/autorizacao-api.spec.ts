@@ -1,12 +1,21 @@
 import { test, expect } from '@playwright/test'
-import { API, apiLogin, apiBookByTitle, LEITOR, BIBLIOTECARIO } from './helpers'
+import {
+  API,
+  apiLogin,
+  apiBookByTitle,
+  apiCreateReservation,
+  bearer,
+  newActor,
+  LEITOR,
+  LEITOR_2,
+  BIBLIOTECARIO,
+} from './helpers'
 
 /**
  * Critérios de aceite "via API" das user stories (RN-2, RN-3, RN-7):
  * autorização por papel e regra de disponibilidade, verificadas no contrato HTTP.
  */
 test.describe('Autorização e regras via API (RN-2, RN-3, RN-7)', () => {
-  const bearer = (t: string) => ({ Authorization: `Bearer ${t}` })
 
   test('Leitor não acessa gestão de Reservas nem Empréstimos (403)', async ({ request }) => {
     const { token } = await apiLogin(request, LEITOR.email)
@@ -34,9 +43,66 @@ test.describe('Autorização e regras via API (RN-2, RN-3, RN-7)', () => {
     expect((await request.get(`${API}/me/loans`, { headers: bearer(token) })).status()).toBe(403)
   })
 
-  test('acesso sem token é rejeitado (401)', async ({ request }) => {
-    expect((await request.get(`${API}/me/reservations`)).status()).toBe(401)
-    expect((await request.get(`${API}/reservations`)).status()).toBe(401)
+  // Todas as rotas atrás do `authenticate`, não uma amostra: as gêmeas de /me e as
+  // três de /loans usam o mesmo middleware, e testar uma e não a outra é descuido —
+  // uma rota que perdesse o middleware passaria despercebida.
+  test('acesso sem token é rejeitado em toda rota protegida (401)', async ({ request }) => {
+    const semToken: Array<[string, Promise<{ status: () => number }>]> = [
+      ['GET /me/reservations', request.get(`${API}/me/reservations`)],
+      ['GET /me/loans', request.get(`${API}/me/loans`)],
+      ['GET /reservations', request.get(`${API}/reservations`)],
+      ['POST /reservations', request.post(`${API}/reservations`, { data: { bookId: 'x' } })],
+      ['GET /loans', request.get(`${API}/loans`)],
+      ['POST /loans', request.post(`${API}/loans`, { data: { reservationId: 'x', dueAt: '2026-12-01T10:00:00Z' } })],
+      ['PATCH /loans/:id/return', request.patch(`${API}/loans/qualquer/return`)],
+      ['POST /auth/logout', request.post(`${API}/auth/logout`)],
+    ]
+
+    for (const [rota, pendente] of semToken) {
+      expect((await pendente).status(), rota).toBe(401)
+    }
+  })
+
+  test('token inválido é rejeitado (401)', async ({ request }) => {
+    const res = await request.get(`${API}/me/reservations`, { headers: bearer('nao-e-um-jwt') })
+    expect(res.status()).toBe(401)
+  })
+
+  // P-01 — o userId vem do `sub` do JWT, o que protege por construção. Este teste
+  // trava a propriedade: aceitar um `?userId=` na rota abriria escalação horizontal
+  // sem que nenhum outro teste reclamasse.
+  test('Leitor só enxerga os próprios registros em /me/* (isolamento horizontal)', async ({ playwright }) => {
+    const ana = await newActor(playwright, LEITOR.email)
+    const bruno = await newActor(playwright, LEITOR_2.email)
+
+    // Bruno reserva um Livro dedicado — é o registro que Ana não pode ver
+    const metamorfose = await apiBookByTitle(bruno.ctx, 'A Metamorfose')
+    const reservaDoBruno = await apiCreateReservation(bruno.ctx, bruno.token, metamorfose.id)
+
+    const idsDe = async (actor: { ctx: typeof ana.ctx; token: string }, rota: string, query = '') => {
+      const res = await actor.ctx.get(`${API}${rota}${query}`, { headers: bearer(actor.token) })
+      expect(res.status(), `${rota}${query}`).toBe(200)
+      return ((await res.json()).data as Array<{ id: string; user?: { id: string } }>)
+    }
+
+    const reservasDoBruno = await idsDe(bruno, '/me/reservations')
+    expect(reservasDoBruno.map((r) => r.id)).toContain(reservaDoBruno.id)
+
+    const reservasDaAna = await idsDe(ana, '/me/reservations')
+    expect(reservasDaAna.map((r) => r.id)).not.toContain(reservaDoBruno.id)
+
+    // Ana tem Empréstimo no seed; Bruno não tem nenhum — a lista dele não pode herdá-lo
+    const emprestimosDaAna = await idsDe(ana, '/me/loans')
+    expect(emprestimosDaAna.length).toBeGreaterThan(0)
+    expect(await idsDe(bruno, '/me/loans')).toHaveLength(0)
+
+    // Forjar o id do outro Leitor na query não muda nada: a fonte é o `sub` do token
+    expect(await idsDe(bruno, '/me/loans', `?userId=${ana.user.id}`)).toHaveLength(0)
+    const forjada = await idsDe(bruno, '/me/reservations', `?userId=${ana.user.id}`)
+    expect(forjada.map((r) => r.id)).toEqual(reservasDoBruno.map((r) => r.id))
+
+    await ana.dispose()
+    await bruno.dispose()
   })
 
   test('RN-3 — reservar Livro sem Cópia disponível retorna 409', async ({ request }) => {

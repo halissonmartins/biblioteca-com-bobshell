@@ -6,7 +6,7 @@
  * - 5 autores
  * - 10 livros (2 por autor)
  * - 2 cópias por livro (20 no total)
- * - 1 leitor + 1 bibliotecário (senhas em texto: "senha123")
+ * - 2 leitores + 1 bibliotecário (senhas em texto: "senha123")
  * - 1 reserva ativa (expira em 12h a partir de agora)
  * - 1 empréstimo ativo
  * - avaliações para os livros
@@ -227,6 +227,19 @@ async function main(): Promise<void> {
     },
   });
 
+  // Segundo Leitor sem Reserva nem Empréstimo: existe para que se possa provar
+  // que /me/reservations e /me/loans mostram só os registros de quem pediu —
+  // com um único Leitor no banco, o isolamento é indistinguível de "tudo".
+  await prisma.user.create({
+    data: {
+      name: 'Bruno Costa',
+      email: 'leitor2@biblioteca.dev',
+      passwordHash,
+      role: Role.leitor,
+      address: 'Rua da Consolação, 45 — São Paulo, SP',
+    },
+  });
+
   const bibliotecario = await prisma.user.create({
     data: {
       name: 'Carlos Mendes',
@@ -342,7 +355,8 @@ async function main(): Promise<void> {
 ✅ Seed concluído.
 
   Usuários:
-    leitor@biblioteca.dev        (papel: leitor)
+    leitor@biblioteca.dev        (papel: leitor — com Reserva e Empréstimo)
+    leitor2@biblioteca.dev       (papel: leitor — sem nenhum registro)
     bibliotecario@biblioteca.dev (papel: bibliotecario)
     Senha para ambos: ${PASSWORD_PLAIN}
 
