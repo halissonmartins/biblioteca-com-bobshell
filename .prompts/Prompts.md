@@ -253,3 +253,9 @@ Stack de observabilidade:
 
 ---
 **[15/08/2026 21:25]** crie um PR para a main
+
+---
+**[15/08/2026 21:27]** Rodar make e2e para fechar o último critério de aceite
+
+---
+**[15/08/2026 21:29]** sim
