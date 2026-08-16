@@ -384,3 +384,26 @@ O ponto frágil não é a contagem de endpoints, é *onde* certas regras foram p
 
 ---
 **[16/08/2026 16:49]** commite tudo e crie um pr para a main
+
+---
+**[16/08/2026 17:42]** Eu quero exibir a imagem da capa do livro nos cards.
+Pesquise e analise sobre soluções e boas práticas para resolver esse problema.
+As soluções devem funcionar em ambiente local através de docker.
+a proporção no card que exibe a imagem deve ser mantida.
+Me mostre as opções viáveis para arquitetura atual do projeto.
+
+---
+**[16/08/2026 18:22]** Analisar impacto em todos testes do projeto.
+Analisar impacto em toda documentação do projeto.
+
+---
+**[16/08/2026 18:55]** O site openlibrary está offline. Analise outras alternativas:
+Google Books API: Oferece links diretos para capas em alta resolução através do parâmetro imageLinks no JSON de resposta.
+Google Books Thumbnail Direto: URL enxuta baseada em ISBN sem precisar processar JSON (https://google.com).
+Library Genesis (LibGen): Usado frequentemente em projetos de automação e arquivos digitais que precisam de espelhos alternativos para capas.
+WorldCat (OCLC): Base de dados global de bibliotecas que disponibiliza imagens de capas oficiais para acervos acadêmicos e raros.
+
+Também atualizar os screenshots em ./assets/images
+
+---
+**[16/08/2026 19:58]** commite tudo e crie um PR para main
