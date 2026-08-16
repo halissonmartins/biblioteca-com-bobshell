@@ -49,13 +49,11 @@ npm run install:browsers     # baixa o Chromium (primeira vez)
 npm test                     # webServer sobe API+Web; globalSetup migra+popula
 ```
 
-Onde cada cenário vai: **UI** em `<área>.spec.ts` · **autorização** (401/403,
-isolamento de `/me/*`) em `autorizacao-api.spec.ts` · **contrato HTTP**
-(caminho feliz, validação de entrada, shape, paginação) em `contrato-api.spec.ts` ·
-**tempo e concorrência** em `regras-negocio-api.spec.ts`. Regra com prazo (RN-1, RN-6)
-não é observável esperando: adiante `expiresAt` pelas fixtures de `e2e/db.ts`.
-Valor numérico de regra (12h, 7 dias) se confere no JSON da resposta, nunca só no
-texto formatado da tela.
+Onde cada cenário vai, quais Livros já estão reservados por outros testes e como
+mexer no relógio dos dados: [`e2e/AGENTS.md`](e2e/AGENTS.md) — **leia antes de
+escrever teste E2E**. A regra que mais se esquece: valor numérico de regra (12h de
+RN-1, 7 dias de RN-8) se confere no JSON da resposta, nunca só no texto formatado
+da tela.
 
 **Comandos individuais (packages/api):**
 ```bash
