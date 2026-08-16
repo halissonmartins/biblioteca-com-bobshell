@@ -62,7 +62,10 @@ services:
     profiles: ["obs"]
     ports:
       - "16686:16686"  # UI
-    mem_limit: 512m
+    # 512m não aguentava uma rodada de carga K6: o armazenamento em memória
+    # crescia até o cgroup matar o processo (anon-rss ~470 MB), e com ele ia
+    # todo o histórico de traces.
+    mem_limit: 1g
     restart: unless-stopped
 
   # --- Métricas --------------------------------------------------------------
@@ -75,6 +78,9 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=6h"
       - "--web.enable-lifecycle"
+      # O dashboard importado do marketplace (otel-http-services) usa
+      # double_exponential_smoothing(), função experimental do PromQL 3.x.
+      - "--enable-feature=promql-experimental-functions"
     volumes:
       - ./observabilidade/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - biblioteca-prometheus-data:/prometheus

@@ -57,6 +57,10 @@ make perf                 # roda todos os cenários em sequência
 k6 run perf/scenarios/book-detail.js
 ```
 
+A mesma suíte é usada para **popular os dashboards do Grafana** antes de
+recapturar os screenshots — os comandos estão na §8 de
+[`docs/observabilidade.md`](../docs/observabilidade.md).
+
 ## Variáveis de ambiente (runtime do K6/seed)
 
 Passadas via `k6 run -e VAR=valor` ou pelo ambiente. **Não** são variáveis da

@@ -100,6 +100,12 @@ sem erro, sem aviso e sem métrica.
 - Toda variável `OTEL_*` nova vai para `.env.example` no mesmo PR.
 - Dashboards são JSON versionado em `observabilidade/grafana/dashboards/`, não
   configuração viva na interface: editar pelo Grafana não persiste.
+- Seguir a **semantic convention estável** do OTel (em vez de nomes próprios de
+  métrica) é o que permite usar dashboards de terceiros sem reescrever query — o
+  dashboard 21587 do marketplace roda verbatim sobre a nossa instrumentação e
+  serve de teste de portabilidade. Dashboard importado é adaptado ao ambiente
+  (datasource, painéis que exigem backend inexistente) e a procedência —
+  ID, revisão e lista de adaptações — fica gravada no `description` do JSON.
 - `make clean` deixou de usar `docker compose down -v`, que apagaria também os
   volumes do Prometheus e do Graylog. Para apagar a observabilidade existe o
   alvo separado `make obs-clean`.

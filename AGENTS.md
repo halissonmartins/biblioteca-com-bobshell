@@ -90,6 +90,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **`domain/` não emite telemetria** — nem `@opentelemetry/api`, nem logger. Métricas ficam em `api/` e `infra/` (ADR-0007)
 - **Id de entidade nunca é atributo de métrica** — só de span (cardinalidade)
 - **Métrica nova é declarada em `infra/telemetry/metrics.ts`** e documentada em `docs/observabilidade.md`
+- **Dashboard novo é JSON versionado** em `observabilidade/grafana/dashboards/<uid>.json` (`uid` = nome do arquivo), registrado em `e2e/dashboards.spec.ts` e documentado nas duas seções de `docs/observabilidade.md` (§6 descritiva e §9 com o screenshot). Dashboard vindo do marketplace grava a procedência e as adaptações no campo `description` do JSON
 
 ## Terminologia — use os termos do glossário no código
 
