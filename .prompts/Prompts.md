@@ -378,3 +378,6 @@ O ponto frágil não é a contagem de endpoints, é *onde* certas regras foram p
 
 ---
 **[16/08/2026 15:10]** commite tudo
+
+---
+**[16/08/2026 16:16]** Adicionar arquivos AGENTS.md nas pastas ./observabilidade e ./e2e
