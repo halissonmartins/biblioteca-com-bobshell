@@ -627,15 +627,36 @@ paths:
                   data: { $ref: '#/components/schemas/ReservationDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '422':
-          description: Sem cópias disponíveis (RN-3) ou outro erro de negócio
+        '404':
+          description: Livro não existe no acervo
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
               example:
                 error:
-                  code: NO_COPIES_AVAILABLE
-                  message: Sem cópias disponíveis para este livro
+                  code: NOT_FOUND
+                  message: 'Livro não encontrado: ckv1a2b3c4d5e6f7g8h9'
+        '409':
+          description: |
+            Livro existe, mas nenhuma Cópia está disponível (RN-3). Também é a
+            resposta de quem perde a disputa pela última Cópia entre dois pedidos
+            simultâneos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: NO_COPY_AVAILABLE
+                  message: Não há cópias disponíveis para este livro no momento.
+        '422':
+          description: Corpo inválido (`bookId` ausente ou vazio)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: bookId obrigatório
 
     get:
       summary: Listar todas as reservas (RF-B1, RF-B3)
@@ -744,15 +765,29 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: Reserva expirada (RN-6) ou outro erro de negócio
+        '409':
+          description: |
+            A Reserva existe mas não pode virar Empréstimo (RN-6).
+            `RESERVATION_EXPIRED` quando o prazo de 12h passou — inclusive depois de
+            o job de expiração tê-la cancelado, porque o prazo é avaliado antes do
+            cancelamento. `CONFLICT` quando ela já virou Empréstimo, ou quando foi
+            cancelada com o prazo ainda de pé.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
               example:
                 error:
                   code: RESERVATION_EXPIRED
-                  message: Reserva expirada — criar nova reserva
+                  message: A reserva expirou e não pode ser convertida em empréstimo.
+        '422':
+          description: Corpo inválido (`reservationId` ausente ou `dueAt` fora do ISO 8601)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: 'dueAt deve ser ISO 8601 (ex: 2026-08-21T10:00:00Z)'
 
     get:
       summary: Listar empréstimos ativos (RF-B2, RF-B3)
