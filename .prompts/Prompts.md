@@ -244,3 +244,6 @@ Stack de observabilidade:
 
 ---
 **[15/08/2026 21:17]** faça o commit de tudo o que foi implemntado
+
+---
+**[15/08/2026 21:19]** Verifique se tem algum arquivo no repositório pendende de commit, caso tenha faça o commit
