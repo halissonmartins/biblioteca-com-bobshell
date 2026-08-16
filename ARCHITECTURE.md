@@ -34,10 +34,12 @@ packages/
 │   │   │   ├── jobs/           ← Job de expiração de reservas (se cron)
 │   │   │   └── telemetry/      ← SDK OpenTelemetry, métricas e gauges de negócio
 │   │   └── shared/             ← Erros tipados, logger, utilitários transversais
-│   └── prisma/
-│       ├── schema.prisma       ← Schema do banco (fonte de verdade do modelo)
-│       ├── migrations/         ← Migrations imutáveis após aplicadas
-│       └── seed.ts             ← Dados de desenvolvimento
+│   ├── prisma/
+│   │   ├── schema.prisma       ← Schema do banco (fonte de verdade do modelo)
+│   │   ├── migrations/         ← Migrations imutáveis após aplicadas
+│   │   └── seed.ts             ← Dados de desenvolvimento
+│   └── scripts/                ← Ferramentas de dev fora do processo servidor
+│                                 (baixar-capas.ts — ingestão única, ADR-0008)
 │
 ├── web/                        ← SPA React 18 + TypeScript
 │   └── src/
@@ -94,6 +96,7 @@ PostgreSQL
 | Adicionar dashboard do Grafana | `observabilidade/grafana/dashboards/<uid>.json` → registrar o uid em `e2e/dashboards.spec.ts` → documentar em `docs/observabilidade.md` |
 | Adicionar cenário E2E | pela tela → `e2e/<área>.spec.ts` · autorização → `e2e/autorizacao-api.spec.ts` · contrato HTTP → `e2e/contrato-api.spec.ts` · tempo e concorrência → `e2e/regras-negocio-api.spec.ts` (fixture de relógio em `e2e/db.ts`) |
 | Mexer na stack de observabilidade | `observabilidade/` + perfil `obs` do `docker-compose.yml` |
+| Acrescentar capa de Livro | `make capas` → commitar `assets/capas/<isbn>.jpg` → `make seed` (ADR-0008) |
 
 ## Decisões arquiteturais
 
@@ -108,3 +111,4 @@ Cada decisão estruturante está em `docs/decisoes/`. Resumo dos ADRs ativos:
 | [0005](docs/decisoes/0005-monolito-modular.md) | Monolito modular com camadas explícitas; sem microserviços na v1 |
 | [0006](docs/decisoes/0006-estrategia-de-testes.md) | Vitest (unit + integração) + Playwright (e2e); TDD por critério de aceite |
 | [0007](docs/decisoes/0007-observabilidade.md) | OpenTelemetry + OTLP → Collector → Jaeger/Prometheus/Graylog, visualizado no Grafana |
+| [0008](docs/decisoes/0008-imagens-de-capa.md) | Capas em `assets/capas/`, servidas por nginx do compose; ingestão offline; placa como fallback |

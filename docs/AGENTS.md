@@ -32,6 +32,7 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 - [ADR-0005 — Arquitetura: monolito modular](decisoes/0005-monolito-modular.md)
 - [ADR-0006 — Estratégia de testes](decisoes/0006-estrategia-de-testes.md)
 - [ADR-0007 — Observabilidade: OpenTelemetry e stack local](decisoes/0007-observabilidade.md)
+- [ADR-0008 — Imagens de capa de Livro](decisoes/0008-imagens-de-capa.md)
 
 ## Design
 

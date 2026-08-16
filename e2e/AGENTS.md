@@ -5,9 +5,10 @@ Complementa o [`AGENTS.md`](../AGENTS.md) da raiz. Vale para tudo dentro de `e2e
 ## O que esta pasta é
 
 Playwright contra o **stack real**: API em `:3000`, SPA em `:5173`, Postgres em
-`:5432`. Sem mock, sem stub, sem interceptação de rede. O `webServer` do
-`playwright.config.ts` sobe API e Web; o `global-setup.ts` aplica migrations e
-roda o seed uma vez, antes do primeiro teste.
+`:5432` e o servidor de capas em `:8080`. Sem mock, sem stub, sem interceptação
+de rede. O `webServer` do `playwright.config.ts` sobe API e Web; o
+`global-setup.ts` aplica migrations e roda o seed uma vez, antes do primeiro
+teste. Postgres e capas vêm do `docker compose up -d` — os dois, não só o banco.
 
 Os `*.test.ts` dentro de `packages/api` **não são E2E**: são Vitest + supertest com
 `vi.mock` nos repositórios, justamente para não tocar o banco. Um bug que só
@@ -23,6 +24,10 @@ aparece com Prisma e Postgres de verdade passa por eles.
 | `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar |
 | `helpers.ts` | Login, arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
+
+`screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele cria
+Reserva só para posar para a foto e estragaria a Disponibilidade que os outros
+specs afirmam. Roda por `make screenshots` e grava em `assets/images/`.
 
 `dashboards.spec.ts` **não faz parte da suíte**: fica atrás de `OBS=1`, roda com
 `playwright.dashboards.config.ts` e é chamado por `make obs-dashboards`.
@@ -50,6 +55,13 @@ não expõe endpoint que envelheça uma Reserva. Use as fixtures de `db.ts`
 caminho continua sendo o de produção. Para UI que depende do relógio (a contagem
 regressiva de US-04, que avança a cada 30 s), use `page.clock.install()` antes do
 `goto` e `fastForward`, nunca `waitForTimeout`.
+
+**O servidor de capas não é opcional.** Com `coverUrl` no seed e o container
+`capas` fora do ar, o proxy do Vite devolve 502 para cada `/capas/…` e as
+requisições da API ficam atrás das imagens no limite de conexões do Chromium:
+`catalogo.spec.ts` quebra por timeout no filtro de busca — não cai em fallback
+silencioso. Medido: 3 testes vermelhos nesse estado. `docker compose up -d`
+antes de rodar a suíte, e o job `e2e-ci` sobe o serviço explicitamente.
 
 **O job de expiração está rodando.** A API sobe o job de `index.ts`, que a cada minuto
 cancela Reservas vencidas e devolve as Cópias ao acervo. Todo dado que o teste vencer

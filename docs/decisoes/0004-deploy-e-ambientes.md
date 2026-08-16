@@ -33,6 +33,10 @@ Tag v*.*.*  →  Deploy em production
 - Build: `docker build` com multi-stage (deps → build → runtime)
 - Deploy: rollback via re-deploy da imagem anterior na plataforma
 
+### Ativos estáticos
+
+As capas de Livro são servidas em `/capas/…` — localmente pelo nginx do `docker-compose.yml`, em staging e produção **pela mesma origem da SPA** (ou por um CDN à frente dela). É por isso que `coverUrl` guarda caminho relativo: nenhum ambiente precisa de variável nova. Ver [ADR-0008](0008-imagens-de-capa.md), inclusive o motivo de o edge precisar falar HTTP/2.
+
 ### Variáveis de ambiente
 
 Gerenciadas pela plataforma de deploy (não em arquivos `.env` no repositório).

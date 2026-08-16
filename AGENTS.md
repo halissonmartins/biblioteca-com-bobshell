@@ -33,6 +33,8 @@ make test     # Vitest — todos os testes unitários e de integração
 make lint     # ESLint + TypeScript typecheck
 make build    # build de produção
 make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
+make capas    # baixa as capas ausentes para assets/capas/ — só ao incluir Livro novo (ADR-0008)
+make screenshots # recaptura as telas de assets/images/ que o README usa
 ```
 
 **Rodar um único teste:**
@@ -91,6 +93,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **Nunca editar migration já aplicada** — criar nova migration que corrige
 - **Nunca desabilitar lint/tipo/teste** para fazer build ou CI passar
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
+- **Capa de Livro é arquivo em `assets/capas/<isbn>.jpg`**, versionado, servido pelo nginx do compose. `coverUrl` guarda caminho relativo (`/capas/…`), nunca URL externa — nada de imagem sai da rede em runtime (ADR-0008)
 - Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`
 - Toda variável de ambiente nova vai para `.env.example` no mesmo PR
 - **`domain/` não emite telemetria** — nem `@opentelemetry/api`, nem logger. Métricas ficam em `api/` e `infra/` (ADR-0007)

@@ -161,6 +161,15 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
+      # O Postgres do job vem do `services:` acima, mas o servidor de capas
+      # (ADR-0008) precisa do repositório já clonado para montar assets/capas/.
+      # Sem ele o Catálogo pede /capas/… a um upstream morto: o proxy do Vite
+      # devolve 502 depois de segurar a conexão, e as requisições da API ficam
+      # atrás das imagens no limite de conexões do Chromium — catalogo.spec.ts
+      # quebra por timeout, não por fallback.
+      - name: Subir o servidor de capas
+        run: docker compose up -d --wait capas
+
       - name: Rodar testes E2E
         working-directory: e2e
         run: npm test

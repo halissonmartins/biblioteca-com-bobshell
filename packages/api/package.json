@@ -16,6 +16,7 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:perf": "tsx prisma/seed-perf.ts",
+    "capas:baixar": "tsx scripts/baixar-capas.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

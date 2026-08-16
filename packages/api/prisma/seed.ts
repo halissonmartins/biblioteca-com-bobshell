@@ -12,6 +12,8 @@
  * - avaliações para os livros
  */
 
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaClient, CopyStatus, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -19,6 +21,17 @@ const prisma = new PrismaClient();
 
 const BCRYPT_COST = 12;
 const PASSWORD_PLAIN = 'senha123';
+
+const CAPAS_DIR = join(__dirname, '..', '..', '..', 'assets', 'capas');
+
+/**
+ * Caminho público da capa — relativo de propósito (ADR-0008): o mesmo dump de
+ * banco serve dev, e2e e produção, que só diferem em quem responde /capas/.
+ * Livro sem arquivo fica com `null` e o Catálogo desenha a placa tipográfica.
+ */
+function capaDe(isbn: string): string | null {
+  return existsSync(join(CAPAS_DIR, `${isbn}.jpg`)) ? `/capas/${isbn}.jpg` : null;
+}
 
 async function main(): Promise<void> {
   console.info('🌱 Iniciando seed…');
@@ -112,7 +125,7 @@ async function main(): Promise<void> {
     // Clarice
     prisma.book.create({
       data: {
-        isbn: '9788535922783',
+        isbn: '9780811219495',
         title: 'A Hora da Estrela',
         genre: 'Ficção brasileira',
         synopsis: 'A história de Macabéa, migrante nordestina no Rio de Janeiro.',
@@ -122,7 +135,7 @@ async function main(): Promise<void> {
     }),
     prisma.book.create({
       data: {
-        isbn: '9788535918441',
+        isbn: '9780811219686',
         title: 'A Paixão Segundo G.H.',
         genre: 'Ficção brasileira',
         synopsis: 'Intensa experiência mística de uma mulher ao esmagitar uma barata.',
@@ -143,7 +156,7 @@ async function main(): Promise<void> {
     }),
     prisma.book.create({
       data: {
-        isbn: '9788535913255',
+        isbn: '9780143135036',
         title: 'Memórias Póstumas de Brás Cubas',
         genre: 'Romance clássico',
         synopsis: 'Um defunto autor narra sua própria vida com ironia e pessimismo.',
@@ -154,7 +167,7 @@ async function main(): Promise<void> {
     // García Márquez
     prisma.book.create({
       data: {
-        isbn: '9780060883287',
+        isbn: '9780307474728',
         title: 'Cem Anos de Solidão',
         genre: 'Realismo mágico',
         synopsis: 'A saga da família Buendía na fictícia Macondo.',
@@ -164,7 +177,7 @@ async function main(): Promise<void> {
     }),
     prisma.book.create({
       data: {
-        isbn: '9780679722427',
+        isbn: '9780307387264',
         title: 'O Amor nos Tempos do Cólera',
         genre: 'Realismo mágico',
         synopsis: 'Uma história de amor que dura mais de cinquenta anos.',
@@ -175,7 +188,7 @@ async function main(): Promise<void> {
     // Kafka
     prisma.book.create({
       data: {
-        isbn: '9780805209990',
+        isbn: '9780805210576',
         title: 'A Metamorfose',
         genre: 'Ficção absurda',
         synopsis: 'Gregor Samsa acorda transformado em um enorme inseto.',
@@ -194,6 +207,17 @@ async function main(): Promise<void> {
       },
     }),
   ]);
+
+  // ------------------------------------------------------------------
+  // Capas — só para os Livros que já têm arquivo em assets/capas/
+  // (baixados uma única vez por `make capas` e versionados no repositório)
+  // ------------------------------------------------------------------
+  for (const book of books) {
+    const coverUrl = capaDe(book.isbn);
+    if (coverUrl) {
+      await prisma.book.update({ where: { id: book.id }, data: { coverUrl } });
+    }
+  }
 
   // ------------------------------------------------------------------
   // Cópias (2 por livro)

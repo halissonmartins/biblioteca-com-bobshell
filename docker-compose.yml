@@ -1,4 +1,4 @@
-# Postgres para desenvolvimento e testes E2E locais.
+# Postgres e servidor de capas para desenvolvimento e testes E2E locais.
 # Uso: docker compose up -d  (antes de `make dev` ou `npm test` em e2e/)
 #
 # A stack de observabilidade fica atrás do perfil `obs` e NÃO sobe no comando
@@ -22,6 +22,30 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Capas de Livro — nginx servindo assets/capas/ como o CDN serviria em
+  # produção (ADR-0008). Fica fora de qualquer profile porque o Catálogo e o
+  # e2e contam com ele desde o primeiro `docker compose up -d`.
+  #
+  # Os arquivos são versionados no repositório; `make capas` só é necessário
+  # para acrescentar capa de Livro novo. O front nunca fala com a porta 8080
+  # diretamente: pede /capas/… à própria origem e o Vite faz o proxy.
+  capas:
+    image: nginx:1.29-alpine
+    container_name: biblioteca-capas
+    volumes:
+      - ./assets/capas:/usr/share/nginx/html/capas:ro
+    ports:
+      - "8080:80"
+    mem_limit: 64m
+    healthcheck:
+      # Bate na raiz (index.html padrão do nginx), não em /capas/: listagem de
+      # diretório é desligada por padrão e responderia 403.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   # ===========================================================================
   # Observabilidade (perfil `obs`)
