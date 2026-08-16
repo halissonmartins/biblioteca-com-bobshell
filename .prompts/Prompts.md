@@ -259,3 +259,23 @@ Stack de observabilidade:
 
 ---
 **[15/08/2026 21:29]** sim
+
+---
+**[16/08/2026 08:44]** Pesquisar um dashboard no marketplace do grafana para exibir as métricas default obtidas pelo OTel SKD e adicionar no grafana
+Executar teste de performance leve para gerar gerar as métricas e popular os dashboards
+Tirar screenshot do novo dashboard e salvar no diretório ./assets/images/dashboards
+Adicionar o novo dashboard em nova sessão do arquivo ./docs/observabilidade.md e seu screenshot
+Analisar impacto da inclusão de tudo o que foi feito sobre observabilidade na documentação
+
+---
+**[16/08/2026 09:42]** Verifique se houve impacto nos dados dos seguintes serviços após a mudança:
+- Prometheus (métricas)
+- Grafana (dashboards)
+- Jaeger (traces)
+- Graylog (logs)
+
+---
+**[16/08/2026 09:52]** aumenta o mem_limit do Jaeger e sobe de novo
+
+---
+**[16/08/2026 09:58]** commite tudo e crie um PR para main
