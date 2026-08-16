@@ -49,6 +49,12 @@ npm run install:browsers     # baixa o Chromium (primeira vez)
 npm test                     # webServer sobe API+Web; globalSetup migra+popula
 ```
 
+Onde cada cenário vai, quais Livros já estão reservados por outros testes e como
+mexer no relógio dos dados: [`e2e/AGENTS.md`](e2e/AGENTS.md) — **leia antes de
+escrever teste E2E**. A regra que mais se esquece: valor numérico de regra (12h de
+RN-1, 7 dias de RN-8) se confere no JSON da resposta, nunca só no texto formatado
+da tela.
+
 **Comandos individuais (packages/api):**
 ```bash
 cd packages/api

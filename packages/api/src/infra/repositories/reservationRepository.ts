@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '../prisma.js';
+import { bookExists } from './bookRepository.js';
 import type { ReservationServiceDeps } from '../../domain/reservation/reservationService.js';
 import type { ReservationSummary, ReservationDetail } from '../../domain/reservation/reservationTypes.js';
 
@@ -36,27 +37,37 @@ export async function findAvailableCopy(
 
 /**
  * Persiste a nova Reserva e marca a Cópia como 'reserved' em uma única transação.
- * Protege contra race condition (dois leitores reservando a mesma Cópia ao mesmo tempo).
+ * Retorna null se a Cópia já não estava disponível.
+ *
+ * O UPDATE é condicionado a `status: 'available'`: é ele que decide quem leva a
+ * última Cópia. Duas requisições concorrentes enxergam a mesma Cópia livre em
+ * findAvailableCopy; a segunda espera o lock da linha, reavalia o WHERE depois do
+ * commit da primeira e não afeta nenhuma linha — daí `count === 0`. Sem essa
+ * condição a transação existia mas não protegia nada: oito pedidos simultâneos
+ * pela última Cópia criavam oito Reservas (RN-3, RN-4). Coberto por
+ * `e2e/regras-negocio-api.spec.ts`.
  */
 export async function createReservationTx(params: {
   userId: string;
   copyId: string;
   expiresAt: Date;
-}): Promise<{ reservationId: string }> {
+}): Promise<{ reservationId: string } | null> {
   const { userId, copyId, expiresAt } = params;
 
-  const [reservation] = await prisma.$transaction([
-    prisma.reservation.create({
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.copy.updateMany({
+      where: { id: copyId, status: 'available' },
+      data: { status: 'reserved' },
+    });
+    if (count === 0) return null;
+
+    const reservation = await tx.reservation.create({
       data: { userId, copyId, expiresAt },
       select: { id: true },
-    }),
-    prisma.copy.update({
-      where: { id: copyId },
-      data: { status: 'reserved' },
-    }),
-  ]);
+    });
 
-  return { reservationId: reservation.id };
+    return { reservationId: reservation.id };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +379,9 @@ export async function findAllReservations(userId?: string): Promise<ReservationD
 
 export const reservationRepoDeps: ReservationServiceDeps = {
   findAvailableCopy,
+  // `books` é do bookRepository — este arquivo continua dono só de `reservations` e
+  // `copies`. Aqui a função só é composta nas dependências do serviço, não redefinida.
+  bookExists,
   createReservationTx,
   findActiveReservationsByUser,
   findReservationsByBook,

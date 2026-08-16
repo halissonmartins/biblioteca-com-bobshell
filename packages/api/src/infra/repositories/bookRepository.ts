@@ -96,6 +96,20 @@ export async function findBooks(
 }
 
 // ---------------------------------------------------------------------------
+// bookExists — distingue "Livro não existe" de "Livro sem Cópia livre" (RN-3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Só responde se o Livro existe. Separado de findBookById porque roda no caminho
+ * de erro da Reserva, onde sinopse, avaliações e contagem de Cópias não servem
+ * para nada.
+ */
+export async function bookExists(id: string): Promise<boolean> {
+  const row = await prisma.book.findUnique({ where: { id }, select: { id: true } });
+  return row !== null;
+}
+
+// ---------------------------------------------------------------------------
 // findBookById — para getBook() (RF-L2, RNF-1 < 300 ms)
 // ---------------------------------------------------------------------------
 

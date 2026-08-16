@@ -103,17 +103,22 @@ export async function createLoan(
     );
   }
 
-  if (reservation.cancelledAt !== null) {
-    throw new AppError(
-      'CONFLICT',
-      'Esta reserva foi cancelada e não pode ser convertida em empréstimo.',
-    );
-  }
-
+  // O prazo é checado antes do cancelamento de propósito. O job de expiração grava
+  // `cancelledAt` para registrar que a Reserva venceu (RN-1), então uma Reserva
+  // vencida chega aqui cancelada — e dizer ao Bibliotecário que ela "foi cancelada"
+  // manda ele procurar um cancelamento que ninguém fez. Quem venceu, venceu; o
+  // cancelamento só responde por si quando o prazo ainda estava de pé.
   if (reservation.expiresAt <= now) {
     throw new AppError(
       'RESERVATION_EXPIRED',
       'A reserva expirou e não pode ser convertida em empréstimo.',
+    );
+  }
+
+  if (reservation.cancelledAt !== null) {
+    throw new AppError(
+      'CONFLICT',
+      'Esta reserva foi cancelada e não pode ser convertida em empréstimo.',
     );
   }
 

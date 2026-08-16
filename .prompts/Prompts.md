@@ -279,3 +279,108 @@ Analisar impacto da inclusão de tudo o que foi feito sobre observabilidade na d
 
 ---
 **[16/08/2026 09:58]** commite tudo e crie um PR para main
+
+---
+**[16/08/2026 10:29]** Implemente essas evoluções nos testes E2E.
+A suíte E2E roda contra o stack real (API + SPA + Postgres, migrations e seed via `global-setup.ts`), sem mocks. Um único spec — `autorizacao-api.spec.ts`, 5 testes — ataca a API diretamente pelo fixture `request`; os demais dirigem o navegador. Os `*.test.ts` dentro de `packages/api` são Vitest + supertest com repositórios mockados (`vi.mock` para "evitar acesso ao Prisma/DB") — não contam como E2E.
+
+| Endpoints com verificação HTTP direta no E2E | 10 de 14 |
+| Endpoints com **caminho feliz** verificado no contrato HTTP | 5 de 14 |
+| Endpoints sem exercício algum (nem via UI) | 1 (`POST /auth/refresh`) |
+
+## 2. Cobertura por endpoint
+
+Legenda: **API** = assert direto no contrato HTTP · **UI** = exercitado pelo navegador · — = ausente
+
+| Endpoint | Papel | Sucesso | 401 | 403 | Erro de negócio |
+|---|---|---|---|---|---|
+| `GET /health` | público | probe do webServer | n/a | n/a | — |
+| `POST /auth/login` | público | **API** 200 | n/a | n/a | UI (credenciais inválidas) |
+| `POST /auth/refresh` | público | — | — | n/a | — |
+| `POST /auth/logout` | autenticado | UI | — | n/a | — |
+| `GET /authors/:slug` | público | UI | n/a | n/a | — |
+| `GET /books` | público | **API** 200 | n/a | n/a | — |
+| `GET /books/:id` | público | **API** 200 | n/a | n/a | — |
+| `POST /reservations` | leitor | **API** 201 | — | **API** | **API** 409 (RN-3) |
+| `GET /reservations` | bibliotecário | UI | **API** | **API** | — |
+| `POST /loans` | bibliotecário | **API** 201 | — | **API** | UI (reserva expirada) |
+| `PATCH /loans/:id/return` | bibliotecário | UI | — | **API** | — |
+| `GET /loans` | bibliotecário | UI | — | **API** | — |
+| `GET /me/reservations` | leitor | UI | **API** | **API** | — |
+| `GET /me/loans` | leitor | UI | — | **API** | — |
+
+## 3. Cenários pendentes
+
+### 3.1 Bloqueantes de regra de negócio
+
+| # | Cenário pendente | Onde deveria estar | Por que importa |
+|---|---|---|---|
+| P-01 | **Isolamento de dados em `/me/*`** — provar que o Leitor A não vê registros do Leitor B | `autorizacao-api.spec.ts` | Hoje o `userId` vem do `sub` do JWT, o que protege por construção. Nada trava essa propriedade: aceitar `?userId=` (melhoria já cogitada no README) abriria escalação horizontal em silêncio. **Impedimento:** o seed cria só 1 leitor — a fixture precisa mudar antes do teste. |
+| P-02 | **RN-1 — expiração em 12h com valor exato** | `autorizacao-api.spec.ts`, no `POST /reservations` | O E2E valida apenas o texto "Retire o livro até" e uma regex `\d{2}/\d{2}/\d{4}`. Trocar 12h por 24h passa verde na suíte inteira. O `expiresAt` está na resposta 201 e não é conferido. |
+| P-03 | **RN-1/RN-5 — expiração automática libera a cópia** | E2E (com manipulação de relógio ou de dado) | O job tem teste unitário (`expireReservations.test.ts`), mas o efeito ponta a ponta — reserva expira → `availableCopies` volta a subir → some de `/me/reservations` — nunca é observado no sistema real. |
+| P-04 | **Race condition na última cópia** (duas reservas simultâneas) | `autorizacao-api.spec.ts` | Estado de erro global documentado em `fluxos.md` e critério de aceite de US-03. Só é testável via API (duas requisições concorrentes) — a UI não consegue expressar o cenário. Zero cobertura. |
+| P-05 | **RN-6 — efetivar empréstimo de reserva expirada retorna erro** | `autorizacao-api.spec.ts` | Coberto só pela mensagem no modal da UI. O código HTTP e o `code` do erro não são verificados, nem a garantia de que nenhum empréstimo foi criado. |
+
+### 3.2 Contrato e validação
+
+| # | Cenário pendente | Detalhe |
+|---|---|---|
+| P-06 | Validação de entrada do `POST /reservations` | Corpo sem `bookId` (`VALIDATION_ERROR` do Zod) e `bookId` inexistente — nenhum exercício HTTP. |
+| P-07 | Shape das respostas de `/me/reservations` e `/me/loans` | O envelope `{ data: [...] }` e os campos de cada item só são vistos pela tela. Mudança de contrato com ajuste simultâneo no front passa despercebida. |
+| P-08 | `POST /auth/refresh` | Único endpoint sem exercício algum no E2E. Coberto só em nível de domínio (`authService.test.ts`), com repositório mockado. Não há teste de rotação de token no stack real. |
+| P-09 | `POST /auth/logout` e `GET /authors/:slug` no nível HTTP | Exercitados pelo navegador (botão "Sair", rota `/autores/:slug`), mas sem assert de status/corpo. |
+| P-10 | 401 faltante em `/me/loans`, `GET /loans`, `POST /loans`, `PATCH /loans/:id/return` | O teste "acesso sem token é rejeitado (401)" cobre só `/me/reservations` e `/reservations`. Nas rotas `/me`, gêmeas e com o mesmo middleware, uma foi testada e a outra não — é descuido, não decisão. |
+| P-11 | Paginação de `GET /books` | O helper força `?pageSize=100` para não lidar com páginas. Limite, offset e contagem total não têm assert. |
+
+## 4. Impacto nos cenários da documentação
+
+`user-stories.md` abre com a regra: *"Cada critério deve ser verificável por um teste automatizado — se não for, a história está vaga."* O confronto critério a critério mostra onde a suíte não honra isso.
+
+### Critérios de aceite sem teste correspondente
+
+| História | Critério documentado | Situação |
+|---|---|---|
+| **US-03** | "recebo confirmação com data e hora de expiração (**12h a partir de agora**)" | Verificado como *existe uma data*, não como *é 12h*. → P-02 |
+| **US-03** | "outra pessoa tenta reservar a mesma Cópia → recebe erro ou encontra Disponibilidade = 0" | Sem teste. → P-04 |
+| **US-03** | "passam 12 horas sem efetivação → Reserva expira e a Cópia volta ao acervo" | Só unitário. → P-03 |
+| **US-04** | "tempo restante (`11 h 49 min`) **avança sozinho, sem recarregar a página**" | Sem teste. A suíte só confere a data de expiração. |
+| **US-04** | "Reserva que expira em < 1h aparece destacada como **Expira em breve** com aviso de retirada urgente" | Sem teste — e sem fixture: o seed não cria reserva nessa janela. |
+| **US-04** | "todas as Reservas expiraram → lista vazia com mensagem informativa" | Sem teste do estado vazio. |
+| **US-05** | "empréstimos próximos do vencimento estão **destacados visualmente**" | Sem teste. Só se verifica "Em curso" e a data. |
+| **US-09** | "filtro pelo **nome ou email** de um Leitor" | O teste filtra por **ID**. O critério documentado não é implementado — o próprio README reconhece a lacuna em "Melhorias futuras". Divergência doc × código, não só doc × teste. |
+| **US-10** | "vencimento registrado com **7 dias corridos** (RN-8)" | Verificado no `value` do `input[type=date]` e na mensagem da UI. O campo `dueAt` da resposta da API não é conferido. |
+| **US-02** | "página carrega em **< 300 ms**" | Fora do E2E; há cenários K6 em `perf/` (`book-detail.js`, `catalog-search.js`, `reader-lists.js`, `loan-return.js`), mas rodam sob demanda, não no CI. |
+| **US-04 / US-05** | "alvo: < 500 ms" | Idem — coberto por `perf/reader-lists.js`, fora do gate de CI. |
+
+### `fluxos.md` — estados de erro globais
+
+| Estado de erro | Situação |
+|---|---|
+| Usuário não autenticado tenta reservar → redireciona e **retorna para a ação** | O E2E cobre o redirect (`autenticacao.spec.ts`), mas não o retorno à ação pendente após login. |
+| Leitor tenta rota de Bibliotecário → 403 | **Coberto**, em duas camadas (API e UI). |
+| Indisponibilidade momentânea → "não perder o estado do formulário" | Sem teste. Exigiria simular falha da API. |
+| Race condition na última cópia | Sem teste. → P-04 |
+
+### `AGENTS.md` — definition of done
+
+> *"Toda rota nova declara o papel permitido e tem teste de autorização (papel errado → 403)."*
+
+Por esse critério declarado, a suíte **cumpre o combinado** — todas as rotas protegidas têm 403 verificado. As pendências acima não são violação da DoD do projeto; são a consequência de a DoD falar apenas de autorização e silenciar sobre contrato de sucesso, validação de entrada e regras numéricas.
+
+## 5. Leitura de conjunto
+
+O padrão é consistente: **a API é testada onde ela nega, e a UI é testada onde ela concede.** Autorização (401/403) vive no contrato HTTP; caminho feliz vive na tela. É defensável num produto com um único cliente — a própria SPA — e deixa de ser assim que a API ganhar consumidor externo.
+
+O ponto frágil não é a contagem de endpoints, é *onde* certas regras foram parar. RN-1 (12h), RN-8 (7 dias) e o isolamento de `/me/*` são propriedades numéricas ou de segurança que hoje só são observadas através de texto formatado em tela — o lugar onde menos resistem a refatoração.
+
+---
+**[16/08/2026 13:52]** corrigir os dois achados
+
+---
+**[16/08/2026 15:10]** commite tudo
+
+---
+**[16/08/2026 16:16]** Adicionar arquivos AGENTS.md nas pastas ./observabilidade e ./e2e
+
+---
+**[16/08/2026 16:49]** commite tudo e crie um pr para a main

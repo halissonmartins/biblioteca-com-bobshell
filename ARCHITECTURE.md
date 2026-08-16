@@ -92,6 +92,7 @@ PostgreSQL
 | Tipos compartilhados | `packages/shared/types/` |
 | Adicionar métrica ou span | `packages/api/src/infra/telemetry/` → documentar em `docs/observabilidade.md` |
 | Adicionar dashboard do Grafana | `observabilidade/grafana/dashboards/<uid>.json` → registrar o uid em `e2e/dashboards.spec.ts` → documentar em `docs/observabilidade.md` |
+| Adicionar cenário E2E | pela tela → `e2e/<área>.spec.ts` · autorização → `e2e/autorizacao-api.spec.ts` · contrato HTTP → `e2e/contrato-api.spec.ts` · tempo e concorrência → `e2e/regras-negocio-api.spec.ts` (fixture de relógio em `e2e/db.ts`) |
 | Mexer na stack de observabilidade | `observabilidade/` + perfil `obs` do `docker-compose.yml` |
 
 ## Decisões arquiteturais

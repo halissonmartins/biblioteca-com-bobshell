@@ -63,6 +63,7 @@ function makeReservationDetail(overrides?: Partial<ReservationDetail>): Reservat
 function makeDeps(overrides?: Partial<ReservationServiceDeps>): ReservationServiceDeps {
   return {
     findAvailableCopy: vi.fn().mockResolvedValue(AVAILABLE_COPY),
+    bookExists: vi.fn().mockResolvedValue(true),
     createReservationTx: vi.fn().mockResolvedValue({ reservationId: 'res-1' }),
     findActiveReservationsByUser: vi.fn().mockResolvedValue([]),
     findReservationsByBook: vi.fn().mockResolvedValue([]),
@@ -135,6 +136,37 @@ describe('createReservation()', () => {
       copyId: 'copy-1',
       expiresAt: EXPECTED_EXPIRES_AT,
     });
+  });
+
+  it('lança NOT_FOUND quando o Livro não existe no acervo', async () => {
+    const deps = makeDeps({
+      findAvailableCopy: vi.fn().mockResolvedValue(null),
+      bookExists: vi.fn().mockResolvedValue(false),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-fantasma' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('não consulta a existência do Livro no caminho de sucesso', async () => {
+    const deps = makeDeps();
+
+    await createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW);
+
+    expect(deps.bookExists).not.toHaveBeenCalled();
+  });
+
+  it('lança NO_COPY_AVAILABLE quando a Cópia é levada por outro Leitor entre a leitura e a escrita (RN-3)', async () => {
+    // createReservationTx devolve null: o UPDATE condicional não achou a Cópia
+    // ainda disponível — perdeu a corrida pela última Cópia.
+    const deps = makeDeps({
+      createReservationTx: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'NO_COPY_AVAILABLE' });
   });
 
   it('não chama createReservationTx se não há Cópia disponível', async () => {

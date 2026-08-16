@@ -40,12 +40,19 @@ export interface ReservationServiceDeps {
   /** Retorna uma Cópia com status='available' para o Livro, ou null se não houver (RN-3) */
   findAvailableCopy: (bookId: string) => Promise<AvailableCopy | null>;
 
-  /** Persiste a nova Reserva e marca a Cópia como 'reserved' em uma única transação (RN-4) */
+  /** Diz se o Livro existe no acervo — consultado só quando não há Cópia livre */
+  bookExists: (bookId: string) => Promise<boolean>;
+
+  /**
+   * Persiste a nova Reserva e marca a Cópia como 'reserved' em uma única transação (RN-4).
+   * Retorna null se a Cópia deixou de estar disponível entre findAvailableCopy e a
+   * escrita — outro Leitor chegou primeiro (RN-3, race condition da última Cópia).
+   */
   createReservationTx: (params: {
     userId: string;
     copyId: string;
     expiresAt: Date;
-  }) => Promise<{ reservationId: string }>;
+  }) => Promise<{ reservationId: string } | null>;
 
   /** Lista as Reservas ativas (não expiradas) do Leitor (RF-L4) */
   findActiveReservationsByUser: (
@@ -70,6 +77,12 @@ export async function createReservation(
   // RN-3: só reservar se houver Cópia disponível
   const availableCopy = await deps.findAvailableCopy(input.bookId);
   if (!availableCopy) {
+    // "Livro esgotado" e "Livro que não existe" são situações diferentes para quem
+    // chama: uma é esperar a Cópia voltar, a outra é o id estar errado. A consulta
+    // extra só acontece aqui, no caminho de erro — o caso de sucesso não paga por ela.
+    if (!(await deps.bookExists(input.bookId))) {
+      throw new AppError('NOT_FOUND', `Livro não encontrado: ${input.bookId}`);
+    }
     throw new AppError(
       'NO_COPY_AVAILABLE',
       'Não há cópias disponíveis para este livro no momento.',
@@ -80,14 +93,24 @@ export async function createReservation(
   const expiresAt = new Date(now.getTime() + RESERVATION_TTL_MS);
 
   // RN-4: Cópia passa para 'reserved' atomicamente com a criação da Reserva
-  const { reservationId } = await deps.createReservationTx({
+  const created = await deps.createReservationTx({
     userId: input.userId,
     copyId: availableCopy.id,
     expiresAt,
   });
 
+  // RN-3: a leitura de disponibilidade e a escrita não são o mesmo instante. Sob
+  // concorrência, dois Leitores encontram a mesma Cópia livre e só um a leva —
+  // o outro recebe a mesma resposta de quem tentou reservar sem Cópia nenhuma.
+  if (!created) {
+    throw new AppError(
+      'NO_COPY_AVAILABLE',
+      'Não há cópias disponíveis para este livro no momento.',
+    );
+  }
+
   return {
-    reservationId,
+    reservationId: created.reservationId,
     copyId: availableCopy.id,
     expiresAt: expiresAt.toISOString(),
   };
