@@ -39,7 +39,19 @@ make lint     # ESLint + TypeScript typecheck
 make build    # build de produção (api + web)
 make migrate  # aplica migrations Prisma pendentes
 make seed     # popula banco com dados de desenvolvimento
+make capas    # baixa as capas ausentes (só ao incluir Livro novo)
+make screenshots # recaptura as telas de assets/images/ usadas neste README
 ```
+
+### Capas de Livro
+
+As imagens ficam em `assets/capas/<isbn>.jpg`, versionadas no repositório, e são
+servidas pelo nginx do `docker-compose.yml` em http://localhost:8080 — o Vite faz
+proxy de `/capas` para lá, então nada depende de rede externa em tempo de
+execução. Livro sem arquivo aparece com a placa tipográfica gerada: hoje 6 dos 10
+Livros do seed têm capa, e os outros 4 mostram a placa. A ingestão é do Google
+Books, com o Open Library como reserva. Ver
+[ADR-0008](docs/decisoes/0008-imagens-de-capa.md).
 
 ### Observabilidade
 

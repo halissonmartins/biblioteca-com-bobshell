@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { zoneBackground } from '@/utils/zone'
 
 type PlateSize = 'card' | 'hero'
@@ -6,7 +7,7 @@ interface BookPlateProps {
   title: string
   author: string
   genre: string
-  /** Capa real, quando o acervo tiver uma. A placa é o padrão, não o fallback triste. */
+  /** Capa real do acervo (ADR-0008). Sem ela — ou se a imagem falhar — vale a placa. */
   coverUrl?: string | null
   /** Código da Cópia ou ISBN — a placa de sinalização real sempre carrega o seu */
   code?: string | null
@@ -20,28 +21,42 @@ interface BookPlateProps {
 }
 
 /**
- * Placa tipográfica de um Livro.
+ * Capa de um Livro: a imagem do acervo quando ela existe, a placa tipográfica
+ * quando não existe (ADR-0008).
  *
- * O acervo não tem imagens de capa, e dez emojis idênticos ocupavam 65% do
- * catálogo carregando zero informação. Aqui o tipo faz todos os cargos: a zona
- * de gênero dá a cor, o título dá a forma, e duas placas nunca saem iguais
- * porque dois Livros nunca têm o mesmo título.
+ * A placa não é um fallback triste: a zona de gênero dá a cor, o título dá a
+ * forma, e duas placas nunca saem iguais porque dois Livros nunca têm o mesmo
+ * título. Ela cobre o acervo de 250 mil Livros que nunca terá arte, e cobre
+ * também a imagem que falhou em carregar — capa quebrada não vira ícone cinza.
  *
- * Sem imagem, sem ícone, sem emoji — é essa disciplina que o mundo comprou.
+ * Sem ícone e sem emoji: essa parte da disciplina continua de pé.
  */
 export function BookPlate({ title, author, genre, coverUrl, code, size = 'card', asHeading = false }: BookPlateProps) {
-  if (coverUrl) {
-    return (
-      <img
-        src={coverUrl}
-        alt={`Capa de ${title}`}
-        className="w-full h-full object-cover"
-      />
-    )
-  }
-
+  const [imagemFalhou, setImagemFalhou] = useState(false)
   const hero = size === 'hero'
   const Titulo = asHeading ? 'h3' : 'p'
+
+  if (coverUrl && !imagemFalhou) {
+    return (
+      <>
+        {/* A imagem substitui o desenho do título, não o título: como item de
+            lista o card continua precisando do heading na árvore de
+            acessibilidade, e `alt` de imagem não cumpre esse papel. */}
+        {asHeading && <h3 className="sr-only">{title}</h3>}
+        <img
+          src={coverUrl}
+          alt={`Capa de ${title}`}
+          // A chapa 2:3 é do card; a capa preenche sem distorcer, cortando o
+          // que sobra quando a proporção do arquivo não bate exatamente.
+          className="w-full h-full object-cover"
+          loading={hero ? 'eager' : 'lazy'}
+          fetchPriority={hero ? 'high' : 'auto'}
+          decoding="async"
+          onError={() => setImagemFalhou(true)}
+        />
+      </>
+    )
+  }
 
   // O título é a forma da placa, não uma legenda sob um bloco de cor.
   // O degrau considera a palavra mais longa, não só o total: "A Metamorfose"

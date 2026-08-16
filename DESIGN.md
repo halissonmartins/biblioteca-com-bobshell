@@ -146,11 +146,11 @@ components:
 
 **Creative North Star: "A Chapa de Esmalte Vitrificado"**
 
-Esta interface se lê como o prédio da biblioteca se lê por dentro: sinalização cívica esmaltada, aparafusada na parede, que existe para levar uma pessoa até um lugar físico. Não há grade de cards com miniatura de capa e sombra suave — o mundo recusa explicitamente esse padrão, que é o que todo catálogo entrega e o que este repositório entregava antes. O campo é porcelana fria (`#F2F4F3`), a tinta é grafite, e um trilho oxblood drenado (`#7B1E24`) corre pela lateral carregando a navegação em caixa alta condensada branca.
+Esta interface se lê como o prédio da biblioteca se lê por dentro: sinalização cívica esmaltada, aparafusada na parede, que existe para levar uma pessoa até um lugar físico. A capa do Livro entra na chapa quando existe, mas nada em volta dela amolece: sem sombra, sem canto redondo, sem moldura flutuante — a imagem é aparafusada na placa, não uma miniatura descansando sobre um cartão. O campo é porcelana fria (`#F2F4F3`), a tinta é grafite, e um trilho oxblood drenado (`#7B1E24`) corre pela lateral carregando a navegação em caixa alta condensada branca.
 
 A densidade é de registro operacional, não de vitrine. O Bibliotecário passa oito horas na mesma tela: por isso a cor de estado nunca lava o campo de leitura — ela vive no filete e no ícone, e o texto fica acromático. A hierarquia é feita de peso, caixa e filete, nunca de elevação: a chapa é plana e a separação é uma linha de 1px. O amarelo cromo (`#E8A200`) pertence exclusivamente ao prazo correndo; o verde sinal (`#12664A`) à Disponibilidade. Nenhuma outra cor pode assumir esses cargos.
 
-A capa de Livro é uma **placa tipográfica gerada** de título, autor, gênero e código — sem imagem, sem ícone, sem emoji. É essa disciplina que dá ao acervo de 250 mil Livros uma superfície visual sem depender de arte que não existe: duas placas nunca saem iguais porque dois Livros nunca têm o mesmo título.
+A capa de Livro é a **imagem do acervo** quando ela existe (ADR-0008) e uma **placa tipográfica gerada** de título, autor, gênero e código quando não existe — nunca ícone, nunca emoji. A placa não é consolo: ela é o que sustenta os 250 mil Livros que jamais terão arte, e duas placas nunca saem iguais porque dois Livros nunca têm o mesmo título. Imagem que falha em carregar volta para a placa; capa quebrada não vira retângulo cinza.
 
 **Key Characteristics:**
 - Campo porcelana fria, nunca creme — o material é esmalte, não papel
@@ -326,11 +326,15 @@ Chapa branca com filete de contorno na cor do estado e ícone SVG na cor do esta
 A nota de Avaliação é desenhada em marcas SVG grafite (cheias) e filete (vazias), no mesmo peso de traço do resto da chapa, com rótulo acessível. Não usa glifo Unicode e não usa cromo — cromo é prazo, não nota.
 
 ### BookPlate (componente de assinatura)
-A capa gerada. Um campo na cor da zona do gênero, com o gênero em legenda no topo à esquerda, o código da Cópia ou ISBN em mono no topo à direita, o título sangrando até a margem em condensada bold caixa alta, um filete branco a 35% e o autor embaixo.
+A capa do Livro, nas duas formas que ela pode ter.
+
+**Com `coverUrl`**, a imagem preenche a chapa 2:3 inteira em `object-cover` — preenche sem distorcer e corta o excedente quando a proporção do arquivo não bate. Nada de faixa vazia nem de imagem esticada. É `lazy` na grade e `eager`/`fetchpriority=high` no hero da página de detalhe; o wrapper `aspect-[2/3]` reserva o espaço antes do carregamento, então a grade não pula. Falhou em carregar, cai na placa.
+
+**Sem `coverUrl`**, a capa gerada. Um campo na cor da zona do gênero, com o gênero em legenda no topo à esquerda, o código da Cópia ou ISBN em mono no topo à direita, o título sangrando até a margem em condensada bold caixa alta, um filete branco a 35% e o autor embaixo.
 
 O corpo do título tem três degraus, calculados por **comprimento total e pela palavra mais longa** (uma palavra de 11 caracteres estoura a chapa mesmo num título curto): folgado, médio e apertado, em duas escalas — `card` para a grade e `hero` para a página de detalhe. A quebra usa `hyphens-auto` e depende do `lang` do documento (ver a Regra do `lang`).
 
-`asHeading` existe porque, quando a placa é o título do item numa lista, ela precisa ser um heading de verdade: como capa gerada ela desenha o título, mas a árvore de acessibilidade não pode ficar sem ele. Quando não é heading, a placa inteira é `aria-hidden` e o título vem do texto adjacente.
+`asHeading` existe porque, quando a capa é o título do item numa lista, ela precisa ser um heading de verdade: a placa desenha o título e a imagem não, mas a árvore de acessibilidade não pode ficar sem ele em nenhum dos dois casos — com imagem, o `h3` vai junto em `sr-only`. Quando não é heading, a placa inteira é `aria-hidden` e o título vem do texto adjacente.
 
 A zona é derivada do gênero por **FNV-1a de 32 bits com avalanche final**, entre as seis zonas não-oxblood. Mesmo gênero, mesma zona, sempre — nunca um mapa fixo, que ficaria desatualizado no primeiro gênero novo. O hash anterior (djb2) colidia sistematicamente e jogava todos os gêneros numa cor só; se o algoritmo mudar, a distribuição precisa ser verificada de novo.
 
@@ -349,7 +353,7 @@ A zona é derivada do gênero por **FNV-1a de 32 bits com avalanche final**, ent
 - **Don't** introduzir sombra. A escala está anulada de propósito; `shadow-modal` é a única exceção e pertence ao Modal.
 - **Don't** arredondar além de 2px, e nunca usar pílula (`rounded-full`) fora do spinner.
 - **Don't** lavar um bloco de texto com cor de estado. O filete e o ícone carregam a cor; o campo fica acromático.
-- **Don't** usar imagem, ícone decorativo ou emoji como capa ou identidade de Livro — a placa tipográfica é o padrão, não o fallback.
+- **Don't** usar ícone decorativo ou emoji como capa ou identidade de Livro. Imagem só quando é a capa real do acervo, sempre na chapa 2:3 em `object-cover`, sempre com a placa tipográfica atrás como ausência e como falha (ADR-0008).
 - **Don't** usar glifo Unicode (★, ✓, →) como ícone; ícone é SVG inline.
 - **Don't** usar oxblood como cor de zona de gênero, nem cromo como cor de nota ou de ênfase genérica.
 - **Don't** escrever prosa em Barlow Condensed nem botão em caixa mista.
@@ -363,3 +367,4 @@ Registrado como estado conhecido, **não como orientação**:
 - **Contraste não verificado por máquina.** Os tokens foram escolhidos para AA e as zonas foram desenhadas para passar com texto branco, mas o detector empacotado roda DEGRADED neste ambiente (sem módulos de parser HTML). Nenhum par foi confirmado automaticamente.
 - **Alvos de toque não auditados** além do piso de 44px em `.btn-sm` e nas faixas de gênero.
 - **A lista de gêneros das faixas** é derivada da primeira página não filtrada do catálogo, porque a API não expõe endpoint de gêneros. A lista é, portanto, parcial por construção.
+- **A grade mista foi vista com dez Livros, não com um acervo.** Seis capas reais convivendo com quatro placas foi verificado no navegador e está na captura do README. Em escala maior, o quanto o recorte 2:3 maltrata capas de proporção incomum — e quanto a alternância entre foto e chapa cansa a leitura da grade — continua sem medida.

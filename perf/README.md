@@ -18,6 +18,11 @@ Os scripts são JavaScript **standalone do K6** — não há `package.json` nem
 
 Cada cenário também impõe `http_req_failed < 1%` e `checks > 99%`.
 
+As capas de Livro **não entram nestes números**: elas não passam pela API (são
+servidas em `/capas/…` pelo nginx do compose — ADR-0008) e o acervo de 250k do
+`seed-perf.ts` não tem capa nenhuma. Os alvos aqui são de endpoint; peso de
+página com imagem é outra medida, ainda não coberta.
+
 ### Resultados atuais (250k livros, WSL2 6 GB)
 
 | Métrica | p95 medido | Alvo | Status |

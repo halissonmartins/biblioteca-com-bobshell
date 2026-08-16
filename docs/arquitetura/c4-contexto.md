@@ -17,10 +17,12 @@ C4Context
   System(biblioteca, "Sistema de Biblioteca", "Permite reservas on-line e gestão de empréstimos presenciais.")
 
   System_Ext(email, "Serviço de E-mail", "Envio de notificações (fora de escopo v1).")
+  System_Ext(capasFonte, "Google Books / Open Library", "Origem das capas de Livro. Acessados só na ingestão manual (make capas), nunca em runtime — ADR-0008.")
 
   Rel(leitor, biblioteca, "Navega, reserva, consulta", "HTTPS")
   Rel(bibliotecario, biblioteca, "Empresta, devolve, filtra reservas", "HTTPS")
   Rel(biblioteca, email, "Notifica expiração de reserva (v2)", "SMTP")
+  Rel(biblioteca, capasFonte, "Baixa capas por ISBN (ingestão única, fora do caminho do usuário)", "HTTPS")
 ```
 
 ---
@@ -38,6 +40,7 @@ C4Container
     Container(web, "Web App", "React 18 + TypeScript", "SPA servida como estáticos. Consome a API REST.")
     Container(api, "API REST", "Node.js 20 + Express + TypeScript", "Regras de negócio, autenticação JWT, acesso ao banco via Prisma.")
     ContainerDb(db, "Banco de Dados", "PostgreSQL 15", "Livros, Cópias, Usuários, Reservas, Empréstimos, Avaliações.")
+    Container(capas, "Servidor de Capas", "nginx (local) / CDN (produção)", "Serve /capas/{isbn}.jpg a partir de assets/capas/. Não fala com a API nem com o banco — ADR-0008.")
   }
 
   Container_Boundary(obs, "Observabilidade (perfil `obs`, local)") {
@@ -51,6 +54,7 @@ C4Container
   Rel(leitor, web, "Usa", "HTTPS")
   Rel(bibliotecario, web, "Usa", "HTTPS")
   Rel(web, api, "Chama", "HTTPS / JSON")
+  Rel(web, capas, "Carrega a capa do Livro", "HTTPS / imagem")
   Rel(api, db, "Lê e escreve", "Prisma / TCP")
   Rel(api, collector, "Logs, métricas e traces", "OTLP / gRPC")
   Rel(prom, collector, "Raspa métricas", "HTTP :8889")

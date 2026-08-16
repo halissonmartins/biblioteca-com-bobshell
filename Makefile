@@ -6,7 +6,7 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
+.PHONY: help setup dev test lint build install env db-up migrate seed capas screenshots clean e2e e2e-setup perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -36,6 +36,13 @@ migrate: ## Aplica as migrations e regenera o Prisma Client
 seed: ## Popula o banco com dados de desenvolvimento
 	cd $(API) && npm run db:seed
 
+capas: ## Baixa as capas ainda ausentes em assets/capas/ (requer banco populado)
+	# Ingestão única e manual: as imagens são versionadas no repositório, então
+	# isto só é necessário ao acrescentar Livro novo. Depois rode `make seed`
+	# para o banco apontar para os arquivos novos, e commite os .jpg.
+	# Fontes e critérios de recusa: ADR-0008.
+	cd $(API) && npm run capas:baixar
+
 dev: ## API (porta 3000) + Web (porta 5173) em watch
 	@$(MAKE) -j2 dev-api dev-web
 
@@ -61,6 +68,9 @@ e2e-setup: ## Instala deps do e2e + baixa o Chromium (primeira vez)
 
 e2e: db-up ## Testes end-to-end (Playwright) — sobe API+Web, migra e popula automaticamente
 	cd $(E2E) && npm test
+
+screenshots: db-up ## Recaptura as telas do produto em assets/images/ (usadas no README)
+	cd $(E2E) && SHOTS=1 npx playwright test screenshots.spec.ts
 
 perf-seed: ## Popula ~250k livros para os testes de performance (use -- --reset p/ recriar)
 	cd $(API) && npm run db:seed:perf
