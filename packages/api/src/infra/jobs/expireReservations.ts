@@ -15,6 +15,14 @@
  * Este job apenas executa o efeito colateral de expirar o que já venceu.
  */
 
+import { SpanStatusCode, trace } from '@opentelemetry/api';
+
+import { logger } from '../../shared/logger.js';
+import { jobDuracao, jobExecucoes, reservasExpiradas } from '../telemetry/metrics.js';
+
+const tracer = trace.getTracer('biblioteca.jobs');
+const ATRIBUTOS_JOB = { nome_job: 'expirar_reservas' };
+
 /** Intervalo padrão entre execuções: 1 minuto */
 export const DEFAULT_INTERVAL_MS = 60 * 1_000;
 
@@ -45,19 +53,40 @@ export function startExpireReservationsJob(
   deps: ExpireJobDeps,
   intervalMs: number = DEFAULT_INTERVAL_MS,
 ): ReservationExpiryJob {
-  const { expireReservationsTx, log = console.info } = deps;
+  const {
+    expireReservationsTx,
+    log = (message: string): void => {
+      logger.info(message);
+    },
+  } = deps;
 
   async function run(): Promise<void> {
     const now = new Date();
-    try {
-      const count = await expireReservationsTx(now);
-      if (count > 0) {
-        log(`[expireReservations] ${String(count)} reserva(s) expirada(s) em ${now.toISOString()}`);
+    const inicio = performance.now();
+
+    // Cada execução vira um trace raiz, com os spans do Prisma como filhos.
+    await tracer.startActiveSpan('job.expirar_reservas', async (span) => {
+      try {
+        const count = await expireReservationsTx(now);
+        span.setAttribute('biblioteca.reservas.expiradas', count);
+        if (count > 0) {
+          reservasExpiradas.add(count);
+          log(
+            `[expireReservations] ${String(count)} reserva(s) expirada(s) em ${now.toISOString()}`,
+          );
+        }
+        jobExecucoes.add(1, { ...ATRIBUTOS_JOB, resultado: 'sucesso' });
+      } catch (err) {
+        // Erro não deve matar o processo — apenas logar e aguardar próxima execução
+        span.recordException(err instanceof Error ? err : new Error(String(err)));
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        jobExecucoes.add(1, { ...ATRIBUTOS_JOB, resultado: 'erro' });
+        logger.error({ err }, '[expireReservations] Erro ao expirar reservas');
+      } finally {
+        jobDuracao.record((performance.now() - inicio) / 1000, ATRIBUTOS_JOB);
+        span.end();
       }
-    } catch (err) {
-      // Erro não deve matar o processo — apenas logar e aguardar próxima execução
-      console.error('[expireReservations] Erro ao expirar reservas:', err);
-    }
+    });
   }
 
   const timer = setInterval(() => {

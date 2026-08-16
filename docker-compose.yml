@@ -1,5 +1,10 @@
 # Postgres para desenvolvimento e testes E2E locais.
 # Uso: docker compose up -d  (antes de `make dev` ou `npm test` em e2e/)
+#
+# A stack de observabilidade fica atrás do perfil `obs` e NÃO sobe no comando
+# acima — assim `make e2e`, o CI e `make clean` continuam leves. Para subi-la:
+#   make obs-up     (docker compose --profile obs up -d --wait)
+# Ver docs/observabilidade.md.
 services:
   postgres:
     image: postgres:15-alpine
@@ -18,5 +23,172 @@ services:
       timeout: 5s
       retries: 10
 
+  # ===========================================================================
+  # Observabilidade (perfil `obs`)
+  #
+  # Os mem_limit não são decorativos: esta stack roda em WSL2 com 6 GB, junto
+  # com o Postgres e a API. Sem teto por serviço, o Data Node do Graylog sozinho
+  # consome ~3 GB e derruba o resto. Ver "Orçamento de memória" em
+  # docs/observabilidade.md.
+  # ===========================================================================
+
+  # --- Coletor: único endpoint OTLP que a API conhece -------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.158.0
+    container_name: biblioteca-otel-collector
+    profiles: ["obs"]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observabilidade/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"    # OTLP gRPC — é para cá que a API exporta
+      - "4318:4318"    # OTLP HTTP
+      - "8888:8888"    # telemetria interna do Collector
+      - "8889:8889"    # métricas da aplicação, para o Prometheus raspar
+      - "13133:13133"  # health_check
+    mem_limit: 256m
+    depends_on:
+      - jaeger
+      - graylog
+    restart: unless-stopped
+
+  # --- Traces ----------------------------------------------------------------
+  # Jaeger v2 é um distro do próprio Collector: aceita OTLP nativamente em 4317
+  # e usa armazenamento em memória sem precisar de arquivo de configuração.
+  # 4317/4318 ficam internos à rede do compose (o host já é do otel-collector).
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    container_name: biblioteca-jaeger
+    profiles: ["obs"]
+    ports:
+      - "16686:16686"  # UI
+    mem_limit: 512m
+    restart: unless-stopped
+
+  # --- Métricas --------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    container_name: biblioteca-prometheus
+    profiles: ["obs"]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=6h"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observabilidade/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - biblioteca-prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    mem_limit: 512m
+    restart: unless-stopped
+
+  # --- Dashboards ------------------------------------------------------------
+  # Porta 3001 no host: 3000 já é a API.
+  # Acesso anônimo como Viewer para que a captura de screenshots (make
+  # obs-dashboards) não precise autenticar. admin/admin continua disponível.
+  grafana:
+    image: grafana/grafana:13.1.3
+    container_name: biblioteca-grafana
+    profiles: ["obs"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # O Grafana tenta baixar plugins de grafana.com a cada boot. Aqui isso só
+      # gasta memória e enche o log de erros de TLS — nenhum plugin externo é
+      # usado: os datasources Prometheus e Jaeger são nativos.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      - ./observabilidade/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observabilidade/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - biblioteca-grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    mem_limit: 512m
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # --- Logs ------------------------------------------------------------------
+  # Graylog exige três containers: MongoDB (metadados), Data Node (OpenSearch,
+  # onde as mensagens são indexadas) e o servidor.
+  mongodb:
+    image: mongo:7.0
+    container_name: biblioteca-mongodb
+    profiles: ["obs"]
+    volumes:
+      - biblioteca-mongodb-data:/data/db
+      - biblioteca-mongodb-config:/data/configdb
+    mem_limit: 384m
+    restart: unless-stopped
+
+  graylog-datanode:
+    image: graylog/graylog-datanode:7.1.7
+    container_name: biblioteca-graylog-datanode
+    profiles: ["obs"]
+    hostname: graylog-datanode
+    environment:
+      GRAYLOG_DATANODE_NODE_ID_FILE: /var/lib/graylog-datanode/node-id
+      GRAYLOG_DATANODE_PASSWORD_SECRET: biblioteca-observabilidade-secret-local-32
+      GRAYLOG_DATANODE_MONGODB_URI: mongodb://mongodb:27017/graylog
+      # Teto do heap da JVM do OpenSearch — o default tenta metade da RAM da
+      # máquina, o que sozinho estoura o orçamento deste WSL.
+      GRAYLOG_DATANODE_OPENSEARCH_HEAP: 512m
+    ulimits:
+      memlock:
+        hard: -1
+        soft: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - biblioteca-graylog-datanode:/var/lib/graylog-datanode
+    mem_limit: 1200m
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  graylog:
+    image: graylog/graylog:7.1.7
+    container_name: biblioteca-graylog
+    profiles: ["obs"]
+    hostname: graylog
+    entrypoint: /usr/bin/tini -- /docker-entrypoint.sh
+    environment:
+      GRAYLOG_NODE_ID_FILE: /usr/share/graylog/data/data/node-id
+      GRAYLOG_PASSWORD_SECRET: biblioteca-observabilidade-secret-local-32
+      # SHA-256 de "admin" — credenciais locais de desenvolvimento.
+      GRAYLOG_ROOT_PASSWORD_SHA2: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+      GRAYLOG_HTTP_EXTERNAL_URI: http://localhost:9001/
+      GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+      GRAYLOG_SERVER_JAVA_OPTS: "-Xms512m -Xmx512m -XX:+UseG1GC"
+    volumes:
+      - biblioteca-graylog-data:/usr/share/graylog/data
+    ports:
+      # 9001 no host, não 9000: no WSL2 o localhost é compartilhado com o
+      # Windows, e a 9000 costuma já estar tomada por um processo de fora do
+      # Docker — o bind falha e o container sobe sem rede nenhuma.
+      - "9001:9000"    # UI e API REST
+      # 4317 (input OpenTelemetry gRPC) fica interno: quem fala com ele é o
+      # otel-collector, e a porta 4317 do host já é do próprio Collector.
+    mem_limit: 1024m
+    depends_on:
+      - mongodb
+      - graylog-datanode
+    restart: unless-stopped
+
 volumes:
   biblioteca-pgdata:
+  biblioteca-prometheus-data:
+  biblioteca-grafana-data:
+  biblioteca-mongodb-data:
+  biblioteca-mongodb-config:
+  biblioteca-graylog-datanode:
+  biblioteca-graylog-data:

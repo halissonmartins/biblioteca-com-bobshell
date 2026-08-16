@@ -1,0 +1,346 @@
+{
+  "uid": "biblioteca-negocio",
+  "title": "Biblioteca — Negócio",
+  "description": "Métricas de sucesso do produto (PRD §11) e regras de negócio RN-1, RN-3, RN-5, RN-8.",
+  "tags": ["biblioteca", "negocio"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": false,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "Métricas de sucesso do PRD",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Conversão Reserva → Empréstimo",
+      "description": "Alvo do PRD: > 70%. Indica que a Reserva evitou deslocamento inútil do Leitor.",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(biblioteca_emprestimos_efetivados_total[$__range])) / clamp_min(sum(increase(biblioteca_reservas_criadas_total{resultado=\"criada\"}[$__range])), 1)",
+          "legendFormat": "conversão"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.7 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Reservas expiradas sem retirada",
+      "description": "Alvo do PRD: < 20%. RN-1 / RN-5 — a Reserva venceu em 12 h e a Cópia voltou ao acervo.",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(biblioteca_reservas_expiradas_total[$__range])) / clamp_min(sum(increase(biblioteca_reservas_criadas_total{resultado=\"criada\"}[$__range])), 1)",
+          "legendFormat": "expiradas"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.2 },
+              { "color": "red", "value": 0.4 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tempo até a retirada (p50 / p95)",
+      "description": "Quanto o Leitor demora entre reservar e retirar no balcão. Teto natural: 12 h (RN-1).",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum(rate(biblioteca_reserva_conversao_duracao_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(biblioteca_reserva_conversao_duracao_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Estado agora",
+      "description": "Reservas ativas (RN-1), Empréstimos em aberto e vencidos (RN-8).",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(biblioteca_reservas_ativas)", "legendFormat": "Reservas ativas" },
+        { "refId": "B", "expr": "sum(biblioteca_emprestimos_ativos)", "legendFormat": "Empréstimos ativos" },
+        { "refId": "C", "expr": "sum(biblioteca_emprestimos_vencidos)", "legendFormat": "Vencidos" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Vencidos" },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 1 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "vertical",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Ciclo Reserva → Empréstimo → Devolução",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Fluxo do ciclo",
+      "description": "Reservas criadas, Empréstimos efetivados e Devoluções por minuto.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(biblioteca_reservas_criadas_total{resultado=\"criada\"}[$__rate_interval])) * 60",
+          "legendFormat": "Reservas criadas"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(biblioteca_emprestimos_efetivados_total[$__rate_interval])) * 60",
+          "legendFormat": "Empréstimos efetivados"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(biblioteca_devolucoes_total[$__rate_interval])) * 60",
+          "legendFormat": "Devoluções"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(biblioteca_reservas_expiradas_total[$__rate_interval])) * 60",
+          "legendFormat": "Reservas expiradas"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Reservas recusadas por falta de Cópia (RN-3)",
+      "description": "Uma Reserva só pode ser criada se houver Cópia disponível. Esta série é a demanda que o acervo não atendeu.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(biblioteca_reservas_criadas_total{resultado=\"sem_copia\"}[$__rate_interval])) * 60",
+          "legendFormat": "Recusadas (sem Cópia)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(biblioteca_reservas_criadas_total{resultado=\"criada\"}[$__rate_interval])) * 60",
+          "legendFormat": "Aceitas"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 25, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Recusadas (sem Cópia)" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Acervo e pontualidade",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cópias por status (Disponibilidade)",
+      "description": "Ciclo de vida da Cópia: disponível → reservada → emprestada → disponível. Fonte única de verdade compartilhada por Leitor e Bibliotecário.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(biblioteca_copias) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 40, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "available" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "reserved" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "loaned" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Devoluções em dia × atrasadas (RN-8)",
+      "description": "O Empréstimo vence em 7 dias corridos por padrão, ajustável no balcão.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(biblioteca_devolucoes_total[$__rate_interval])) by (situacao) * 60",
+          "legendFormat": "{{situacao}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 25, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "em_dia" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "atrasado" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Busca no catálogo — volume e buscas sem resultado",
+      "description": "Busca vazia é sinal de acervo insuficiente ou de busca ruim.",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 25 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(biblioteca_catalogo_buscas_total[$__rate_interval])) by (busca_vazia) * 60",
+          "legendFormat": "busca_vazia={{busca_vazia}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    }
+  ]
+}

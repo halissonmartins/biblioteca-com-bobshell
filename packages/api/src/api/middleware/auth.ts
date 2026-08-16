@@ -10,6 +10,7 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { Role } from '@prisma/client';
 import { AppError } from '../../shared/errors.js';
+import { autenticacaoFalhas, autorizacaoNegacoes } from '../../infra/telemetry/metrics.js';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -65,13 +66,16 @@ export function authenticate(
     next();
   } catch (err) {
     if (err instanceof AppError) {
+      autenticacaoFalhas.add(1, { motivo: 'sem_token' });
       next(err);
       return;
     }
     if (err instanceof jwt.TokenExpiredError) {
+      autenticacaoFalhas.add(1, { motivo: 'expirado' });
       next(new AppError('TOKEN_EXPIRED', 'Token de acesso expirado'));
       return;
     }
+    autenticacaoFalhas.add(1, { motivo: 'invalido' });
     next(new AppError('TOKEN_INVALID', 'Token de acesso inválido'));
   }
 }
@@ -84,6 +88,8 @@ export function requireRole(role: Role) {
   return function (req: Request, _res: Response, next: NextFunction): void {
     const user = (req as AuthenticatedRequest).user;
     if (user.role !== role) {
+      // RN-2/RN-7: ação de balcão tentada por quem não é Bibliotecário.
+      autorizacaoNegacoes.add(1, { papel_requerido: role, papel_usuario: user.role });
       next(
         new AppError(
           'FORBIDDEN',

@@ -1,0 +1,25 @@
+# Datasources provisionados por arquivo — nunca criados pela UI, para que
+# sobrevivam a `docker compose down` e fiquem versionados em git.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST
+      # Permite pular de um exemplar de métrica para o trace correspondente.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://jaeger:16686

@@ -41,6 +41,21 @@ make migrate  # aplica migrations Prisma pendentes
 make seed     # popula banco com dados de desenvolvimento
 ```
 
+### Observabilidade
+
+A stack de observabilidade (OpenTelemetry Collector, Prometheus, Grafana, Jaeger
+e Graylog) fica no perfil `obs` do `docker-compose.yml` e **não** sobe com
+`docker compose up -d`:
+
+```bash
+make obs-up         # sobe a stack e provisiona o input do Graylog
+make obs-status     # verifica logs, métricas e traces de ponta a ponta
+make obs-down       # para a stack preservando os dados
+```
+
+Dashboards em http://localhost:3001. Detalhes em
+[`docs/observabilidade.md`](docs/observabilidade.md).
+
 ## Estrutura
 
 ```
@@ -62,8 +77,10 @@ packages/
 | [`docs/produto/glossario.md`](docs/produto/glossario.md) | Linguagem ubíqua do domínio |
 | [`docs/produto/user-stories.md`](docs/produto/user-stories.md) | Histórias com critério de aceite testável |
 | [`docs/design/fluxos.md`](docs/design/fluxos.md) | Fluxos principais com estados de erro |
+| [`docs/observabilidade.md`](docs/observabilidade.md) | Como o backend é observado: logs, métricas, traces e dashboards |
 | [`docs/decisoes/`](docs/decisoes/) | ADRs das decisões estruturantes |
 | [`docs/arquitetura/c4-contexto.md`](docs/arquitetura/c4-contexto.md) | Diagrama C4 do sistema |
+| [`perf/README.md`](perf/README.md) | Testes de carga K6 e os alvos de latência do PRD |
 
 ## Variáveis de ambiente
 

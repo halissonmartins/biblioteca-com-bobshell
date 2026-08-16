@@ -1,0 +1,16 @@
+# Carrega os dashboards de observabilidade/grafana/dashboards/*.json.
+# Editar pela UI não persiste — a fonte de verdade é o JSON versionado.
+
+apiVersion: 1
+
+providers:
+  - name: biblioteca
+    orgId: 1
+    folder: Biblioteca
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

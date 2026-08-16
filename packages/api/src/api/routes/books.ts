@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { listBooks, getBook } from '../../domain/book/bookService.js';
 import * as bookRepo from '../../infra/repositories/bookRepository.js';
+import { catalogoBuscas, catalogoResultados } from '../../infra/telemetry/metrics.js';
 import { AppError } from '../../shared/errors.js';
 
 const router = Router();
@@ -73,6 +74,15 @@ router.get(
     }
 
     const result = await listBooks(parsed.data, deps);
+
+    // Só contamos buscas de fato — a navegação paginada do catálogo sem termo
+    // não é uma busca e distorceria a taxa de resultado vazio.
+    if (parsed.data.search !== undefined) {
+      const atributos = { busca_vazia: result.pagination.total === 0 };
+      catalogoBuscas.add(1, atributos);
+      catalogoResultados.record(result.pagination.total, atributos);
+    }
+
     res.status(200).json({ data: result });
   }),
 );

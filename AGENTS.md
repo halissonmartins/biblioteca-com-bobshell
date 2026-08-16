@@ -11,6 +11,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Glossário: [`docs/produto/glossario.md`](docs/produto/glossario.md) — use **exatamente** estes termos no código
 - User stories: [`docs/produto/user-stories.md`](docs/produto/user-stories.md)
 - Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
+- Observabilidade: [`docs/observabilidade.md`](docs/observabilidade.md) — logs, métricas, traces e dashboards. **Leia antes de adicionar métrica, span ou log.**
 - Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
 
 ## Stack
@@ -31,6 +32,7 @@ make dev      # API (porta 3000) + Web (porta 5173) em watch
 make test     # Vitest — todos os testes unitários e de integração
 make lint     # ESLint + TypeScript typecheck
 make build    # build de produção
+make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
 ```
 
 **Rodar um único teste:**
@@ -85,6 +87,9 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
 - Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`
 - Toda variável de ambiente nova vai para `.env.example` no mesmo PR
+- **`domain/` não emite telemetria** — nem `@opentelemetry/api`, nem logger. Métricas ficam em `api/` e `infra/` (ADR-0007)
+- **Id de entidade nunca é atributo de métrica** — só de span (cardinalidade)
+- **Métrica nova é declarada em `infra/telemetry/metrics.ts`** e documentada em `docs/observabilidade.md`
 
 ## Terminologia — use os termos do glossário no código
 

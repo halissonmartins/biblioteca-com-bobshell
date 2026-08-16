@@ -6,7 +6,7 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup perf-seed perf-smoke perf
+.PHONY: help setup dev test lint build install env db-up migrate seed clean e2e e2e-setup perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -75,5 +75,34 @@ perf: ## Testes de performance K6 — todos os cenários (requer 'make dev' + 'm
 	[ $$rc -eq 0 ] && echo "✅ Todos os thresholds passaram." || echo "❌ Algum threshold foi violado (ver acima)."; \
 	exit $$rc
 
-clean: ## Para o Postgres e remove o volume de dados
-	docker compose down -v
+# ---------------------------------------------------------------------------
+# Observabilidade — stack no perfil `obs` do docker-compose.yml
+# Ver docs/observabilidade.md
+# ---------------------------------------------------------------------------
+
+obs-up: ## Sobe a stack de observabilidade e provisiona o input do Graylog
+	docker compose --profile obs up -d --wait
+	./observabilidade/graylog/provisionar-input.sh
+
+obs-down: ## Para a stack de observabilidade (PRESERVA os dados)
+	docker compose --profile obs down
+
+obs-status: ## Verifica se cada peça do pipeline está recebendo e exportando
+	./observabilidade/verificar.sh
+
+obs-logs: ## Segue os logs do OTel Collector
+	docker compose --profile obs logs -f otel-collector
+
+obs-dashboards: ## Captura os screenshots dos dashboards do Grafana
+	# Config próprio: o playwright.config.ts principal roda seed no globalSetup,
+	# que apagaria justamente os dados exibidos nos dashboards.
+	cd $(E2E) && OBS=1 npx playwright test --config=playwright.dashboards.config.ts
+
+obs-clean: ## Para a stack de observabilidade e APAGA os dados (métricas, traces, logs)
+	docker compose --profile obs down -v
+
+clean: ## Para o Postgres e remove APENAS o volume do banco
+	# Sem `down -v`: isso removeria também os volumes do Prometheus e do Graylog,
+	# ou seja, "limpar o banco" apagaria o histórico de observabilidade.
+	docker compose rm -sfv postgres
+	docker volume rm -f biblioteca-com-bobshell_biblioteca-pgdata

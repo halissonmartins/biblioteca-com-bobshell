@@ -12,7 +12,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/index.ts', 'src/**/*.test.ts'],
+      // src/infra/telemetry/** só é carregado pelo processo servidor
+      // (src/index.ts), nunca pelos testes — contaria como 0% de cobertura.
+      exclude: ['src/index.ts', 'src/infra/telemetry/**', 'src/**/*.test.ts'],
     },
   },
 });
