@@ -247,3 +247,9 @@ Stack de observabilidade:
 
 ---
 **[15/08/2026 21:19]** Verifique se tem algum arquivo no repositório pendende de commit, caso tenha faça o commit
+
+---
+**[15/08/2026 21:21]** Rodar make lint && make test
+
+---
+**[15/08/2026 21:25]** crie um PR para a main
