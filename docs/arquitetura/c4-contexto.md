@@ -40,11 +40,30 @@ C4Container
     ContainerDb(db, "Banco de Dados", "PostgreSQL 15", "Livros, Cópias, Usuários, Reservas, Empréstimos, Avaliações.")
   }
 
+  Container_Boundary(obs, "Observabilidade (perfil `obs`, local)") {
+    Container(collector, "OTel Collector", "opentelemetry-collector-contrib", "Recebe os três sinais por OTLP e faz o fan-out por destino.")
+    ContainerDb(prom, "Prometheus", "Prometheus 3", "Métricas raspadas do Collector.")
+    ContainerDb(jaeger, "Jaeger", "Jaeger 2", "Traces.")
+    ContainerDb(graylog, "Graylog", "Graylog 7", "Logs estruturados.")
+    Container(grafana, "Grafana", "Grafana 13", "Dashboards versionados em observabilidade/grafana/dashboards/.")
+  }
+
   Rel(leitor, web, "Usa", "HTTPS")
   Rel(bibliotecario, web, "Usa", "HTTPS")
   Rel(web, api, "Chama", "HTTPS / JSON")
   Rel(api, db, "Lê e escreve", "Prisma / TCP")
+  Rel(api, collector, "Logs, métricas e traces", "OTLP / gRPC")
+  Rel(prom, collector, "Raspa métricas", "HTTP :8889")
+  Rel(collector, jaeger, "Exporta traces", "OTLP / gRPC")
+  Rel(collector, graylog, "Exporta logs", "OTLP / gRPC")
+  Rel(grafana, prom, "Consulta", "PromQL")
+  Rel(grafana, jaeger, "Consulta", "HTTP")
 ```
+
+> A stack de observabilidade **não sobe** com `docker compose up -d` — vive no
+> perfil `obs` e é ferramenta de desenvolvimento, não parte do produto entregue.
+> Detalhes em [ADR-0007](../decisoes/0007-observabilidade.md) e
+> [observabilidade.md](../observabilidade.md).
 
 ---
 

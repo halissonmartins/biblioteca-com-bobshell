@@ -51,10 +51,17 @@ e Graylog) fica no perfil `obs` do `docker-compose.yml` e **não** sobe com
 make obs-up         # sobe a stack e provisiona o input do Graylog
 make obs-status     # verifica logs, métricas e traces de ponta a ponta
 make obs-down       # para a stack preservando os dados
+make obs-dashboards # recaptura os screenshots dos dashboards
 ```
 
-Dashboards em http://localhost:3001. Detalhes em
-[`docs/observabilidade.md`](docs/observabilidade.md).
+Quatro dashboards em http://localhost:3001 (pasta `Biblioteca`): Negócio, SLO de
+Performance, Saúde da API e um importado do marketplace da Grafana sobre as
+métricas HTTP default do OTel SDK. O JSON versionado em
+`observabilidade/grafana/dashboards/` é a fonte de verdade — editar pela
+interface não persiste. Para popular os painéis antes de capturar, use a carga
+K6 de [`perf/`](perf/README.md).
+
+Detalhes em [`docs/observabilidade.md`](docs/observabilidade.md).
 
 ## Estrutura
 

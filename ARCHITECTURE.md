@@ -91,6 +91,7 @@ PostgreSQL
 | Adicionar tela nova | `packages/web/src/pages/` |
 | Tipos compartilhados | `packages/shared/types/` |
 | Adicionar métrica ou span | `packages/api/src/infra/telemetry/` → documentar em `docs/observabilidade.md` |
+| Adicionar dashboard do Grafana | `observabilidade/grafana/dashboards/<uid>.json` → registrar o uid em `e2e/dashboards.spec.ts` → documentar em `docs/observabilidade.md` |
 | Mexer na stack de observabilidade | `observabilidade/` + perfil `obs` do `docker-compose.yml` |
 
 ## Decisões arquiteturais
