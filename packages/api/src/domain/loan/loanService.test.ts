@@ -163,6 +163,20 @@ describe('createLoan()', () => {
     ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
   });
 
+  it('lança RESERVATION_EXPIRED, não CONFLICT, quando a Reserva foi cancelada por ter vencido (RN-1, RN-6)', async () => {
+    // É o estado em que o job de expiração deixa toda Reserva vencida: prazo no
+    // passado e cancelledAt preenchido. O Bibliotecário precisa ler "expirou".
+    const deps = makeDeps({
+      findReservationById: vi.fn().mockResolvedValue(
+        makeReservation({ expiresAt: PAST_DATE, cancelledAt: PAST_DATE }),
+      ),
+    });
+
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+  });
+
   it('lança RESERVATION_EXPIRED quando expiresAt === now (fronteira inclusiva)', async () => {
     const deps = makeDeps({
       findReservationById: vi.fn().mockResolvedValue(
