@@ -23,6 +23,7 @@ const DASHBOARDS = [
   { uid: 'biblioteca-negocio', arquivo: 'negocio.png' },
   { uid: 'biblioteca-slo', arquivo: 'slo.png' },
   { uid: 'biblioteca-saude-api', arquivo: 'saude-api.png' },
+  { uid: 'otel-http-services', arquivo: 'otel-http-services.png' },
 ]
 
 test.describe('Screenshots dos dashboards', () => {
@@ -83,7 +84,12 @@ test.describe('Screenshots dos dashboards', () => {
       // alta que a maioria dos dashboards, e `fullPage` sozinho deixaria uma
       // faixa em branco no rodapé.
       const alturaConteudo = await page.evaluate(() => {
-        const paineis = Array.from(document.querySelectorAll('[data-panelid]'))
+        // `[data-panelid]` deixou de existir no Grafana 13 — sem o fallback pela
+        // célula do grid, o cálculo devolvia null e o `fullPage` gravava a
+        // viewport inteira, com faixa em branco no rodapé.
+        const paineis = Array.from(
+          document.querySelectorAll('[data-panelid], .react-grid-item'),
+        )
         if (paineis.length === 0) return null
         const base = Math.min(...paineis.map((p) => p.getBoundingClientRect().top))
         const fim = Math.max(...paineis.map((p) => p.getBoundingClientRect().bottom))

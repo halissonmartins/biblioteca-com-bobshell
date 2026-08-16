@@ -234,9 +234,12 @@ Prometheus. Por isso o atributo do job se chama `nome_job`.
 
 ## 6. Dashboards
 
-Três dashboards, versionados em `observabilidade/grafana/dashboards/*.json` e
+Quatro dashboards, versionados em `observabilidade/grafana/dashboards/*.json` e
 carregados por provisionamento de arquivo. Editar pela interface não persiste: a
 fonte de verdade é o JSON no git.
+
+Três são escritos à mão e recortados para o PRD; o quarto (§6.4) vem do
+marketplace da Grafana e não conhece este projeto — só a semantic convention.
 
 ### 6.1 `Biblioteca — Negócio`
 
@@ -278,6 +281,56 @@ Um painel por requisito de latência do PRD:
 O último painel é deliberado: quando um dashboard fica vazio, a primeira
 pergunta é "o sistema parou ou a telemetria parou?". Esse painel responde.
 
+### 6.4 `OpenTelemetry — Serviços HTTP`
+
+Importado do [marketplace da Grafana](https://grafana.com/grafana/dashboards/21587-opentelemetry-for-http-services/)
+— dashboard **21587**, revisão 2, Apache-2.0.
+
+O valor dele não é o que mostra, e sim o que prova: **nenhum `expr` de Prometheus
+foi reescrito**. O autor nunca ouviu falar de Livro, Reserva ou Empréstimo; ele
+só sabe consultar `http_server_request_duration_seconds_*` com `http_route` e
+`job`. Se os painéis enchem, a instrumentação segue a semantic convention
+estável do OTel — e a stack aceita qualquer ferramenta de terceiros que fale a
+mesma convenção. É o teste de portabilidade que os três dashboards escritos à
+mão, por construção, não conseguem fazer.
+
+Painéis:
+
+- **Performance metrics overview per service** — tabela RED por endpoint no
+  intervalo selecionado: TPS, tempo total, p95 e contagem de erros
+- **TPS per endpoint** — throughput por rota mais uma linha de previsão
+  (`double_exponential_smoothing`)
+- **P95 per endpoint** — latência por rota na janela de `$rateinterval`
+- **P95 over selected time range** — gauge do p95 agregado
+- **Response time distribution** — quantas requisições caíram em cada bucket do
+  histograma; é a leitura direta das fronteiras definidas na view de `otel.ts`
+
+Variáveis: `serviço` (o `job` do Prometheus) e `http_route` (multisseleção).
+
+**Adaptações feitas ao importar** — registradas também no campo `description` do
+JSON, para que uma futura reimportação saiba o que reaplicar:
+
+1. Datasource fixado no uid provisionado `prometheus` (o original vem com
+   `__inputs` de importação manual).
+2. Removidos dois painéis: o `nodeGraph` "Service Mesh" exige **Tempo** e o
+   painel de logs exige **Loki** — aqui os backends são Jaeger e Graylog.
+3. Removidas as variáveis `service_namespace` / `service_name`, que o upstream
+   derivava de `job="namespace/serviço"` por regex. O nosso `job` é
+   `biblioteca-api`, sem barra: a cadeia resolveria vazia e levaria todos os
+   painéis junto.
+4. Query variables passadas para `qryType: 5` (*Classic query*). O upstream
+   usava `qryType: 1` (*Label values*), que espera os campos `label` e `metric`
+   separados — com a string `label_values(...)` no lugar, o seletor resolve
+   vazio e o dashboard inteiro fica sem dados. Sintoma enganoso: os painéis não
+   dão erro, só ficam em branco.
+5. Alturas dos painéis ajustadas para caber as rotas reais sem paginar.
+
+**Armadilha:** o painel de TPS usa `double_exponential_smoothing()`, função
+**experimental** do PromQL 3.x. Sem
+`--enable-feature=promql-experimental-functions` no `command` do serviço
+`prometheus` (`docker-compose.yml`), o painel não fica vazio — ele falha com erro
+de parse. A flag é opt-in e não afeta as queries dos outros dashboards.
+
 ---
 
 ## 7. Como rodar
@@ -304,6 +357,14 @@ Alvos disponíveis: `obs-up`, `obs-down` (preserva dados), `obs-clean` (apaga),
 A stack roda em WSL2 com 6 GB. Cada serviço tem `mem_limit` no
 `docker-compose.yml` e as JVMs do Graylog e do Data Node estão limitadas a 512 MB
 de heap — sem isso, o Data Node sozinho consome ~3 GB e derruba o resto.
+
+O Jaeger tem `mem_limit: 1g` porque guarda os traces **em memória, sem volume**:
+com 512 MB, uma rodada de carga K6 fazia o cgroup matar o processo (o kernel
+registra `Killed process ... (jaeger-linux)`) e todo o histórico de traces ia
+junto — sem nada no log do container, porque o processo morre antes de conseguir
+escrever. Se voltar a acontecer sob carga maior, o sintoma é a UI do Jaeger
+mostrar só traces recentes: confira `docker inspect biblioteca-jaeger --format
+'{{.RestartCount}}'`.
 
 **Durante a validação, use `make dev-api` e não `make dev`:** o Vite do
 `packages/web` não é necessário para gerar carga nem para capturar dashboards.
@@ -382,6 +443,10 @@ seção anterior (`make obs-dashboards`).
 
 ![Dashboard de saúde da API](../assets/images/dashboards/saude-api.png)
 
+### OpenTelemetry — Serviços HTTP
+
+![Dashboard OpenTelemetry para serviços HTTP, importado do marketplace da Grafana](../assets/images/dashboards/otel-http-services.png)
+
 ---
 
 ## 10. Diagnóstico
@@ -392,4 +457,7 @@ seção anterior (`make obs-dashboards`).
 | Métrica não aparece no Prometheus | `docker logs biblioteca-otel-collector \| grep "failed to convert"` — quase sempre colisão de nome de label |
 | Graylog vazio | o input OTel existe? `curl -u admin:admin localhost:9001/api/system/inputs` |
 | Dashboard vazio | painel "Saúde do próprio pipeline" no dashboard de Saúde da API |
+| Painel de TPS do §6.4 com erro de parse | falta `--enable-feature=promql-experimental-functions` no serviço `prometheus` |
+| Painel "Datasource not found" | o JSON referencia Tempo/Loki — só existem `prometheus` e `jaeger` em `provisioning/datasources/` |
+| Dashboard inteiro em branco, sem erro | seletor de variável vazio: query variable do Prometheus com `qryType: 1` e a string `label_values(...)`. Use `qryType: 5` |
 | Pipeline inteiro | `make obs-status` |

@@ -135,7 +135,7 @@ else
 fi
 
 dashboards="$(curl -sf -m 10 'http://localhost:3001/api/search?type=dash-db' || true)"
-for uid in biblioteca-negocio biblioteca-slo biblioteca-saude-api; do
+for uid in biblioteca-negocio biblioteca-slo biblioteca-saude-api otel-http-services; do
   if grep -q "\"${uid}\"" <<<"${dashboards}"; then ok "dashboard ${uid}"; else falha "dashboard ${uid} ausente"; fi
 done
 
