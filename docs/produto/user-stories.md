@@ -1,7 +1,7 @@
 # User Stories — Sistema de Biblioteca
 
 > Histórias com critério de aceite testável (Given/When/Then).
-> Derivadas de RF-L1 a RF-L6 e RF-B1 a RF-B5 do PRD.
+> Derivadas de RF-L1 a RF-L7 e RF-B1 a RF-B5 do PRD.
 > **Cada critério deve ser verificável por um teste automatizado** — se não for, a história está vaga.
 
 ---
@@ -251,4 +251,66 @@ E a Disponibilidade do Livro é incrementada imediatamente
 Dado que sou um Leitor autenticado
 Quando tento registrar uma devolução via API
 Então recebo erro 403 Forbidden
+```
+
+---
+
+## US-12 — Criar minha conta (RF-L7, ADR-0009, RN-7)
+
+**Como** visitante  
+**Quero** criar uma conta com o meu e-mail  
+**Para** poder reservar Livros sem depender do balcão
+
+> Fase 1 da identidade: cadastro com **qualquer e-mail e sem verificação**. A
+> tela é a do Keycloak, não nossa. O que essa escolha deixa em aberto, e quando
+> se fecha, está em [`docs/seguranca.md`](../seguranca.md).
+
+### Critérios de aceite
+
+```gherkin
+Dado que sou um visitante na tela de acesso
+Quando escolho "Cadastre-se" e informo nome, e-mail e senha
+Então minha conta é criada sem nenhuma confirmação por e-mail
+E entro autenticado, no Catálogo
+E recebo o papel Leitor
+
+Dado que acabei de criar minha conta
+Quando consulto o meu perfil
+Então existe um usuário local vinculado a ela, com papel "leitor"
+E consigo reservar um Livro disponível
+
+Dado que acabei de criar minha conta
+Quando tento acessar uma tela ou rota de Bibliotecário
+Então sou bloqueado (RN-7) — auto-cadastro nunca concede o papel de balcão
+
+Dado que sou um visitante
+Quando informo um e-mail de domínio que não existe
+Então o cadastro é aceito do mesmo jeito (Fase 1 — sem verificação)
+```
+
+---
+
+## US-13 — Entrar e sair (RF-L7, ADR-0009)
+
+**Como** usuário cadastrado  
+**Quero** entrar e sair do sistema  
+**Para** que a minha sessão seja minha
+
+### Critérios de aceite
+
+```gherkin
+Dado que não estou autenticado
+Quando abro uma rota que exige sessão
+Então sou encaminhado ao Keycloak
+E, depois de autenticar, volto para a rota que eu tentei abrir
+
+Dado que informo a senha errada
+Quando confirmo
+Então permaneço na tela do Keycloak com mensagem de credencial inválida
+E a aplicação nunca chega a ver a minha senha
+
+Dado que estou autenticado
+Quando escolho "Sair"
+Então a sessão termina também no Keycloak
+E abrir de novo uma rota protegida pede autenticação outra vez
 ```

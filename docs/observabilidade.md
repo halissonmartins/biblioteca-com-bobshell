@@ -107,8 +107,16 @@ pelo `webServer` do Playwright.
 ### Redaction
 
 Campos censurados como `[REDACTED]` antes de sair do processo:
-`password`, `passwordHash`, `token`, `accessToken`, `refreshToken`,
+`password`, `token`, `accessToken`, `refreshToken`, `id_token`, `code_verifier`,
 `req.headers.authorization`, `req.headers.cookie`, `res.headers.set-cookie`.
+
+Duas mudanças do ADR-0009: `passwordHash` saiu (a coluna não existe mais), e
+entraram `code_verifier` e `id_token`.
+
+**`code` não está na lista, e é intencional.** É o nome do campo de `AppError`
+— censurá-lo apagaria o código de todo erro de negócio do log, justamente o que
+o nível `warn` existe para mostrar. O code de autorização do PKCE não chega à
+API: ele vai do navegador direto ao token endpoint do Keycloak.
 
 ### Caminho até o Graylog
 
@@ -189,9 +197,35 @@ no dashboard. Assim a definição fica visível e ajustável sem mexer no códig
 | `db.client.operation.duration` | Histogram (s) | `db.collection.name`, `db.operation.name` | extensão do Prisma |
 | `biblioteca.autorizacao.negacoes` | Counter | `papel_requerido`, `papel_usuario` | `middleware/auth.ts` (RN-2 / RN-7) |
 | `biblioteca.autenticacao.falhas` | Counter | `motivo`: `sem_token` / `expirado` / `invalido` | `middleware/auth.ts` |
-| `biblioteca.logins` | Counter | `resultado`, `papel` | `routes/auth.ts` |
 | `biblioteca.job.execucoes` | Counter | `nome_job`, `resultado` | `jobs/expireReservations.ts` |
 | `biblioteca.job.duracao` | Histogram (s) | `nome_job` | idem |
+
+### Métricas do Keycloak
+
+`biblioteca.logins` **deixou de existir** com o ADR-0009: a API não vê mais login
+acontecer — quem autentica é o Keycloak. A origem passou a ser ele próprio, que
+expõe Prometheus nativo na porta de management (`keycloak:9000/metrics`,
+habilitado por `KC_METRICS_ENABLED` e `KC_EVENT_METRICS_USER_ENABLED`).
+
+É a **única exceção** à regra de que o Prometheus só raspa o Collector: o
+Keycloak não fala OTLP. O alvo está em `observabilidade/prometheus/prometheus.yml`.
+
+| Métrica | Série | O que mostra |
+|---|---|---|
+| `keycloak_user_events_total` | `{event="login", error=""}` | logins bem-sucedidos |
+| `keycloak_user_events_total` | `{event="login", error!=""}` | falhas, com o motivo (`invalid_user_credentials`) |
+| `keycloak_user_events_total` | `{event="register"}` | auto-cadastros |
+| `keycloak_user_events_total` | `{event="logout"}` | encerramentos de sessão |
+
+Todas têm o rótulo `realm` — filtre por `realm="biblioteca"`, senão o `master`
+(onde o admin console entra) entra na conta.
+
+`biblioteca.autenticacao.falhas` e `biblioteca.autorizacao.negacoes` continuam
+valendo e são justamente o que o Keycloak **não** enxerga: token forjado,
+expirado ou de outro realm nunca chega até ele.
+
+> O Keycloak sobe com o compose padrão, não com o profile `obs`. Com o profile
+> `obs` no ar sem ele, o alvo aparece como down no Prometheus — e é o correto.
 
 ### Dois detalhes que decidem se os dashboards funcionam
 
@@ -271,7 +305,8 @@ Um painel por requisito de latência do PRD:
 - **RED** — requisições/s, taxa de erro 5xx, p95 global, p95 do banco
 - **Banco** — p95 e operações/s por modelo e operação do Prisma
 - **Negações de autorização (RN-2 / RN-7)** — ação de balcão tentada por Leitor
-- **Autenticação** — logins e falhas de token por motivo
+- **Autenticação** — logins, falhas e auto-cadastros vindos do Keycloak, cruzados
+  com as falhas de token que a **API** recusa (`sem_token`, `expirado`, `invalido`)
 - **Job de expiração (RN-1)** — execuções e duração; se as execuções pararem,
   Reservas vencidas deixam de liberar Cópias
 - **Runtime Node** — heap do V8, atraso do event loop, coleta de lixo

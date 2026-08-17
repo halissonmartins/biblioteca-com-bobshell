@@ -223,6 +223,10 @@ Números são tabulares em toda a interface (tabela, `.font-mono`, `<time>`): c�
 
 O shell é um trilho de zona fixo e um campo de conteúdo. A partir de `lg` (1024px) o trilho é uma coluna fixa de 240px colada à esquerda em altura total, e o conteúdo compensa com 240px de recuo à esquerda; abaixo disso o trilho vira uma placa de duas linhas grudada no topo (identificação e ação em cima, zonas em faixa rolável embaixo). A tela de entrada (login) não tem trilho e não recebe o recuo.
 
+**O buraco no mundo visual: a tela de credencial.** Desde o [ADR-0009](docs/decisoes/0009-identidade-com-keycloak.md), quem pede e-mail e senha é o Keycloak, e a tela dele usa o **tema padrão do produto dele** — PatternFly escuro, tipografia e botões que não são os daqui. A nossa `/login` virou uma antessala: mantém o campo de esmalte e a chapa "BIBLIOTECA", e encaminha. Quem faz o percurso vê o nosso mundo, sai dele para digitar a senha, e volta.
+
+Isso é uma regressão consciente, não um descuido: manter o formulário aqui significaria a senha atravessar a nossa origem, que é exatamente o que a troca eliminou. **Fechar o buraco é tema da Fase 2** — um tema Keycloak derivado deste documento (via Keycloakify), com os mesmos tokens e a mesma chapa. Até lá, ao mexer na entrada, lembre que ela tem duas metades e só uma é sua. Ver [`docs/seguranca.md`](docs/seguranca.md).
+
 O conteúdo é centrado com largura máxima por tipo de tela: catálogo em contêiner largo (`max-w-7xl`), páginas de leitura como detalhe do Livro em contêiner estreito (`max-w-4xl`). O padding horizontal é 16px no celular e 24px a partir de `sm`, com 32px de respiro vertical.
 
 O ritmo de espaçamento é estritamente múltiplo de 4px (4, 8, 12, 16, 20, 24, 32, 40, 48, 64). Valores arbitrários fora dessa escala não entram.

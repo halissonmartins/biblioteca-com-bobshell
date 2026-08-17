@@ -12,9 +12,11 @@ Sistema web híbrido de biblioteca: o Leitor reserva on-line, o Bibliotecário e
 
 ## Bird's eye view
 
-O request do browser chega à SPA React (`packages/web`), que chama a API REST (`packages/api`). A API valida a identidade via JWT, aplica a regra de negócio na camada de domínio e persiste via Prisma no PostgreSQL. Tipos TypeScript são gerados do schema Prisma e compartilhados entre api e web via `packages/shared`.
+O request do browser chega à SPA React (`packages/web`), que chama a API REST (`packages/api`). A API valida o token emitido pelo **Keycloak** contra o JWKS do realm, aplica a regra de negócio na camada de domínio e persiste via Prisma no PostgreSQL. Tipos TypeScript são gerados do schema Prisma e compartilhados entre api e web via `packages/shared`.
 
-O único estado compartilhado é o banco — não há cache distribuído, fila de mensagens nem serviço externo na v1.
+A autenticação acontece **fora** da aplicação: a SPA vai ao Keycloak por Authorization Code + PKCE e volta com um token; a API é apenas resource server (ADR-0009). O usuário local nasce sob demanda no primeiro acesso, ligado ao realm por `users.externalId`.
+
+O único estado compartilhado é o banco — não há cache distribuído nem fila de mensagens.
 
 ## Code map
 
@@ -31,9 +33,11 @@ packages/
 │   │   │   └── middleware/     ← Auth (JWT), autorização por papel, erros
 │   │   ├── infra/              ← Acesso externo: banco, jobs de fundo, telemetria
 │   │   │   ├── repositories/   ← ÚNICO ponto de acesso ao banco (via Prisma)
+│   │   │   ├── keycloak/       ← Verificação de token contra o JWKS do realm
 │   │   │   ├── jobs/           ← Job de expiração de reservas (se cron)
 │   │   │   └── telemetry/      ← SDK OpenTelemetry, métricas e gauges de negócio
-│   │   └── shared/             ← Erros tipados, logger, utilitários transversais
+│   │   ├── shared/             ← Erros tipados, logger, utilitários transversais
+│   │   └── test/               ← Kit de teste da identidade (emite RS256 real)
 │   ├── prisma/
 │   │   ├── schema.prisma       ← Schema do banco (fonte de verdade do modelo)
 │   │   ├── migrations/         ← Migrations imutáveis após aplicadas
@@ -49,9 +53,13 @@ packages/
 │       ├── api/                ← Chamadas HTTP tipadas (geradas do OpenAPI)
 │       └── utils/              ← Formatação e regras de produto aplicadas no cliente
 │
-└── shared/
-    └── types/                  ← Tipos TypeScript compartilhados entre api e web
-                                  (gerados do schema Prisma / OpenAPI)
+├── shared/
+│   └── types/                  ← Tipos TypeScript compartilhados entre api e web
+│                                 (gerados do schema Prisma / OpenAPI)
+│
+keycloak/
+└── realm-biblioteca.json       ← O realm: clients, papéis, políticas de cadastro.
+                                  Fonte de verdade da identidade (ADR-0009)
 ```
 
 ## Invariantes arquiteturais
@@ -61,6 +69,8 @@ packages/
 - `domain/` **NÃO importa** nada de `infra/`, `api/` nem de bibliotecas HTTP/banco — isso inclui `@opentelemetry/api` e o logger (ver ADR-0007)
 - `api/routes/` **NÃO acessa** o banco diretamente — chama serviços de `domain/`
 - `infra/repositories/` é o **ÚNICO** ponto de acesso ao banco em toda a aplicação
+- A API **NÃO emite nem renova token** — é resource server. Quem autentica é o Keycloak, e não existe rota `/auth` (ADR-0009)
+- O papel **NUNCA** vem do corpo da requisição: sai de `realm_access.roles` do token, traduzido em `domain/auth/`
 - `infra/` **NÃO contém** regra de negócio — apenas persistência e leitura
 - `web/` **NÃO contém** regra de negócio — apenas apresentação e chamadas de API
 - Tipos de domínio são definidos em `packages/shared/types/` — não duplicar em api ou web
@@ -69,9 +79,10 @@ packages/
 ## Fronteiras entre camadas
 
 ```
-Request HTTP
+Request HTTP  (Authorization: Bearer <token do Keycloak>)
     ↓
-api/middleware/  (autenticação JWT, autorização por papel)
+api/middleware/  (verifica assinatura/iss/aud via JWKS, resolve o usuário
+    ↓             local por externalId, autoriza por papel)
     ↓
 api/routes/      (validação de entrada — Zod)
     ↓
@@ -88,6 +99,7 @@ PostgreSQL
 |---|---|
 | Subir a API | `packages/api/src/index.ts` |
 | Adicionar rota nova | `packages/api/src/api/routes/` + middleware em `middleware/auth.ts` |
+| Mexer em identidade, papéis ou cadastro | `keycloak/realm-biblioteca.json` → `docs/seguranca.md` (a lógica de papel fica em `domain/auth/authService.ts`) |
 | Mudar regra de negócio | `packages/api/src/domain/<domínio>/` |
 | Mudar schema do banco | `packages/api/prisma/schema.prisma` → gerar migration → atualizar tipos |
 | Adicionar tela nova | `packages/web/src/pages/` |
@@ -106,9 +118,10 @@ Cada decisão estruturante está em `docs/decisoes/`. Resumo dos ADRs ativos:
 |---|---|
 | [0001](docs/decisoes/0001-linguagem-e-framework.md) | Node.js 20 + TypeScript (API) / React 18 + TypeScript (Web) |
 | [0002](docs/decisoes/0002-banco-de-dados-e-migrations.md) | PostgreSQL 15 + Prisma; Cópias como entidade própria |
-| [0003](docs/decisoes/0003-autenticacao-e-autorizacao.md) | JWT httpOnly; dois papéis: `leitor` e `bibliotecario` |
+| [0003](docs/decisoes/0003-autenticacao-e-autorizacao.md) | ~~JWT httpOnly~~ — **substituído pelo ADR-0009**. Sobrevive dele: dois papéis, `leitor` e `bibliotecario` |
 | [0004](docs/decisoes/0004-deploy-e-ambientes.md) | Docker + plataforma gerenciada; CI/CD via GitHub Actions |
 | [0005](docs/decisoes/0005-monolito-modular.md) | Monolito modular com camadas explícitas; sem microserviços na v1 |
 | [0006](docs/decisoes/0006-estrategia-de-testes.md) | Vitest (unit + integração) + Playwright (e2e); TDD por critério de aceite |
 | [0007](docs/decisoes/0007-observabilidade.md) | OpenTelemetry + OTLP → Collector → Jaeger/Prometheus/Graylog, visualizado no Grafana |
 | [0008](docs/decisoes/0008-imagens-de-capa.md) | Capas em `assets/capas/`, servidas por nginx do compose; ingestão offline; placa como fallback |
+| [0009](docs/decisoes/0009-identidade-com-keycloak.md) | Keycloak como provedor de identidade (OIDC + PKCE); a API é só resource server — **substitui o ADR-0003** |

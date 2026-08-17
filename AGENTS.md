@@ -11,6 +11,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Glossário: [`docs/produto/glossario.md`](docs/produto/glossario.md) — use **exatamente** estes termos no código
 - User stories: [`docs/produto/user-stories.md`](docs/produto/user-stories.md)
 - Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
+- Segurança: [`docs/seguranca.md`](docs/seguranca.md) — identidade com Keycloak, papéis e o que a Fase 1 deixa em aberto. **Leia antes de mexer em autenticação, autorização ou no realm.**
 - Observabilidade: [`docs/observabilidade.md`](docs/observabilidade.md) — logs, métricas, traces e dashboards. **Leia antes de adicionar métrica, span ou log.**
 - Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
 
@@ -20,6 +21,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 |---|---|
 | Backend | Node.js 20 + Express + TypeScript strict |
 | Frontend | React 18 + TypeScript strict |
+| Identidade | Keycloak 26.7 (OIDC — Authorization Code + PKCE) |
 | Banco | PostgreSQL 15 + Prisma ORM |
 | Testes | Vitest (unit/integração) + Playwright (e2e) |
 | CI/CD | GitHub Actions + Docker |
@@ -34,6 +36,7 @@ make lint     # ESLint + TypeScript typecheck
 make build    # build de produção
 make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
 make capas    # baixa as capas ausentes para assets/capas/ — só ao incluir Livro novo (ADR-0008)
+make keycloak-export # persiste no repositório o realm alterado pelo admin console
 make screenshots # recaptura as telas de assets/images/ que o README usa
 ```
 
@@ -80,6 +83,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 
 - Reserva expira automaticamente após **12 horas** (RN-1)
 - Empréstimo só pode ser efetivado por **`bibliotecario`**, nunca pelo `leitor` (RN-2, RN-7)
+- **Papel vem sempre do token do Keycloak** — nunca do corpo da requisição, nunca de coluna consultada por conveniência (ADR-0009)
 - Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
 - Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
 - Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
@@ -90,6 +94,8 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 
 - **`any` explícito é proibido** — TypeScript strict em toda a base de código
 - **Toda rota nova** declara o papel permitido e tem **teste de autorização** (papel errado → 403)
+- **A API nunca emite nem renova token** — é resource server; quem autentica é o Keycloak. Não existe rota `/auth` (ADR-0009)
+- **Mudança no realm é arquivo**: editar `keycloak/realm-biblioteca.json` ou rodar `make keycloak-export`. Clicar no admin console sem exportar perde a mudança
 - **Nunca editar migration já aplicada** — criar nova migration que corrige
 - **Nunca desabilitar lint/tipo/teste** para fazer build ou CI passar
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
