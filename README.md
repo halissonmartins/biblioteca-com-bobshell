@@ -24,9 +24,13 @@ Fluxo híbrido do produto: o **Leitor** navega o catálogo e reserva on-line; o 
 
 ```bash
 cp .env.example .env
-make setup    # instala dependências e sobe o banco via docker compose
+make setup    # instala dependências e sobe Postgres, capas e Keycloak
 make dev      # inicia API (porta 3000) e Web (porta 5173) em modo watch
 ```
+
+Entre com `leitor@biblioteca.dev` / `senha123` — ou clique em **Cadastre-se** e
+crie uma conta com qualquer e-mail. O login acontece no Keycloak
+(http://localhost:8081), não numa tela nossa.
 
 ## Comandos disponíveis
 
@@ -39,6 +43,7 @@ make lint     # ESLint + TypeScript typecheck
 make build    # build de produção (api + web)
 make migrate  # aplica migrations Prisma pendentes
 make seed     # popula banco com dados de desenvolvimento
+make keycloak-export # persiste no repositório o realm alterado pelo admin console
 make capas    # baixa as capas ausentes (só ao incluir Livro novo)
 make screenshots # recaptura as telas de assets/images/ usadas neste README
 ```
@@ -52,6 +57,23 @@ execução. Livro sem arquivo aparece com a placa tipográfica gerada: hoje 6 do
 Livros do seed têm capa, e os outros 4 mostram a placa. A ingestão é do Google
 Books, com o Open Library como reserva. Ver
 [ADR-0008](docs/decisoes/0008-imagens-de-capa.md).
+
+### Segurança e acesso
+
+Quem guarda senha e emite token é o **Keycloak**, no `docker-compose.yml` — a API
+só valida o token contra o JWKS do realm e nunca vê credencial
+([ADR-0009](docs/decisoes/0009-identidade-com-keycloak.md)). O realm é versionado
+em [`keycloak/realm-biblioteca.json`](keycloak/realm-biblioteca.json).
+
+Nesta primeira fase qualquer pessoa se cadastra com **qualquer e-mail, sem
+verificação**, e entra como Leitor; `bibliotecario` é atribuído à mão no admin
+console. O que isso deixa deliberadamente em aberto, e o que vem nas próximas
+fases, está em [`docs/seguranca.md`](docs/seguranca.md).
+
+| Endereço | O que é |
+|---|---|
+| http://localhost:8081 | Admin console (`admin`/`admin`) e telas de login e cadastro |
+| http://localhost:9002/metrics | Métricas do Keycloak (logins, cadastros) |
 
 ### Observabilidade
 
@@ -96,6 +118,7 @@ packages/
 | [`docs/produto/glossario.md`](docs/produto/glossario.md) | Linguagem ubíqua do domínio |
 | [`docs/produto/user-stories.md`](docs/produto/user-stories.md) | Histórias com critério de aceite testável |
 | [`docs/design/fluxos.md`](docs/design/fluxos.md) | Fluxos principais com estados de erro |
+| [`docs/seguranca.md`](docs/seguranca.md) | Como a identidade funciona, o que a Fase 1 não protege e o que vem depois |
 | [`docs/observabilidade.md`](docs/observabilidade.md) | Como o backend é observado: logs, métricas, traces e dashboards |
 | [`docs/decisoes/`](docs/decisoes/) | ADRs das decisões estruturantes |
 | [`docs/arquitetura/c4-contexto.md`](docs/arquitetura/c4-contexto.md) | Diagrama C4 do sistema |
@@ -108,8 +131,11 @@ Copie `.env.example` para `.env` e preencha os valores. Nunca commite `.env`.
 ## Pré-requisitos
 
 - Node.js 20+
-- Docker + Docker Compose
+- Docker + Docker Compose — sobe Postgres, o servidor de capas e o Keycloak
 - `make`
+
+O Keycloak leva ~40 s para subir e importar o realm na primeira vez. Sem ele no
+ar, toda rota autenticada responde 401.
 
 ## Melhorias futuras
 

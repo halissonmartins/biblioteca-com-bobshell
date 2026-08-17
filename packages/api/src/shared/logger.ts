@@ -32,14 +32,20 @@ export const logger: Logger = pino({
     paths: [
       'password',
       '*.password',
-      'passwordHash',
-      '*.passwordHash',
       'token',
       '*.token',
       'accessToken',
       '*.accessToken',
       'refreshToken',
       '*.refreshToken',
+      // ADR-0009. `code` (do PKCE) NÃO entra na lista de propósito: é também o
+      // nome do campo de `AppError`, e censurá-lo apagaria o código de todo
+      // erro de negócio do log. O code de autorização não chega aqui — ele vai
+      // do navegador direto ao token endpoint do Keycloak.
+      'code_verifier',
+      '*.code_verifier',
+      'id_token',
+      '*.id_token',
       'body.password',
       'req.headers.authorization',
       'req.headers.cookie',

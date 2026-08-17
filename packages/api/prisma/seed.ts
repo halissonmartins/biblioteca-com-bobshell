@@ -6,7 +6,7 @@
  * - 5 autores
  * - 10 livros (2 por autor)
  * - 2 cópias por livro (20 no total)
- * - 2 leitores + 1 bibliotecário (senhas em texto: "senha123")
+ * - 2 leitores + 1 bibliotecário (espelho local das contas do realm do Keycloak)
  * - 1 reserva ativa (expira em 12h a partir de agora)
  * - 1 empréstimo ativo
  * - avaliações para os livros
@@ -15,12 +15,25 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaClient, CopyStatus, Role } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const BCRYPT_COST = 12;
-const PASSWORD_PLAIN = 'senha123';
+/**
+ * `sub` de cada conta no realm do Keycloak (ADR-0009).
+ *
+ * Estes valores são copiados de `keycloak/realm-biblioteca.json`, onde os
+ * usuários têm `id` literal justamente para que este seed possa referenciá-los.
+ * **Os dois arquivos se editam juntos**: com externalId fora de sincronia, o
+ * primeiro acesso cria um usuário local novo e a Reserva e o Empréstimo abaixo
+ * ficam órfãos de uma conta que ninguém consegue usar.
+ *
+ * A senha (`senha123` para os três) mora no Keycloak, não aqui.
+ */
+const KEYCLOAK_USER_IDS = {
+  leitor: 'b1b11071-0000-4000-8000-000000000001',
+  leitor2: 'b1b11071-0000-4000-8000-000000000002',
+  bibliotecario: 'b1b11071-0000-4000-8000-000000000003',
+} as const;
 
 const CAPAS_DIR = join(__dirname, '..', '..', '..', 'assets', 'capas');
 
@@ -42,7 +55,6 @@ async function main(): Promise<void> {
   await prisma.review.deleteMany();
   await prisma.loan.deleteMany();
   await prisma.reservation.deleteMany();
-  await prisma.refreshToken.deleteMany();
   await prisma.copy.deleteMany();
   await prisma.book.deleteMany();
   await prisma.author.deleteMany();
@@ -239,13 +251,11 @@ async function main(): Promise<void> {
   // ------------------------------------------------------------------
   // Usuários
   // ------------------------------------------------------------------
-  const passwordHash = await bcrypt.hash(PASSWORD_PLAIN, BCRYPT_COST);
-
   const leitor = await prisma.user.create({
     data: {
+      externalId: KEYCLOAK_USER_IDS.leitor,
       name: 'Ana Lima',
       email: 'leitor@biblioteca.dev',
-      passwordHash,
       role: Role.leitor,
       address: 'Rua das Flores, 123 — São Paulo, SP',
     },
@@ -256,9 +266,9 @@ async function main(): Promise<void> {
   // com um único Leitor no banco, o isolamento é indistinguível de "tudo".
   await prisma.user.create({
     data: {
+      externalId: KEYCLOAK_USER_IDS.leitor2,
       name: 'Bruno Costa',
       email: 'leitor2@biblioteca.dev',
-      passwordHash,
       role: Role.leitor,
       address: 'Rua da Consolação, 45 — São Paulo, SP',
     },
@@ -266,9 +276,9 @@ async function main(): Promise<void> {
 
   const bibliotecario = await prisma.user.create({
     data: {
+      externalId: KEYCLOAK_USER_IDS.bibliotecario,
       name: 'Carlos Mendes',
       email: 'bibliotecario@biblioteca.dev',
-      passwordHash,
       role: Role.bibliotecario,
       address: 'Av. Paulista, 1000 — São Paulo, SP',
     },
@@ -382,7 +392,7 @@ async function main(): Promise<void> {
     leitor@biblioteca.dev        (papel: leitor — com Reserva e Empréstimo)
     leitor2@biblioteca.dev       (papel: leitor — sem nenhum registro)
     bibliotecario@biblioteca.dev (papel: bibliotecario)
-    Senha para ambos: ${PASSWORD_PLAIN}
+    Senha (senha123) e papel vivem no Keycloak — ver keycloak/README.md
 
   Dados:
     ${authors.length} autores

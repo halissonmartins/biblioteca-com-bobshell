@@ -80,6 +80,8 @@ aplicação (por isso não estão em `.env.example`).
 | `READER_EMAIL` / `READER_PASSWORD` | seed dev | credenciais do leitor |
 | `LIBRARIAN_EMAIL` / `LIBRARIAN_PASSWORD` | seed dev | credenciais do bibliotecário |
 | `PERF_BOOKS` / `PERF_AUTHORS` | `250000` / `5000` | volume do seed de performance |
+| `KEYCLOAK_URL` | `http://localhost:8081` | de onde vem o token (ADR-0009) |
+| `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` | `biblioteca` / `biblioteca-web` | realm e client usados no Direct Access Grant |
 
 Exemplo com carga maior:
 
@@ -118,7 +120,7 @@ aproximada.
 perf/
   lib/config.js      # BASE_URL, credenciais, perfis de carga, thresholds
   lib/http.js        # wrapper: request + check + Trend por operação
-  lib/setup.js       # login (leitor/bibliotecário) + pool de bookIds
+  lib/setup.js       # login no Keycloak (leitor/bibliotecário) + pool de bookIds
   scenarios/
     catalog-search.js  # GET /books?search= (busca do catálogo)
     book-detail.js     # GET /books/:id                    (RNF-1)

@@ -23,7 +23,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token JWT (15 min). Também aceito em cookie httpOnly `access_token`.
+      description: |
+        Access token OIDC emitido pelo **Keycloak** (RS256, 15 min) — ADR-0009.
+        A API não emite token: obtenha-o no realm `biblioteca` e envie no header
+        `Authorization`. Não há cookie de sessão.
+
+        Discovery: `http://localhost:8081/realms/biblioteca/.well-known/openid-configuration`
+
+        O token precisa ter `iss` do realm e `aud` contendo `biblioteca-api`.
+    openId:
+      type: openIdConnect
+      openIdConnectUrl: http://localhost:8081/realms/biblioteca/.well-known/openid-configuration
 
   # -------------------------------------------------------------------------
   # Schemas — espelham packages/shared/src/types/domain.ts
@@ -322,7 +332,9 @@ components:
   # -------------------------------------------------------------------------
   responses:
     Unauthorized:
-      description: Não autenticado — token ausente ou inválido
+      description: |
+        Não autenticado — token ausente, expirado, mal assinado, de outro
+        emissor (`iss`) ou destinado a outra audiência (`aud`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }
@@ -356,89 +368,46 @@ components:
 paths:
 
   # -------------------------------------------------------------------------
-  # Auth
+  # Identidade
+  #
+  # Login, renovação e logout NÃO ficam aqui: são do Keycloak (ADR-0009).
+  #   POST   {issuer}/protocol/openid-connect/token
+  #   GET    {issuer}/protocol/openid-connect/auth     (Authorization Code + PKCE)
+  #   GET    {issuer}/protocol/openid-connect/logout
+  # Ver docs/seguranca.md.
   # -------------------------------------------------------------------------
 
-  /auth/login:
-    post:
-      summary: Autenticar usuário
+  /me:
+    get:
+      summary: Perfil local do usuário autenticado
       description: |
-        Autentica com email e senha.
-        Seta cookies `access_token` (15 min) e `refresh_token` (7 dias) httpOnly.
-        Papel (`leitor` | `bibliotecario`) incluso no payload JWT.
-      operationId: login
-      tags: [Auth]
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:    { type: string, format: email }
-                password: { type: string, minLength: 8 }
-      responses:
-        '200':
-          description: Login bem-sucedido
-          headers:
-            Set-Cookie:
-              schema:
-                type: string
-                example: 'access_token=eyJ…; HttpOnly; Secure; SameSite=Strict; Path=/'
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: object
-                    required: [user, accessToken]
-                    properties:
-                      user:        { $ref: '#/components/schemas/User' }
-                      accessToken: { type: string }
-        '401':
-          description: Credenciais inválidas
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+        Devolve o registro em `users` correspondente ao token — criado sob
+        demanda no primeiro acesso (JIT provisioning, ADR-0009).
 
-  /auth/refresh:
-    post:
-      summary: Renovar access token
-      description: Usa o cookie `refresh_token` para emitir novo access token. Rotaciona o refresh token.
-      operationId: refreshToken
-      tags: [Auth]
-      security: []
-      responses:
-        '200':
-          description: Token renovado
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: object
-                    required: [accessToken]
-                    properties:
-                      accessToken: { type: string }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        O `id` é o identificador **local**, que Reservas e Empréstimos
+        referenciam; não é o `sub` do Keycloak. `externalId` não é exposto.
 
-  /auth/logout:
-    post:
-      summary: Encerrar sessão
-      description: Revoga o refresh token e limpa os cookies.
-      operationId: logout
-      tags: [Auth]
+        Aberta aos dois papéis.
+      operationId: getMe
+      tags: [Identidade]
       security:
         - bearerAuth: []
       responses:
-        '204': { description: Logout bem-sucedido }
+        '200':
+          description: Perfil do usuário autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Conta autenticada no realm, mas sem papel deste sistema
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
 
   # -------------------------------------------------------------------------
   # Livros — público (RF-L1, RF-L2)

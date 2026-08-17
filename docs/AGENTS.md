@@ -33,6 +33,8 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 - [ADR-0006 — Estratégia de testes](decisoes/0006-estrategia-de-testes.md)
 - [ADR-0007 — Observabilidade: OpenTelemetry e stack local](decisoes/0007-observabilidade.md)
 - [ADR-0008 — Imagens de capa de Livro](decisoes/0008-imagens-de-capa.md)
+- [ADR-0009 — Identidade com Keycloak](decisoes/0009-identidade-com-keycloak.md)
+  (**substitui o ADR-0003**)
 
 ## Design
 
@@ -49,6 +51,9 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 
 ## Operação
 
+- [Segurança](seguranca.md) — identidade com Keycloak, papéis, o espelho local
+  (`externalId`) e a postura de segurança da Fase 1, com o que fica para as
+  próximas. **Leia antes de mexer em autenticação, autorização ou no realm.**
 - [Observabilidade](observabilidade.md) — logs, métricas e traces do backend via
   OpenTelemetry; métricas customizadas e dashboards. **Leia antes de adicionar
   métrica, span ou log novo.**

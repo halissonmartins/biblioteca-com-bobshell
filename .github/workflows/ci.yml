@@ -31,8 +31,11 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://biblioteca:biblioteca@localhost:5432/biblioteca_test
-      JWT_SECRET: ci-jwt-secret-placeholder
-      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-placeholder
+      # Os testes Vitest não sobem Keycloak: assinam RS256 com um par de chaves
+      # local (src/test/keycloak.ts). Estas variáveis existem porque o
+      # middleware as lê ao carregar o módulo.
+      KEYCLOAK_ISSUER_URL: http://localhost:8081/realms/biblioteca
+      KEYCLOAK_AUDIENCE: biblioteca-api
       NODE_ENV: test
 
     defaults:
@@ -126,8 +129,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://biblioteca:biblioteca@localhost:5432/biblioteca
-      JWT_SECRET: ci-jwt-secret-placeholder
-      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-placeholder
+      KEYCLOAK_ISSUER_URL: http://localhost:8081/realms/biblioteca
+      KEYCLOAK_AUDIENCE: biblioteca-api
       CI: "true"
 
     steps:
@@ -167,8 +170,12 @@ jobs:
       # devolve 502 depois de segurar a conexão, e as requisições da API ficam
       # atrás das imagens no limite de conexões do Chromium — catalogo.spec.ts
       # quebra por timeout, não por fallback.
-      - name: Subir o servidor de capas
-        run: docker compose up -d --wait capas
+      # O Keycloak entra aqui pelo mesmo motivo do servidor de capas: sem ele
+      # ninguém autentica e a suíte inteira falha com 401. Leva ~40 s para
+      # importar o realm e ficar healthy — o `--wait` segura até lá, e o
+      # globalSetup ainda confere o discovery antes do primeiro teste.
+      - name: Subir o servidor de capas e o Keycloak
+        run: docker compose up -d --wait capas keycloak
 
       - name: Rodar testes E2E
         working-directory: e2e

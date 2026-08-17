@@ -397,11 +397,21 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(biblioteca_logins_total[$__rate_interval])) by (resultado) * 60",
-          "legendFormat": "login {{resultado}}"
+          "expr": "sum(rate(keycloak_user_events_total{realm=\"biblioteca\",event=\"login\",error=\"\"}[$__rate_interval])) * 60",
+          "legendFormat": "login sucesso"
         },
         {
           "refId": "B",
+          "expr": "sum(rate(keycloak_user_events_total{realm=\"biblioteca\",event=\"login\",error!=\"\"}[$__rate_interval])) by (error) * 60",
+          "legendFormat": "login falha {{error}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(keycloak_user_events_total{realm=\"biblioteca\",event=\"register\"}[$__rate_interval])) * 60",
+          "legendFormat": "auto-cadastro"
+        },
+        {
+          "refId": "D",
           "expr": "sum(rate(biblioteca_autenticacao_falhas_total[$__rate_interval])) by (motivo) * 60",
           "legendFormat": "token {{motivo}}"
         }

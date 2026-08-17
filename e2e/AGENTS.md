@@ -5,10 +5,12 @@ Complementa o [`AGENTS.md`](../AGENTS.md) da raiz. Vale para tudo dentro de `e2e
 ## O que esta pasta é
 
 Playwright contra o **stack real**: API em `:3000`, SPA em `:5173`, Postgres em
-`:5432` e o servidor de capas em `:8080`. Sem mock, sem stub, sem interceptação
-de rede. O `webServer` do `playwright.config.ts` sobe API e Web; o
-`global-setup.ts` aplica migrations e roda o seed uma vez, antes do primeiro
-teste. Postgres e capas vêm do `docker compose up -d` — os dois, não só o banco.
+`:5432`, o servidor de capas em `:8080` e o **Keycloak em `:8081`**. Sem mock,
+sem stub, sem interceptação de rede — nem no login: os testes preenchem a tela
+do Keycloak de verdade. O `webServer` do `playwright.config.ts` sobe API e Web; o
+`global-setup.ts` espera o Keycloak, aplica migrations e roda o seed uma vez,
+antes do primeiro teste. Postgres, capas e Keycloak vêm do
+`docker compose up -d` — os três, não só o banco.
 
 Os `*.test.ts` dentro de `packages/api` **não são E2E**: são Vitest + supertest com
 `vi.mock` nos repositórios, justamente para não tocar o banco. Um bug que só
@@ -19,6 +21,7 @@ aparece com Prisma e Postgres de verdade passa por eles.
 | Arquivo | O que entra |
 |---|---|
 | `<área>.spec.ts` (`catalogo`, `reservas-leitor`, `bibliotecario`…) | O que o usuário vê e faz no navegador |
+| `autenticacao.spec.ts` | Entrada, saída, guarda de rota e **auto-cadastro** (a tela é a do Keycloak) |
 | `autorizacao-api.spec.ts` | 401, 403 e isolamento entre Leitores |
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
 | `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar |
@@ -39,10 +42,21 @@ chegam à tela como `16/08/2026 22:31`. Verificar só o texto formatado deixa pa
 a troca de 12h por 24h — a suíte inteira continua verde. Afirme sobre `expiresAt` e
 `dueAt` na resposta; a tela verifica que o valor *aparece*, não qual é.
 
-**Um contexto HTTP por ator.** A API dá precedência ao cookie `access_token` sobre o
-header `Authorization`, então dois atores no mesmo `APIRequestContext` sobrescrevem
-a sessão um do outro — e um teste de isolamento passa por acidente. Use
+**Um contexto HTTP por ator.** Cada ator carrega o próprio token e o próprio jogo
+de cookies de sessão do Keycloak; compartilhar contexto mistura as duas sessões no
+mesmo jar — e um teste de isolamento passa por acidente. Use
 `newActor(playwright, email)` e chame `dispose()` no fim.
+
+**`loginUI` espera o botão "Sair", não o Catálogo.** O Catálogo é rota pública e
+aparece igual sem sessão. Quem esperasse só por ele voltaria enquanto o `GET /me`
+ainda estava no ar, e o passo seguinte navegaria como visitante — foi exatamente
+assim que US-03 falhou pedindo um botão "Reservar" que a página só mostra a quem
+entrou. O "Sair" só existe com sessão. Vale o mesmo para `registrarUI`.
+
+**Token de API vem do Keycloak, não da API.** `apiLogin()` bate no token endpoint
+do realm (Direct Access Grant) e depois em `GET /me` para descobrir o **id local**
+— que é o que Reservas e Empréstimos referenciam, e o que os specs comparam. O
+`sub` do token é outro identificador; não confunda os dois.
 
 **Concorrência exige um contexto por requisição.** Um `APIRequestContext` reaproveita
 a conexão e enfileira as requisições: `Promise.all` sobre o mesmo contexto testa
@@ -55,6 +69,12 @@ não expõe endpoint que envelheça uma Reserva. Use as fixtures de `db.ts`
 caminho continua sendo o de produção. Para UI que depende do relógio (a contagem
 regressiva de US-04, que avança a cada 30 s), use `page.clock.install()` antes do
 `goto` e `fastForward`, nunca `waitForTimeout`.
+
+**O Keycloak não é opcional.** Sem ele ninguém autentica e a suíte inteira falha
+com 401 — sintoma que aponta para o lugar errado. O `global-setup.ts` confere o
+discovery do realm antes de qualquer teste e falha dizendo o que fazer. Ele leva
+~40 s para subir e importar o realm na primeira vez; `docker compose up -d --wait`
+segura até lá.
 
 **O servidor de capas não é opcional.** Com `coverUrl` no seed e o container
 `capas` fora do ar, o proxy do Vite devolve 502 para cada `/capas/…` e as
@@ -94,7 +114,7 @@ isolamento e estado vazio. `bibliotecario@biblioteca.dev` é Carlos Mendes. Senh
 ## Rodar
 
 ```bash
-docker compose up -d          # Postgres, na raiz do repo
+docker compose up -d          # Postgres, capas e Keycloak, na raiz do repo
 npm install                   # primeira vez
 npm run install:browsers      # baixa o Chromium, primeira vez
 npm test                      # suíte inteira
@@ -104,11 +124,13 @@ npx playwright test contrato-api.spec.ts -g "RN-1"   # um cenário
 
 ## Duas armadilhas do ambiente
 
-**`tsx watch` não recarrega em `/mnt/c`.** O inotify do WSL2 não dispara para arquivos
-do sistema de arquivos do Windows, e o `playwright.config.ts` usa
-`reuseExistingServer` fora do CI. Depois de mudar código da API, **mate o servidor**
-(`pkill -f "tsx watch"`) antes de rodar de novo — senão você testa a versão anterior e
-conclui o oposto do que o código faz.
+**Nem `tsx watch` nem o Vite recarregam em `/mnt/c`.** O inotify do WSL2 não dispara
+para arquivos do sistema de arquivos do Windows, e o `playwright.config.ts` usa
+`reuseExistingServer` fora do CI. Depois de mudar código, **mate os dois servidores**
+(`pkill -f "tsx watch"; pkill -f vite`) antes de rodar de novo — senão você testa a
+versão anterior e conclui o oposto do que o código faz. Vale para a SPA tanto quanto
+para a API: uma mudança em `useAuth.tsx` que o navegador nunca recebeu já custou uma
+sessão inteira de diagnóstico do fluxo de login.
 
 **`db.ts` importa o Prisma Client de `packages/api/node_modules`** por caminho relativo.
 É de propósito: evita duplicar dependência e schema aqui. Se o import quebrar, rode

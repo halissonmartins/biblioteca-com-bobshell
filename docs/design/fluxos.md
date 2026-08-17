@@ -16,7 +16,8 @@
       ├── [ERR] Disponibilidade = 0 → botão desabilitado, mensagem "Sem cópias disponíveis" → FIM
       ↓
 [4] Clica em "Reservar"
-      ├── [ERR] Não autenticado → redirecionado para login → retorna para [4]
+      ├── [ERR] Não autenticado → encaminhado ao Keycloak (login ou cadastro)
+      │         → volta autenticado na rota de origem → retorna para [4]
       ↓
 [5] Sistema bloqueia uma Cópia e cria a Reserva
       ├── [ERR] Cópia foi reservada por outro leitor no mesmo instante (race condition)
@@ -109,7 +110,8 @@
 
 | Situação | Comportamento esperado |
 |---|---|
-| Usuário não autenticado tenta reservar | Redireciona para login; após autenticação, retorna para a ação |
+| Usuário não autenticado tenta reservar | Encaminha ao Keycloak (com opção de auto-cadastro); depois de autenticar, **retorna à rota de origem**, não ao Catálogo (ADR-0009) |
+| Conta autenticada no Keycloak sem papel desta biblioteca | HTTP 403 com orientação de procurar a biblioteca |
 | Leitor tenta acessar rota de Bibliotecário | HTTP 403 com mensagem clara |
 | Indisponibilidade momentânea do sistema | Mensagem de erro amigável; não perder o estado do formulário |
 | Race condition na reserva (duas reservas simultâneas da última cópia) | Apenas uma é aceita; a outra recebe erro com orientação |

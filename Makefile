@@ -6,7 +6,7 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env db-up migrate seed capas screenshots clean e2e e2e-setup perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
+.PHONY: help setup dev test lint build install env db-up migrate seed capas screenshots clean e2e e2e-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -15,20 +15,32 @@ help: ## Lista os alvos disponíveis
 setup: env install db-up migrate seed ## Cria .env + instala deps + sobe Postgres + migra + popula o banco
 	@echo "Setup concluído. Rode 'make dev'."
 
-env: ## Cria packages/api/.env a partir do .env.example (se ainda não existir)
-	@if [ ! -f $(API)/.env ]; then \
-		cp .env.example $(API)/.env; \
-		echo "Criado $(API)/.env a partir do .env.example."; \
-	else \
-		echo "$(API)/.env já existe — mantido."; \
-	fi
+env: ## Cria os .env de api e web a partir do .env.example (se ainda não existirem)
+	# Dois arquivos, não um: o Vite lê o .env do próprio pacote, então as
+	# variáveis VITE_KEYCLOAK_* nunca chegariam à SPA se ficassem só na API.
+	@for pkg in $(API) $(WEB); do \
+		if [ ! -f $$pkg/.env ]; then \
+			cp .env.example $$pkg/.env; \
+			echo "Criado $$pkg/.env a partir do .env.example."; \
+		else \
+			echo "$$pkg/.env já existe — mantido."; \
+		fi; \
+	done
 
 install: ## Instala dependências de todos os pacotes
 	cd $(API) && npm install
 	cd $(WEB) && npm install
 
-db-up: ## Sobe o Postgres via docker compose (aguarda healthcheck)
+db-up: ## Sobe Postgres, capas e Keycloak via docker compose (aguarda healthcheck)
 	docker compose up -d --wait
+
+keycloak-export: ## Exporta o realm do container para keycloak/realm-biblioteca.json
+	# Único jeito de preservar mudança feita no admin console: o estado vive no
+	# volume, e `down -v` o leva junto. Ver keycloak/README.md.
+	docker exec biblioteca-keycloak /opt/keycloak/bin/kc.sh export \
+		--realm biblioteca --file /tmp/realm-biblioteca.json
+	docker cp biblioteca-keycloak:/tmp/realm-biblioteca.json keycloak/realm-biblioteca.json
+	@echo "Exportado. Revise o diff antes de commitar — o export traz ids e timestamps."
 
 migrate: ## Aplica as migrations e regenera o Prisma Client
 	cd $(API) && npm run migrate:deploy && npm run db:generate

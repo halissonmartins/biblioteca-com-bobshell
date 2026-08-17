@@ -1,4 +1,4 @@
-# Postgres e servidor de capas para desenvolvimento e testes E2E locais.
+# Postgres, servidor de capas e Keycloak para desenvolvimento e testes E2E locais.
 # Uso: docker compose up -d  (antes de `make dev` ou `npm test` em e2e/)
 #
 # A stack de observabilidade fica atrás do perfil `obs` e NÃO sobe no comando
@@ -45,6 +45,50 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+
+  # Identidade — Keycloak (ADR-0009). Fora de qualquer profile pelo mesmo motivo
+  # do `capas`: sem ele não há login, então tem que subir no `docker compose up -d`.
+  #
+  # O realm é importado de keycloak/realm-biblioteca.json e só na PRIMEIRA subida —
+  # depois o estado mora no volume. Para reimportar, ver keycloak/README.md.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.1
+    container_name: biblioteca-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      # 26.x: KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD estão depreciados.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      # Emite keycloak_user_events_total — é de onde o painel "Autenticação" do
+      # dashboard biblioteca-saude-api passa a ler os logins (docs/observabilidade.md).
+      KC_EVENT_METRICS_USER_ENABLED: "true"
+      # Sem teto explícito a JVM pega 70% da RAM do container. Mesmo orçamento de
+      # memória da stack de observabilidade — ver o bloco abaixo.
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
+    volumes:
+      # O volume vai em /opt/keycloak/data, não em .../data/h2: aquele diretório
+      # existe na imagem como keycloak:root, e é dele que o volume novo herda o
+      # dono. Apontando para .../data/h2 — que não existe — o Docker cria como
+      # root e o processo (uid 1000) não consegue abrir o banco H2.
+      - biblioteca-keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-biblioteca.json:/opt/keycloak/data/import/realm-biblioteca.json:ro
+    ports:
+      - "8081:8080"   # 8080 no host já é do `capas`
+      # 9002, não 9000: a 9000 costuma estar tomada no WSL2 (ver Graylog abaixo).
+      # Quem raspa as métricas é o Prometheus, por dentro da rede (keycloak:9000).
+      - "9002:9000"   # management — /health/ready e /metrics
+    mem_limit: 768m
+    healthcheck:
+      # A imagem não tem curl nem wget. /dev/tcp é bash embutido, e o /bin/sh da
+      # base UBI é o próprio bash.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '\"status\": \"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     restart: unless-stopped
 
   # ===========================================================================
@@ -216,6 +260,7 @@ services:
 
 volumes:
   biblioteca-pgdata:
+  biblioteca-keycloak-data:
   biblioteca-prometheus-data:
   biblioteca-grafana-data:
   biblioteca-mongodb-data:

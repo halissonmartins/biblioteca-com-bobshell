@@ -38,7 +38,8 @@ C4Container
 
   Container_Boundary(sistema, "Sistema de Biblioteca") {
     Container(web, "Web App", "React 18 + TypeScript", "SPA servida como estáticos. Consome a API REST.")
-    Container(api, "API REST", "Node.js 20 + Express + TypeScript", "Regras de negócio, autenticação JWT, acesso ao banco via Prisma.")
+    Container(api, "API REST", "Node.js 20 + Express + TypeScript", "Regras de negócio e acesso ao banco via Prisma. Resource server: valida o token do Keycloak, nunca o emite — ADR-0009.")
+    Container(keycloak, "Keycloak", "Keycloak 26 (OIDC)", "Provedor de identidade: login, auto-cadastro, papéis e emissão de token. Guarda a credencial — a API não. Realm versionado em keycloak/.")
     ContainerDb(db, "Banco de Dados", "PostgreSQL 15", "Livros, Cópias, Usuários, Reservas, Empréstimos, Avaliações.")
     Container(capas, "Servidor de Capas", "nginx (local) / CDN (produção)", "Serve /capas/{isbn}.jpg a partir de assets/capas/. Não fala com a API nem com o banco — ADR-0008.")
   }
@@ -55,15 +56,22 @@ C4Container
   Rel(bibliotecario, web, "Usa", "HTTPS")
   Rel(web, api, "Chama", "HTTPS / JSON")
   Rel(web, capas, "Carrega a capa do Livro", "HTTPS / imagem")
+  Rel(web, keycloak, "Autentica e obtém token", "OIDC — Authorization Code + PKCE")
+  Rel(api, keycloak, "Busca as chaves públicas do realm", "JWKS / HTTPS")
   Rel(api, db, "Lê e escreve", "Prisma / TCP")
   Rel(api, collector, "Logs, métricas e traces", "OTLP / gRPC")
   Rel(prom, collector, "Raspa métricas", "HTTP :8889")
+  Rel(prom, keycloak, "Raspa eventos de login e cadastro", "HTTP :9000")
   Rel(collector, jaeger, "Exporta traces", "OTLP / gRPC")
   Rel(collector, graylog, "Exporta logs", "OTLP / gRPC")
   Rel(grafana, prom, "Consulta", "PromQL")
   Rel(grafana, jaeger, "Consulta", "HTTP")
 ```
 
+> O Keycloak **sobe** com `docker compose up -d`: sem ele ninguém autentica. A
+> senha nunca atravessa a nossa origem — o navegador fala com ele diretamente, e
+> a API só recebe o token pronto.
+>
 > A stack de observabilidade **não sobe** com `docker compose up -d` — vive no
 > perfil `obs` e é ferramenta de desenvolvimento, não parte do produto entregue.
 > Detalhes em [ADR-0007](../decisoes/0007-observabilidade.md) e

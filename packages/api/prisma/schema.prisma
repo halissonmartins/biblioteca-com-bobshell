@@ -102,44 +102,34 @@ model Copy {
 }
 
 // ---------------------------------------------------------------------------
-// Usuário — Leitor ou Bibliotecário (ADR-0003)
+// Usuário — Leitor ou Bibliotecário (ADR-0009)
+//
+// A credencial NÃO mora aqui: quem guarda senha é o Keycloak. Esta tabela é o
+// espelho local da identidade, criado sob demanda no primeiro acesso
+// (JIT provisioning em domain/auth/authService.ts) e ligado ao realm por
+// externalId. As FKs de Reserva e Empréstimo continuam apontando para `id`.
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role
-  address      String?
+  id String @id @default(cuid())
+
+  /// `sub` do token do Keycloak — a ligação com o realm (ver keycloak/README.md)
+  externalId String @unique
+
+  name    String
+  email   String  @unique
+  role    Role
+  address String?
 
   reservations   Reservation[]
   loans          Loan[]         @relation("reader_loans")
   librarianLoans Loan[]         @relation("librarian_loans")
   reviews        Review[]
 
-  refreshTokens RefreshToken[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
-}
-
-/// Refresh tokens (ADR-0003 — rotacionados a cada uso, 7 dias)
-model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@map("refresh_tokens")
 }
 
 // ---------------------------------------------------------------------------

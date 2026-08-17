@@ -2,8 +2,20 @@
 
 | Campo | Valor |
 |---|---|
-| Status | **Aceito** |
+| Status | **Substituído** pelo [ADR-0009](0009-identidade-com-keycloak.md) |
 | Data | 14/08/2026 |
+| Substituído em | 16/08/2026 |
+
+> **Este ADR não descreve mais o sistema.** O JWT próprio, o `bcrypt` e a tabela
+> `refresh_tokens` foram removidos: quem autentica é o Keycloak, e a API só
+> valida token contra o JWKS do realm — ver
+> [ADR-0009](0009-identidade-com-keycloak.md) e
+> [`docs/seguranca.md`](../seguranca.md).
+>
+> O texto abaixo fica como registro do que foi decidido e por quê. **O que
+> sobreviveu à troca** é o modelo de autorização: dois papéis (`leitor`,
+> `bibliotecario`), middleware conferindo papel antes de cada rota protegida, e
+> teste de autorização como item obrigatório da definition of done.
 
 ## Contexto
 
