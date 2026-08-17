@@ -16,7 +16,7 @@ import path from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { BIBLIOTECARIO, LEITOR, loginUI } from './helpers'
+import { BIBLIOTECARIO, KEYCLOAK, LEITOR, loginUI } from './helpers'
 
 const SAIDA = path.resolve(__dirname, '../assets/images')
 
@@ -39,9 +39,14 @@ test.describe('Screenshots do produto', () => {
     await page.screenshot({ path: path.join(SAIDA, arquivo), fullPage })
   }
 
+  // A entrada tem duas metades desde o ADR-0009: a nossa antessala encaminha, e
+  // quem pede a credencial é o Keycloak. A foto que interessa ao README é a
+  // segunda — é a que a pessoa realmente vê e usa. Que ela esteja fora do
+  // DESIGN.md é a regressão registrada lá, não um defeito da captura.
   test('login', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByRole('heading', { name: 'Acesso' })).toBeVisible()
+    await page.waitForURL(new RegExp(KEYCLOAK.replace(/^https?:\/\//, '')))
+    await expect(page.locator('#kc-login')).toBeVisible()
     await capturar(page, 'login.png')
   })
 

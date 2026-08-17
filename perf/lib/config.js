@@ -3,7 +3,13 @@
 
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
-// Credenciais do seed de desenvolvimento (packages/api/prisma/seed.ts).
+// Keycloak — quem emite os tokens (ADR-0009). A API não tem mais /auth/login.
+export const KEYCLOAK_URL = __ENV.KEYCLOAK_URL || 'http://localhost:8081';
+export const KEYCLOAK_REALM = __ENV.KEYCLOAK_REALM || 'biblioteca';
+export const KEYCLOAK_CLIENT_ID = __ENV.KEYCLOAK_CLIENT_ID || 'biblioteca-web';
+export const TOKEN_ENDPOINT = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
+
+// Credenciais do realm de desenvolvimento (keycloak/realm-biblioteca.json).
 export const READER = {
   email: __ENV.READER_EMAIL || 'leitor@biblioteca.dev',
   password: __ENV.READER_PASSWORD || 'senha123',

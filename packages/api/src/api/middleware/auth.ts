@@ -1,53 +1,65 @@
 /**
  * packages/api/src/api/middleware/auth.ts
- * Middleware de autenticação (JWT httpOnly) e autorização por papel.
+ * Middleware de autenticação (token do Keycloak) e autorização por papel.
  *
  * Uso:
  *   router.post('/loans', authenticate, requireRole('bibliotecario'), handler)
+ *
+ * `req.user.sub` continua sendo o id LOCAL do usuário, não o `sub` do token:
+ * as FKs de Reserva e Empréstimo apontam para `users.id`, e resolver isso aqui
+ * é o que mantém rotas e domínio sem saber que existe um Keycloak (ADR-0009).
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import type { Role } from '@prisma/client';
 import { AppError } from '../../shared/errors.js';
+import { verifyAccessToken } from '../../infra/keycloak/tokenVerifier.js';
+import { resolveLocalUser } from '../../domain/auth/authService.js';
+import { authRepoDeps } from '../../infra/repositories/userRepository.js';
 import { autenticacaoFalhas, autorizacaoNegacoes } from '../../infra/telemetry/metrics.js';
 
 // ---------------------------------------------------------------------------
 // Tipos
 // ---------------------------------------------------------------------------
 
-export interface JwtPayload {
-  sub: string;   // userId
+/**
+ * Espelho local já resolvido — `GET /me` o serializa sem consultar o banco de
+ * novo, e `requireRole` decide sobre `role`.
+ */
+export interface AuthenticatedUser {
+  /** id do usuário na NOSSA base (users.id) */
+  sub: string;
   role: Role;
-  iat: number;
-  exp: number;
+  /** `sub` do token — a conta no realm do Keycloak */
+  externalId: string;
+  name: string;
+  email: string;
+  address: string | null;
+  createdAt: Date;
 }
 
 /** Request autenticado — garante que req.user está preenchido */
 export interface AuthenticatedRequest extends Request {
-  user: JwtPayload;
+  user: AuthenticatedUser;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getSecret(): string {
-  const secret = process.env['JWT_SECRET'];
-  if (!secret) throw new AppError('INTERNAL_ERROR', 'JWT_SECRET não configurado');
-  return secret;
-}
-
 function extractToken(req: Request): string {
-  // 1. Cookie httpOnly (preferencial — ADR-0003)
-  const fromCookie = (req.cookies as Record<string, string | undefined>)['access_token'];
-  if (fromCookie) return fromCookie;
-
-  // 2. Header Authorization: Bearer <token> (para testes e CLI)
   const auth = req.headers['authorization'];
   if (auth?.startsWith('Bearer ')) return auth.slice(7);
 
   throw new AppError('UNAUTHORIZED', 'Token de acesso não fornecido');
+}
+
+function motivoDaFalha(err: unknown): string {
+  if (err instanceof AppError) {
+    if (err.code === 'UNAUTHORIZED') return 'sem_token';
+    if (err.code === 'TOKEN_EXPIRED') return 'expirado';
+  }
+  return 'invalido';
 }
 
 // ---------------------------------------------------------------------------
@@ -56,28 +68,48 @@ function extractToken(req: Request): string {
 
 export function authenticate(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ): void {
-  try {
-    const token = extractToken(req);
-    const payload = jwt.verify(token, getSecret()) as JwtPayload;
-    (req as AuthenticatedRequest).user = payload;
-    next();
-  } catch (err) {
-    if (err instanceof AppError) {
-      autenticacaoFalhas.add(1, { motivo: 'sem_token' });
-      next(err);
-      return;
+  void (async (): Promise<void> => {
+    try {
+      const claims = await verifyAccessToken(extractToken(req));
+
+      // Primeiro acesso de uma conta recém-cadastrada cria o espelho local aqui.
+      const user = await resolveLocalUser(
+        {
+          externalId: claims.sub,
+          email: claims.email,
+          name: claims.name,
+          realmRoles: claims.realmRoles,
+        },
+        authRepoDeps,
+      );
+
+      (req as AuthenticatedRequest).user = {
+        sub: user.id,
+        role: user.role,
+        externalId: user.externalId,
+        name: user.name,
+        email: user.email,
+        address: user.address,
+        createdAt: user.createdAt,
+      };
+      next();
+    } catch (err) {
+      // FORBIDDEN vem de roleFromRealmRoles (conta sem papel deste sistema) —
+      // é autorização, não falha de autenticação, e não entra no contador.
+      if (!(err instanceof AppError && err.code === 'FORBIDDEN')) {
+        autenticacaoFalhas.add(1, { motivo: motivoDaFalha(err) });
+      }
+
+      next(
+        err instanceof AppError
+          ? err
+          : new AppError('TOKEN_INVALID', 'Token de acesso inválido'),
+      );
     }
-    if (err instanceof jwt.TokenExpiredError) {
-      autenticacaoFalhas.add(1, { motivo: 'expirado' });
-      next(new AppError('TOKEN_EXPIRED', 'Token de acesso expirado'));
-      return;
-    }
-    autenticacaoFalhas.add(1, { motivo: 'invalido' });
-    next(new AppError('TOKEN_INVALID', 'Token de acesso inválido'));
-  }
+  })();
 }
 
 // ---------------------------------------------------------------------------

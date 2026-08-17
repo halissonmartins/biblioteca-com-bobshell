@@ -1,0 +1,140 @@
+{
+  "realm": "biblioteca",
+  "displayName": "Biblioteca",
+  "enabled": true,
+
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "editUsernameAllowed": false,
+
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR",
+
+  "sslRequired": "none",
+
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "bruteForceProtected": false,
+
+  "roles": {
+    "realm": [
+      {
+        "name": "leitor",
+        "description": "Reserva Livros on-line e acompanha as próprias Reservas e Empréstimos (RN-7).",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "bibliotecario",
+        "description": "Efetiva Empréstimo e registra Devolução no balcão (RN-2, RN-7).",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "default-roles-biblioteca",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "composites": {
+          "realm": ["leitor"],
+          "client": {
+            "account": ["manage-account", "view-profile"]
+          }
+        },
+        "clientRole": false
+      }
+    ]
+  },
+
+  "defaultRole": {
+    "name": "default-roles-biblioteca",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "clientRole": false
+  },
+
+  "clients": [
+    {
+      "clientId": "biblioteca-web",
+      "name": "Biblioteca — SPA",
+      "description": "SPA React. Authorization Code + PKCE. Direct Access Grant fica ligado porque é assim que Playwright e K6 obtêm token sem navegador — desligar é item da Fase 2 (docs/seguranca.md).",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-biblioteca-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "biblioteca-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "id": "b1b11071-0000-4000-8000-000000000001",
+      "username": "leitor@biblioteca.dev",
+      "email": "leitor@biblioteca.dev",
+      "firstName": "Ana",
+      "lastName": "Lima",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "senha123", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000002",
+      "username": "leitor2@biblioteca.dev",
+      "email": "leitor2@biblioteca.dev",
+      "firstName": "Bruno",
+      "lastName": "Costa",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "senha123", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000003",
+      "username": "bibliotecario@biblioteca.dev",
+      "email": "bibliotecario@biblioteca.dev",
+      "firstName": "Carlos",
+      "lastName": "Mendes",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "senha123", "temporary": false }
+      ],
+      "realmRoles": ["bibliotecario"]
+    }
+  ]
+}

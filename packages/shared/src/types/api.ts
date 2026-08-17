@@ -29,19 +29,11 @@ export interface PaginatedResponse<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Auth — POST /auth/login, POST /auth/refresh, POST /auth/logout
+// Identidade — GET /me
+//
+// Não há tipo de login: a API não recebe credencial nem emite token. Quem
+// autentica é o Keycloak (ADR-0009), e `GET /me` devolve o `User` de domain.ts.
 // ---------------------------------------------------------------------------
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  user: import('./domain.js').User;
-  /** Access token (15 min) — devolvido no corpo; também setado em cookie httpOnly */
-  accessToken: string;
-}
 
 // ---------------------------------------------------------------------------
 // Livros — GET /books, GET /books/:id

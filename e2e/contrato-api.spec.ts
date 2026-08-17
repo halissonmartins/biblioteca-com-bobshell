@@ -11,6 +11,8 @@ import {
   newActor,
   BIBLIOTECARIO,
   LEITOR,
+  TOKEN_ENDPOINT,
+  KEYCLOAK_CLIENT_ID,
 } from './helpers'
 import { expireReservation, expireReservationAsJobWould } from './db'
 
@@ -391,75 +393,65 @@ test.describe('Contrato HTTP da API', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Sessão
+  // Identidade
+  //
+  // Emissão e renovação de token saíram daqui: são do Keycloak (ADR-0009). O
+  // que resta de nossa responsabilidade é recusar o que não veio do realm e
+  // expor o perfil local.
   // -------------------------------------------------------------------------
 
-  test('POST /auth/refresh rotaciona o token e invalida o anterior (ADR-0003)', async ({ playwright }) => {
+  test('GET /me devolve o perfil LOCAL de quem está autenticado (ADR-0009)', async ({ playwright }) => {
     const ana = await newActor(playwright, LEITOR.email)
 
-    const cookieAntigo = (await ana.ctx.storageState()).cookies.find((c) => c.name === 'refresh_token')
-    expect(cookieAntigo, 'login deve emitir cookie refresh_token').toBeDefined()
-
-    // O cookie viaja sozinho no mesmo contexto
-    const res = await ana.ctx.post(`${API}/auth/refresh`)
+    const res = await ana.ctx.get(`${API}/me`, { headers: bearer(ana.token) })
     expect(res.status()).toBe(200)
-    const novoAccessToken = (await res.json()).data.accessToken as string
-    expect(novoAccessToken).toEqual(expect.any(String))
 
-    // O access token novo vale de verdade — não é só uma string bem formada
-    const comNovo = await ana.ctx.get(`${API}/me/reservations`, { headers: bearer(novoAccessToken) })
-    expect(comNovo.status()).toBe(200)
-
-    // O refresh token anterior morreu na rotação. Num contexto limpo, sem cookie,
-    // ele é enviado no corpo — que é o outro caminho aceito pela rota.
-    const semSessao = await playwright.request.newContext()
-    const reuso = await semSessao.post(`${API}/auth/refresh`, {
-      data: { refreshToken: cookieAntigo!.value },
+    const perfil = (await res.json()).data
+    expect(perfil).toMatchObject({
+      name: 'Ana Lima',
+      email: LEITOR.email,
+      role: 'leitor',
     })
-    expect(reuso.status()).toBe(401)
 
-    const semToken = await semSessao.post(`${API}/auth/refresh`, { data: {} })
-    expect(semToken.status()).toBe(401)
+    // O `id` é o da NOSSA base, não o `sub` do Keycloak. Que ele seja o mesmo
+    // que as Reservas referenciam já é afirmado pelos testes de POST
+    // /reservations acima, que comparam contra `ana.user.id` — vindo daqui.
+    expect(perfil.id).not.toBe('b1b11071-0000-4000-8000-000000000001')
 
-    await semSessao.dispose()
+    // `externalId` é assunto interno da integração e não sai para o cliente.
+    expect(perfil).not.toHaveProperty('externalId')
+
     await ana.dispose()
   })
 
-  test('POST /auth/logout devolve 204 e encerra a renovação da sessão', async ({ playwright }) => {
-    const carlos = await newActor(playwright, BIBLIOTECARIO.email)
-    const refreshToken = (await carlos.ctx.storageState()).cookies.find(
-      (c) => c.name === 'refresh_token',
-    )!.value
+  test('token de outro emissor é recusado, mesmo bem formado', async ({ request }) => {
+    // Um JWT assinado por outro realm continua sendo um JWT válido. O que o
+    // barra é a conferência de `iss` e `aud` (ADR-0009).
+    const forjado = [
+      Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url'),
+      Buffer.from(
+        JSON.stringify({ sub: 'x', iss: 'http://malicioso/realms/outro', aud: 'biblioteca-api' }),
+      ).toString('base64url'),
+      'assinatura-inventada',
+    ].join('.')
 
-    const res = await carlos.ctx.post(`${API}/auth/logout`, { headers: bearer(carlos.token) })
-    expect(res.status()).toBe(204)
-    expect(await res.text()).toBe('')
-
-    // Os cookies saíram do navegador…
-    expect((await carlos.ctx.storageState()).cookies.map((c) => c.name)).not.toContain('refresh_token')
-
-    // …e o refresh token foi revogado no servidor: reapresentá-lo por fora do cookie
-    // não ressuscita a sessão. O access token, esse, vale até vencer — é JWT, não
-    // sessão de servidor; o que o logout encerra é a renovação (ADR-0003).
-    const semSessao = await playwright.request.newContext()
-    const reuso = await semSessao.post(`${API}/auth/refresh`, { data: { refreshToken } })
-    expect(reuso.status()).toBe(401)
-
-    await semSessao.dispose()
-    await carlos.dispose()
+    const res = await request.get(`${API}/me`, { headers: bearer(forjado) })
+    expect(res.status()).toBe(401)
+    expect((await apiErrorOf(res)).code).toBe('TOKEN_INVALID')
   })
 
-  test('POST /auth/login rejeita credenciais inválidas com 401', async ({ request }) => {
-    const res = await request.post(`${API}/auth/login`, {
-      data: { email: LEITOR.email, password: 'senha-errada' },
+  test('o Keycloak recusa credenciais inválidas — a API não vê senha', async ({ request }) => {
+    const res = await request.post(TOKEN_ENDPOINT, {
+      form: {
+        grant_type: 'password',
+        client_id: KEYCLOAK_CLIENT_ID,
+        username: LEITOR.email,
+        password: 'senha-errada',
+      },
     })
-    expect(res.status()).toBe(401)
-    expect((await apiErrorOf(res)).code).toBe('INVALID_CREDENTIALS')
-
-    const semArroba = await request.post(`${API}/auth/login`, {
-      data: { email: 'sem-arroba', password: 'senha123' },
-    })
-    expect(semArroba.status()).toBe(422)
-    expect((await apiErrorOf(semArroba)).code).toBe('VALIDATION_ERROR')
+    // 400 + invalid_grant é o que o OAuth 2 manda devolver para credencial
+    // errada no token endpoint — não 401, que é para o client não autenticado.
+    expect(res.status()).toBe(400)
+    expect((await res.json()).error).toBe('invalid_grant')
   })
 })

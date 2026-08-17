@@ -43,7 +43,7 @@ export interface Copy {
   bookId: string;
 }
 
-/** Usuário sem passwordHash — seguro para enviar ao cliente */
+/** Espelho local da identidade do realm — sem `externalId`, seguro para o cliente */
 export interface User {
   id: string;
   name: string;

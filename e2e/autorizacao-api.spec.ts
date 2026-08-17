@@ -55,7 +55,7 @@ test.describe('Autorização e regras via API (RN-2, RN-3, RN-7)', () => {
       ['GET /loans', request.get(`${API}/loans`)],
       ['POST /loans', request.post(`${API}/loans`, { data: { reservationId: 'x', dueAt: '2026-12-01T10:00:00Z' } })],
       ['PATCH /loans/:id/return', request.patch(`${API}/loans/qualquer/return`)],
-      ['POST /auth/logout', request.post(`${API}/auth/logout`)],
+      ['GET /me', request.get(`${API}/me`)],
     ]
 
     for (const [rota, pendente] of semToken) {

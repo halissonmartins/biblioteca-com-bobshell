@@ -1,11 +1,12 @@
 /**
  * packages/api/src/api/routes/me.ts
- * Rotas do perfil do Leitor autenticado.
+ * Rotas do perfil do usuário autenticado.
  *
+ * GET /me               — perfil local de quem está autenticado — qualquer papel
  * GET /me/reservations  — lista Reservas ativas do Leitor (RF-L4) — leitor
  * GET /me/loans         — lista Empréstimos do Leitor (RF-L5)     — leitor
  *
- * Autorização: authenticate + requireRole('leitor') em ambas.
+ * Autorização: authenticate em todas; requireRole('leitor') nas duas últimas.
  */
 
 import { Router } from 'express';
@@ -26,6 +27,31 @@ function asyncHandler(
     fn(req, res, next).catch((err: unknown) => { next(err); });
   };
 }
+
+// ---------------------------------------------------------------------------
+// GET /me  — perfil local de quem está autenticado
+//
+// É como a SPA e os testes descobrem o id LOCAL depois de autenticar no
+// Keycloak, e é a prova observável de que o espelho local foi criado no
+// primeiro acesso (ADR-0009). Sem requireRole: Leitor e Bibliotecário leem o
+// próprio perfil.
+//
+// Não consulta o banco: `authenticate` já resolveu o registro.
+// ---------------------------------------------------------------------------
+
+router.get('/', authenticate, (req, res) => {
+  const user = (req as AuthenticatedRequest).user;
+  res.status(200).json({
+    data: {
+      id: user.sub,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      address: user.address,
+      createdAt: user.createdAt.toISOString(),
+    },
+  });
+});
 
 // ---------------------------------------------------------------------------
 // GET /me/reservations  — Reservas ativas do Leitor (RF-L4)

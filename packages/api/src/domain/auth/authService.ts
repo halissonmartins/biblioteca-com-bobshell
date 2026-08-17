@@ -1,14 +1,16 @@
 /**
  * packages/api/src/domain/auth/authService.ts
- * Lógica pura de autenticação — sem HTTP, sem cookies, sem banco direto.
+ * Lógica pura de identidade — sem HTTP, sem cookies, sem banco direto.
  * Recebe dependências via parâmetro (testável sem mocks de módulo).
  *
- * Papéis possíveis: 'leitor' | 'bibliotecario' (RN-7, ADR-0003)
+ * Quem autentica é o Keycloak (ADR-0009). O que sobra aqui são duas regras:
+ * traduzir os papéis do realm para o papel do domínio, e garantir que todo
+ * usuário autenticado tenha um espelho local — as Reservas e os Empréstimos
+ * apontam para `users.id`, não para o `sub` do token.
+ *
+ * Papéis possíveis: 'leitor' | 'bibliotecario' (RN-7)
  */
 
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { randomBytes } from 'crypto';
 import type { Role } from '@prisma/client';
 import { AppError } from '../../shared/errors.js';
 
@@ -16,161 +18,106 @@ import { AppError } from '../../shared/errors.js';
 // Tipos
 // ---------------------------------------------------------------------------
 
-export interface AuthDeps {
-  findUserByEmail: (email: string) => Promise<UserLookup | null>;
-  findUserById: (id: string) => Promise<UserLookup | null>;
-  createRefreshToken: (data: {
-    token: string;
-    userId: string;
-    expiresAt: Date;
-  }) => Promise<{ id: string; token: string }>;
-  findRefreshToken: (token: string) => Promise<RefreshTokenLookup | null>;
-  revokeRefreshToken: (id: string) => Promise<void>;
-  deleteRefreshTokensByUser: (userId: string) => Promise<void>;
+/** O que o token do Keycloak diz sobre quem está chamando. */
+export interface IdentityClaims {
+  /** `sub` do token — identificador da conta no realm */
+  externalId: string;
+  email: string;
+  name: string;
+  /** `realm_access.roles` do token */
+  realmRoles: readonly string[];
 }
 
 export interface UserLookup {
   id: string;
+  externalId: string;
   name: string;
   email: string;
-  passwordHash: string;
   role: Role;
   address: string | null;
   createdAt: Date;
 }
 
-export interface RefreshTokenLookup {
-  id: string;
-  token: string;
-  expiresAt: Date;
-  revokedAt: Date | null;
-  userId: string;
-}
-
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface LoginResult extends TokenPair {
-  user: {
-    id: string;
+export interface AuthDeps {
+  findUserByExternalId: (externalId: string) => Promise<UserLookup | null>;
+  createUser: (data: {
+    externalId: string;
     name: string;
     email: string;
     role: Role;
-    address: string | null;
-    createdAt: string;
-  };
+  }) => Promise<UserLookup>;
+  updateUserProfile: (
+    id: string,
+    data: { name: string; email: string; role: Role },
+  ) => Promise<UserLookup>;
 }
 
 // ---------------------------------------------------------------------------
-// Constantes
+// Papel
 // ---------------------------------------------------------------------------
 
-const ACCESS_TOKEN_TTL = '15m';
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+/**
+ * Traduz os papéis do realm para o papel do domínio.
+ *
+ * O realm entrega mais do que interessa: toda conta carrega
+ * `default-roles-biblioteca`, `offline_access` e `uma_authorization` junto. O
+ * que não é `leitor` nem `bibliotecario` é ignorado.
+ *
+ * `bibliotecario` vence `leitor` porque quem administra o balcão costuma
+ * acumular os dois — e o papel de menor alcance não pode rebaixar o de maior.
+ */
+export function roleFromRealmRoles(realmRoles: readonly string[]): Role {
+  if (realmRoles.includes('bibliotecario')) return 'bibliotecario';
+  if (realmRoles.includes('leitor')) return 'leitor';
 
-// ---------------------------------------------------------------------------
-// Helpers internos
-// ---------------------------------------------------------------------------
-
-function jwtSecret(): string {
-  const s = process.env['JWT_SECRET'];
-  if (!s) throw new AppError('INTERNAL_ERROR', 'JWT_SECRET não configurado');
-  return s;
-}
-
-function signAccessToken(userId: string, role: Role): string {
-  return jwt.sign({ sub: userId, role }, jwtSecret(), {
-    expiresIn: ACCESS_TOKEN_TTL,
-  });
-}
-
-function generateRefreshToken(): string {
-  return randomBytes(40).toString('hex');
+  throw new AppError(
+    'FORBIDDEN',
+    'Conta sem papel reconhecido neste sistema. Procure a biblioteca.',
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Casos de uso
+// Espelho local da identidade (JIT provisioning)
 // ---------------------------------------------------------------------------
 
-export async function login(
-  email: string,
-  password: string,
+/**
+ * Devolve o usuário local correspondente ao token, criando-o no primeiro acesso.
+ *
+ * É o que permite que qualquer pessoa se cadastre no Keycloak e já consiga
+ * reservar: a linha em `users` nasce aqui, não num fluxo de cadastro nosso.
+ *
+ * O perfil é ressincronizado quando o realm diverge do espelho — o Keycloak é a
+ * fonte de verdade de nome, e-mail e papel. `address` não entra: é dado nosso,
+ * que o realm desconhece.
+ */
+export async function resolveLocalUser(
+  claims: IdentityClaims,
   deps: AuthDeps,
-): Promise<LoginResult> {
-  const user = await deps.findUserByEmail(email);
+): Promise<UserLookup> {
+  const role = roleFromRealmRoles(claims.realmRoles);
+  const existing = await deps.findUserByExternalId(claims.externalId);
 
-  // Não diferenciar "usuário não existe" de "senha errada" (timing-safe)
-  const dummyHash = '$2a$12$invalido.invalido.invalido.invalido.invalido.invali';
-  const hash = user?.passwordHash ?? dummyHash;
-  const valid = await bcrypt.compare(password, hash);
-
-  if (!user || !valid) {
-    throw new AppError('INVALID_CREDENTIALS', 'E-mail ou senha incorretos');
+  if (!existing) {
+    return deps.createUser({
+      externalId: claims.externalId,
+      name: claims.name,
+      email: claims.email,
+      role,
+    });
   }
 
-  const accessToken = signAccessToken(user.id, user.role);
-  const rawRefresh = generateRefreshToken();
+  // Só escreve quando algo mudou de verdade: sem esta guarda seria um UPDATE
+  // por requisição autenticada.
+  const divergiu =
+    existing.name !== claims.name ||
+    existing.email !== claims.email ||
+    existing.role !== role;
 
-  await deps.createRefreshToken({
-    token: rawRefresh,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+  if (!divergiu) return existing;
+
+  return deps.updateUserProfile(existing.id, {
+    name: claims.name,
+    email: claims.email,
+    role,
   });
-
-  return {
-    accessToken,
-    refreshToken: rawRefresh,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      address: user.address,
-      createdAt: user.createdAt.toISOString(),
-    },
-  };
-}
-
-export async function refresh(
-  rawRefreshToken: string,
-  deps: AuthDeps,
-): Promise<TokenPair> {
-  const stored = await deps.findRefreshToken(rawRefreshToken);
-
-  if (
-    !stored ||
-    stored.revokedAt !== null ||
-    stored.expiresAt < new Date()
-  ) {
-    throw new AppError('TOKEN_INVALID', 'Refresh token inválido ou expirado');
-  }
-
-  const user = await deps.findUserById(stored.userId);
-  if (!user) {
-    throw new AppError('TOKEN_INVALID', 'Usuário do token não encontrado');
-  }
-
-  // Rotação: revogar o antigo, criar novo
-  await deps.revokeRefreshToken(stored.id);
-
-  const newRefresh = generateRefreshToken();
-  await deps.createRefreshToken({
-    token: newRefresh,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-  });
-
-  return {
-    accessToken: signAccessToken(user.id, user.role),
-    refreshToken: newRefresh,
-  };
-}
-
-export async function logout(
-  userId: string,
-  deps: AuthDeps,
-): Promise<void> {
-  await deps.deleteRefreshTokensByUser(userId);
 }

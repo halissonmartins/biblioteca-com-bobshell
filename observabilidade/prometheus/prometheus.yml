@@ -18,6 +18,18 @@ scrape_configs:
     static_configs:
       - targets: ["otel-collector:8888"]
 
+  # Keycloak — a única exceção à regra acima: ele não fala OTLP, expõe
+  # Prometheus nativo na porta de management. É de onde vêm os eventos de login
+  # e de cadastro desde que a API deixou de emitir tokens (ADR-0009).
+  # `keycloak_user_events_total{event,error,realm}`.
+  #
+  # O Keycloak não está no profile `obs`: ele sobe com o compose padrão, e o
+  # nome resolve pela rede do compose. Com o profile `obs` no ar sem ele,
+  # este alvo aparece como down — e é assim que deve ser.
+  - job_name: keycloak
+    static_configs:
+      - targets: ["keycloak:9000"]
+
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]

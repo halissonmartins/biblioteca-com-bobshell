@@ -6,12 +6,10 @@
  */
 
 import express from 'express';
-import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { httpLogger, requestId } from './middleware/requestContext.js';
-import authRouter from './routes/auth.js';
 import healthRouter from './routes/health.js';
 import booksRouter from './routes/books.js';
 import authorsRouter from './routes/authors.js';
@@ -36,11 +34,11 @@ export function createApp(): express.Application {
     }),
   );
   app.use(express.json());
-  app.use(cookieParser());
 
   // ── Rotas ─────────────────────────────────────────────────────────────────
+  // Não há rota /auth: quem emite e renova token é o Keycloak (ADR-0009). A
+  // API só valida o que chega no header Authorization.
   app.use('/health', healthRouter);
-  app.use('/auth', authRouter);
   app.use('/books', booksRouter);
   app.use('/authors', authorsRouter);
   app.use('/reservations', reservationsRouter);

@@ -1,40 +1,40 @@
-import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuthHook'
-import { Button, Input, Form, Alert } from '@/components'
+import { Button, Alert } from '@/components'
 import { getErrorMessage } from '@/utils/format'
 
+/**
+ * Porta de entrada.
+ *
+ * O formulário de e-mail e senha saiu daqui: quem pede credencial é o Keycloak
+ * (ADR-0009), que também hospeda o auto-cadastro. Esta tela só encaminha — e
+ * mantém a chapa de esmalte para que a passagem não pareça um erro.
+ */
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth()
-  const navigate = useNavigate()
+  const { login, isAuthenticated, isLoading } = useAuth()
+  const location = useLocation()
+  const [error, setError] = useState('')
+  const jaRedirecionou = useRef(false)
 
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [emailError, setEmailError] = useState('')
-  const [error, setError]         = useState('')
-  const [loading, setLoading]     = useState(false)
+  // Rota que o guard tentou abrir antes de mandar para cá.
+  const from = (location.state as { from?: string } | null)?.from
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  const encaminhar = useCallback(() => {
     setError('')
-    setEmailError('')
-
-    if (!email.includes('@')) {
-      setEmailError('Informe um e-mail válido.')
-      return
-    }
-    if (!password) return
-
-    setLoading(true)
-    try {
-      await login({ email, password })
-      navigate('/')
-    } catch (err) {
+    jaRedirecionou.current = true
+    login(from).catch((err: unknown) => {
+      jaRedirecionou.current = false
       setError(getErrorMessage(err))
-    } finally {
-      setLoading(false)
-    }
-  }
+    })
+  }, [login, from])
+
+  useEffect(() => {
+    // StrictMode monta duas vezes em desenvolvimento; sem a trava sairiam dois
+    // redirects e o segundo invalidaria o state do primeiro.
+    if (jaRedirecionou.current || isLoading || isAuthenticated) return
+    encaminhar()
+  }, [encaminhar, isLoading, isAuthenticated])
 
   // Quem já entrou não tem o que fazer na porta
   if (isAuthenticated) return <Navigate to="/" replace />
@@ -51,7 +51,11 @@ export function LoginPage() {
         <div className="card-body">
           <div className="mb-6 pb-4 border-b border-surface-200">
             <h1 className="text-2xl">Acesso</h1>
-            <p className="text-sm text-surface-700 mt-1">Acesse sua conta para reservar Livros</p>
+            <p className="text-sm text-surface-700 mt-1">
+              {error
+                ? 'Não foi possível abrir a tela de acesso.'
+                : 'Encaminhando para o acesso seguro…'}
+            </p>
           </div>
 
           {error && (
@@ -60,41 +64,11 @@ export function LoginPage() {
             </Alert>
           )}
 
-          <Form onSubmit={handleSubmit}>
-            <Form.Field>
-              <Input
-                label="E-mail"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={emailError}
-                autoComplete="email"
-                required
-              />
-            </Form.Field>
-            <Form.Field>
-              <Input
-                label="Senha"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </Form.Field>
-            <Form.Actions>
-              <Button
-                variant="primary"
-                type="submit"
-                loading={loading}
-                className="w-full"
-              >
-                {loading ? 'Entrando…' : 'Entrar'}
-              </Button>
-            </Form.Actions>
-          </Form>
+          {/* Fallback: se o redirect automático não sair (bloqueio de pop-up,
+              rede lenta), a pessoa não fica olhando uma tela parada. */}
+          <Button variant="primary" className="w-full" loading={!error} onClick={encaminhar}>
+            Entrar
+          </Button>
         </div>
       </div>
     </div>

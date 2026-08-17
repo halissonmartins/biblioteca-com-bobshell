@@ -10,6 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 
 // Mockar repositórios e serviço ANTES de importar a app
+vi.mock('../../infra/repositories/userRepository.js', async () => {
+  const { fakeAuthRepoDeps } = await import('../../test/keycloak.js');
+  return { authRepoDeps: fakeAuthRepoDeps() };
+});
+
 vi.mock('../../infra/repositories/loanRepository.js', () => ({
   loanRepoDeps: {
     findReservationById: vi.fn(),
@@ -34,16 +39,18 @@ vi.mock('../../domain/loan/loanService.js', async (importOriginal) => {
 import { createApp } from '../app.js';
 import * as loanRepo from '../../infra/repositories/loanRepository.js';
 import * as loanService from '../../domain/loan/loanService.js';
-import jwt from 'jsonwebtoken';
+import { tokenDe, instalarChavesDeTeste } from '../../test/keycloak.js';
 
-const SECRET = 'test-secret-for-loans';
-
-function makeToken(role: 'leitor' | 'bibliotecario', userId = 'user-1'): string {
-  return jwt.sign({ sub: userId, role }, SECRET, { expiresIn: '1h' });
+/** Token RS256 assinado pelo kit de teste — o `sub` vira o id local. */
+function makeToken(
+  role: 'leitor' | 'bibliotecario',
+  userId = 'user-1',
+): Promise<string> {
+  return tokenDe(role, userId);
 }
 
-beforeEach(() => {
-  process.env['JWT_SECRET'] = SECRET;
+beforeEach(async () => {
+  await instalarChavesDeTeste();
   vi.clearAllMocks();
   vi.mocked(loanRepo.loanRepoDeps.findLoans).mockResolvedValue([]);
   vi.mocked(loanService.listLoans).mockResolvedValue([]);
@@ -75,7 +82,7 @@ describe('POST /loans', () => {
   });
 
   it('403 quando autenticado como leitor (RN-2, RN-7)', async () => {
-    const token = makeToken('leitor');
+    const token = await makeToken('leitor');
     const res = await request(app)
       .post('/loans')
       .set('Authorization', `Bearer ${token}`)
@@ -91,7 +98,7 @@ describe('POST /loans', () => {
     });
     vi.mocked(loanRepo.findLoanDetail).mockResolvedValue(LOAN_DETAIL);
 
-    const token = makeToken('bibliotecario', 'lib-1');
+    const token = await makeToken('bibliotecario', 'lib-1');
     const res = await request(app)
       .post('/loans')
       .set('Authorization', `Bearer ${token}`)
@@ -101,7 +108,7 @@ describe('POST /loans', () => {
   });
 
   it('422 quando reservationId ausente', async () => {
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     const res = await request(app)
       .post('/loans')
       .set('Authorization', `Bearer ${token}`)
@@ -110,7 +117,7 @@ describe('POST /loans', () => {
   });
 
   it('422 quando dueAt não é ISO 8601', async () => {
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     const res = await request(app)
       .post('/loans')
       .set('Authorization', `Bearer ${token}`)
@@ -128,7 +135,7 @@ describe('PATCH /loans/:id/return', () => {
   });
 
   it('403 quando autenticado como leitor (RN-7)', async () => {
-    const token = makeToken('leitor');
+    const token = await makeToken('leitor');
     const res = await request(app)
       .patch('/loans/loan-1/return')
       .set('Authorization', `Bearer ${token}`);
@@ -141,7 +148,7 @@ describe('PATCH /loans/:id/return', () => {
       returnedAt: new Date().toISOString(),
     });
 
-    const token = makeToken('bibliotecario', 'lib-1');
+    const token = await makeToken('bibliotecario', 'lib-1');
     const res = await request(app)
       .patch('/loans/loan-1/return')
       .set('Authorization', `Bearer ${token}`);
@@ -159,7 +166,7 @@ describe('GET /loans', () => {
   });
 
   it('403 quando autenticado como leitor (RN-7)', async () => {
-    const token = makeToken('leitor');
+    const token = await makeToken('leitor');
     const res = await request(app)
       .get('/loans')
       .set('Authorization', `Bearer ${token}`);
@@ -167,7 +174,7 @@ describe('GET /loans', () => {
   });
 
   it('200 quando autenticado como bibliotecario', async () => {
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     const res = await request(app)
       .get('/loans')
       .set('Authorization', `Bearer ${token}`);
@@ -179,7 +186,7 @@ describe('GET /loans', () => {
   it('passa userId do query para o serviço (RF-B3)', async () => {
     const spy = vi.mocked(loanService.listLoans);
 
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     await request(app)
       .get('/loans?userId=user-42')
       .set('Authorization', `Bearer ${token}`);

@@ -10,6 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 
 // Mockar repositório e serviço ANTES de importar a app — evita acesso ao Prisma/DB
+vi.mock('../../infra/repositories/userRepository.js', async () => {
+  const { fakeAuthRepoDeps } = await import('../../test/keycloak.js');
+  return { authRepoDeps: fakeAuthRepoDeps() };
+});
+
 vi.mock('../../infra/repositories/reservationRepository.js', () => ({
   reservationRepoDeps: {
     findAvailableCopy: vi.fn(),
@@ -33,16 +38,18 @@ vi.mock('../../domain/reservation/reservationService.js', async (importOriginal)
 import { createApp } from '../app.js';
 import * as reservationRepo from '../../infra/repositories/reservationRepository.js';
 import * as reservationService from '../../domain/reservation/reservationService.js';
-import jwt from 'jsonwebtoken';
+import { tokenDe, instalarChavesDeTeste } from '../../test/keycloak.js';
 
-const SECRET = 'test-secret-for-reservations';
-
-function makeToken(role: 'leitor' | 'bibliotecario', userId = 'user-1'): string {
-  return jwt.sign({ sub: userId, role }, SECRET, { expiresIn: '1h' });
+/** Token RS256 assinado pelo kit de teste — o `sub` vira o id local. */
+function makeToken(
+  role: 'leitor' | 'bibliotecario',
+  userId = 'user-1',
+): Promise<string> {
+  return tokenDe(role, userId);
 }
 
-beforeEach(() => {
-  process.env['JWT_SECRET'] = SECRET;
+beforeEach(async () => {
+  await instalarChavesDeTeste();
   vi.clearAllMocks();
   vi.mocked(reservationRepo.findAllReservations).mockResolvedValue([]);
   vi.mocked(reservationService.listBookReservations).mockResolvedValue([]);
@@ -70,7 +77,7 @@ describe('POST /reservations', () => {
   });
 
   it('403 quando autenticado como bibliotecario (RN-7)', async () => {
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     const res = await request(app)
       .post('/reservations')
       .set('Authorization', `Bearer ${token}`)
@@ -86,7 +93,7 @@ describe('POST /reservations', () => {
     });
     vi.mocked(reservationRepo.findReservationDetail).mockResolvedValue(RESERVATION_DETAIL);
 
-    const token = makeToken('leitor', 'user-1');
+    const token = await makeToken('leitor', 'user-1');
     const res = await request(app)
       .post('/reservations')
       .set('Authorization', `Bearer ${token}`)
@@ -100,7 +107,7 @@ describe('POST /reservations', () => {
   });
 
   it('422 quando bookId ausente', async () => {
-    const token = makeToken('leitor');
+    const token = await makeToken('leitor');
     const res = await request(app)
       .post('/reservations')
       .set('Authorization', `Bearer ${token}`)
@@ -118,7 +125,7 @@ describe('GET /reservations', () => {
   });
 
   it('403 quando autenticado como leitor (RN-7)', async () => {
-    const token = makeToken('leitor');
+    const token = await makeToken('leitor');
     const res = await request(app)
       .get('/reservations')
       .set('Authorization', `Bearer ${token}`);
@@ -126,7 +133,7 @@ describe('GET /reservations', () => {
   });
 
   it('200 quando autenticado como bibliotecario', async () => {
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     const res = await request(app)
       .get('/reservations')
       .set('Authorization', `Bearer ${token}`);
@@ -138,7 +145,7 @@ describe('GET /reservations', () => {
   it('delega para findAllReservations sem filtro por padrão', async () => {
     const spy = vi.mocked(reservationRepo.findAllReservations);
 
-    const token = makeToken('bibliotecario');
+    const token = await makeToken('bibliotecario');
     await request(app)
       .get('/reservations')
       .set('Authorization', `Bearer ${token}`);

@@ -1,201 +1,175 @@
 /**
  * packages/api/src/domain/auth/authService.test.ts
- * Testes unitários do authService — sem banco real (deps injetados como stubs).
+ * Testes unitários da lógica pura de identidade (ADR-0009).
+ *
+ * Sem banco, sem HTTP, sem Keycloak: as duas funções recebem tudo por parâmetro.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import bcrypt from 'bcryptjs';
+import { describe, it, expect, vi } from 'vitest';
+import type { Role } from '@prisma/client';
 import {
-  login,
-  refresh,
-  logout,
+  roleFromRealmRoles,
+  resolveLocalUser,
   type AuthDeps,
+  type IdentityClaims,
   type UserLookup,
-  type RefreshTokenLookup,
 } from './authService.js';
 import { AppError } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Fixtures
 // ---------------------------------------------------------------------------
 
-const PASSWORD_PLAIN = 'senha123';
-const BCRYPT_COST = 4; // mínimo para testes rápidos
+const CLAIMS: IdentityClaims = {
+  externalId: 'kc-sub-123',
+  email: 'ana@biblioteca.dev',
+  name: 'Ana Lima',
+  realmRoles: ['leitor'],
+};
 
-async function makePasswordHash(): Promise<string> {
-  return bcrypt.hash(PASSWORD_PLAIN, BCRYPT_COST);
-}
-
-function makeUser(overrides?: Partial<UserLookup>): UserLookup {
+function userLocal(overrides: Partial<UserLookup> = {}): UserLookup {
   return {
-    id: 'user-1',
+    id: 'local-1',
+    externalId: 'kc-sub-123',
     name: 'Ana Lima',
-    email: 'leitor@biblioteca.dev',
-    passwordHash: '$2a$04$placeholder', // será sobrescrito em cada teste
-    role: 'leitor',
+    email: 'ana@biblioteca.dev',
+    role: 'leitor' as Role,
     address: null,
-    createdAt: new Date('2026-01-01'),
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };
 }
 
-function makeToken(overrides?: Partial<RefreshTokenLookup>): RefreshTokenLookup {
+function makeDeps(overrides: Partial<AuthDeps> = {}): AuthDeps {
   return {
-    id: 'token-1',
-    token: 'rawtoken123',
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    revokedAt: null,
-    userId: 'user-1',
+    findUserByExternalId: vi.fn().mockResolvedValue(null),
+    createUser: vi.fn().mockImplementation((data: { externalId: string }) =>
+      Promise.resolve(userLocal({ id: 'novo-1', externalId: data.externalId })),
+    ),
+    updateUserProfile: vi.fn().mockResolvedValue(userLocal()),
     ...overrides,
   };
 }
 
 // ---------------------------------------------------------------------------
-// login()
+// roleFromRealmRoles
 // ---------------------------------------------------------------------------
 
-describe('login()', () => {
-  let deps: AuthDeps;
-
-  beforeEach(() => {
-    deps = {
-      findUserByEmail: vi.fn(),
-      findUserById: vi.fn(),
-      createRefreshToken: vi.fn().mockResolvedValue({ id: 'token-1', token: 'rt' }),
-      findRefreshToken: vi.fn(),
-      revokeRefreshToken: vi.fn(),
-      deleteRefreshTokensByUser: vi.fn(),
-    };
-    process.env['JWT_SECRET'] = 'test-secret-key-at-least-32-characters-long';
+describe('roleFromRealmRoles()', () => {
+  it('reconhece leitor', () => {
+    expect(roleFromRealmRoles(['leitor'])).toBe('leitor');
   });
 
-  it('retorna accessToken, refreshToken e dados do usuário em caso de sucesso', async () => {
-    const hash = await makePasswordHash();
-    const user = makeUser({ passwordHash: hash });
-    (deps.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(user);
-
-    const result = await login('leitor@biblioteca.dev', PASSWORD_PLAIN, deps);
-
-    expect(result.accessToken).toBeTruthy();
-    expect(result.refreshToken).toBeTruthy();
-    expect(result.user.email).toBe('leitor@biblioteca.dev');
-    expect(result.user.role).toBe('leitor');
-    expect(deps.createRefreshToken).toHaveBeenCalledOnce();
+  it('reconhece bibliotecario', () => {
+    expect(roleFromRealmRoles(['bibliotecario'])).toBe('bibliotecario');
   });
 
-  it('lança INVALID_CREDENTIALS quando usuário não existe', async () => {
-    (deps.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-
-    await expect(login('nao@existe.com', PASSWORD_PLAIN, deps)).rejects.toThrow(
-      AppError,
-    );
-    await expect(login('nao@existe.com', PASSWORD_PLAIN, deps)).rejects.toMatchObject({
-      code: 'INVALID_CREDENTIALS',
-    });
+  it('ignora os papéis técnicos que o realm entrega junto', () => {
+    // Toda conta auto-cadastrada carrega estes três — não são papéis do domínio.
+    const doRealm = ['default-roles-biblioteca', 'offline_access', 'uma_authorization', 'leitor'];
+    expect(roleFromRealmRoles(doRealm)).toBe('leitor');
   });
 
-  it('lança INVALID_CREDENTIALS quando senha está errada', async () => {
-    const hash = await makePasswordHash();
-    const user = makeUser({ passwordHash: hash });
-    (deps.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(user);
-
-    await expect(login('leitor@biblioteca.dev', 'errada', deps)).rejects.toMatchObject({
-      code: 'INVALID_CREDENTIALS',
-    });
+  it('bibliotecario vence leitor quando a conta acumula os dois', () => {
+    expect(roleFromRealmRoles(['leitor', 'bibliotecario'])).toBe('bibliotecario');
+    expect(roleFromRealmRoles(['bibliotecario', 'leitor'])).toBe('bibliotecario');
   });
 
-  it('não diferencia "usuário não existe" de "senha errada" (timing)', async () => {
-    // Ambos devem lançar AppError com INVALID_CREDENTIALS
-    (deps.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    const err1 = await login('x@x.com', 'x', deps).catch((e: unknown) => e);
-
-    const hash = await makePasswordHash();
-    (deps.findUserByEmail as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeUser({ passwordHash: hash }),
-    );
-    const err2 = await login('x@x.com', 'wrong', deps).catch((e: unknown) => e);
-
-    expect((err1 as AppError).code).toBe('INVALID_CREDENTIALS');
-    expect((err2 as AppError).code).toBe('INVALID_CREDENTIALS');
+  it('lança FORBIDDEN quando não há papel deste sistema', () => {
+    // Conta que existe no realm mas não pertence à biblioteca: 403, não 401 —
+    // ela se autenticou, só não tem o que fazer aqui.
+    expect(() => roleFromRealmRoles(['offline_access'])).toThrow(AppError);
+    try {
+      roleFromRealmRoles([]);
+      expect.unreachable('deveria ter lançado');
+    } catch (err) {
+      expect((err as AppError).code).toBe('FORBIDDEN');
+      expect((err as AppError).statusCode).toBe(403);
+    }
   });
 });
 
 // ---------------------------------------------------------------------------
-// refresh()
+// resolveLocalUser
 // ---------------------------------------------------------------------------
 
-describe('refresh()', () => {
-  let deps: AuthDeps;
-  const user = makeUser({ passwordHash: 'any' });
-  const storedToken = makeToken();
+describe('resolveLocalUser()', () => {
+  it('cria o espelho local no primeiro acesso (JIT provisioning)', async () => {
+    const deps = makeDeps();
 
-  beforeEach(() => {
-    deps = {
-      findUserByEmail: vi.fn(),
-      findUserById: vi.fn().mockResolvedValue(user),
-      createRefreshToken: vi.fn().mockResolvedValue({ id: 'new-token', token: 'newrt' }),
-      findRefreshToken: vi.fn().mockResolvedValue(storedToken),
-      revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
-      deleteRefreshTokensByUser: vi.fn(),
-    };
-    process.env['JWT_SECRET'] = 'test-secret-key-at-least-32-characters-long';
-  });
+    const user = await resolveLocalUser(CLAIMS, deps);
 
-  it('retorna novo par de tokens e revoga o antigo', async () => {
-    const result = await refresh('rawtoken123', deps);
-
-    expect(result.accessToken).toBeTruthy();
-    expect(result.refreshToken).toBeTruthy();
-    expect(deps.revokeRefreshToken).toHaveBeenCalledWith('token-1');
-    expect(deps.createRefreshToken).toHaveBeenCalledOnce();
-  });
-
-  it('lança TOKEN_INVALID quando token não existe', async () => {
-    (deps.findRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-
-    await expect(refresh('invalido', deps)).rejects.toMatchObject({
-      code: 'TOKEN_INVALID',
+    expect(deps.createUser).toHaveBeenCalledWith({
+      externalId: 'kc-sub-123',
+      name: 'Ana Lima',
+      email: 'ana@biblioteca.dev',
+      role: 'leitor',
     });
+    expect(user.id).toBe('novo-1');
   });
 
-  it('lança TOKEN_INVALID quando token já foi revogado', async () => {
-    (deps.findRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeToken({ revokedAt: new Date() }),
+  it('é assim que uma conta recém-cadastrada no Keycloak consegue reservar', async () => {
+    // O cadastro acontece só no realm; a linha em `users` — de que Reserva e
+    // Empréstimo dependem por FK — nasce no primeiro acesso autenticado.
+    const deps = makeDeps();
+
+    const user = await resolveLocalUser(
+      { ...CLAIMS, externalId: 'kc-novato', email: 'novo@dominio.invalido', name: 'Novo' },
+      deps,
     );
 
-    await expect(refresh('qualquer', deps)).rejects.toMatchObject({
-      code: 'TOKEN_INVALID',
+    expect(user.externalId).toBe('kc-novato');
+    expect(user.role).toBe('leitor');
+  });
+
+  it('reusa o usuário existente sem escrever no banco', async () => {
+    const existente = userLocal();
+    const deps = makeDeps({ findUserByExternalId: vi.fn().mockResolvedValue(existente) });
+
+    const user = await resolveLocalUser(CLAIMS, deps);
+
+    expect(user).toBe(existente);
+    expect(deps.createUser).not.toHaveBeenCalled();
+    // A guarda que evita um UPDATE por requisição autenticada.
+    expect(deps.updateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('ressincroniza o perfil quando o realm diverge do espelho', async () => {
+    const deps = makeDeps({
+      findUserByExternalId: vi.fn().mockResolvedValue(userLocal({ name: 'Ana L.' })),
+    });
+
+    await resolveLocalUser(CLAIMS, deps);
+
+    expect(deps.updateUserProfile).toHaveBeenCalledWith('local-1', {
+      name: 'Ana Lima',
+      email: 'ana@biblioteca.dev',
+      role: 'leitor',
     });
   });
 
-  it('lança TOKEN_INVALID quando token está expirado', async () => {
-    (deps.findRefreshToken as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeToken({ expiresAt: new Date(Date.now() - 1000) }),
+  it('promove o papel quando o Bibliotecário o recebe no realm', async () => {
+    // O papel é atribuído no console do Keycloak; o espelho local segue o realm.
+    const deps = makeDeps({
+      findUserByExternalId: vi.fn().mockResolvedValue(userLocal({ role: 'leitor' })),
+    });
+
+    await resolveLocalUser({ ...CLAIMS, realmRoles: ['bibliotecario'] }, deps);
+
+    expect(deps.updateUserProfile).toHaveBeenCalledWith(
+      'local-1',
+      expect.objectContaining({ role: 'bibliotecario' }),
     );
-
-    await expect(refresh('qualquer', deps)).rejects.toMatchObject({
-      code: 'TOKEN_INVALID',
-    });
   });
-});
 
-// ---------------------------------------------------------------------------
-// logout()
-// ---------------------------------------------------------------------------
+  it('não cria nada para conta sem papel deste sistema', async () => {
+    const deps = makeDeps();
 
-describe('logout()', () => {
-  it('apaga todos os refresh tokens do usuário', async () => {
-    const deps: AuthDeps = {
-      findUserByEmail: vi.fn(),
-      findUserById: vi.fn(),
-      createRefreshToken: vi.fn(),
-      findRefreshToken: vi.fn(),
-      revokeRefreshToken: vi.fn(),
-      deleteRefreshTokensByUser: vi.fn().mockResolvedValue(undefined),
-    };
+    await expect(
+      resolveLocalUser({ ...CLAIMS, realmRoles: [] }, deps),
+    ).rejects.toThrow(AppError);
 
-    await logout('user-1', deps);
-
-    expect(deps.deleteRefreshTokensByUser).toHaveBeenCalledWith('user-1');
+    expect(deps.findUserByExternalId).not.toHaveBeenCalled();
+    expect(deps.createUser).not.toHaveBeenCalled();
   });
 });

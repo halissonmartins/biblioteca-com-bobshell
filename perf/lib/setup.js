@@ -3,19 +3,41 @@
 
 import http from 'k6/http';
 import { fail } from 'k6';
-import { BASE_URL, READER, LIBRARIAN } from './config.js';
+import {
+  BASE_URL,
+  READER,
+  LIBRARIAN,
+  TOKEN_ENDPOINT,
+  KEYCLOAK_CLIENT_ID,
+} from './config.js';
 
-/** Autentica e retorna o accessToken (data.accessToken do POST /auth/login). */
+/**
+ * Autentica no Keycloak e retorna o access token (ADR-0009).
+ *
+ * Usa o Direct Access Grant do client `biblioteca-web` — o mesmo caminho do
+ * Playwright, e o motivo de o grant continuar ligado nesta fase. O token vale
+ * 15 min: cenário com DURATION acima disso precisa relogar por iteração.
+ */
 export function login(credentials) {
-  const res = http.post(`${BASE_URL}/auth/login`, JSON.stringify(credentials), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const res = http.post(
+    TOKEN_ENDPOINT,
+    {
+      grant_type: 'password',
+      client_id: KEYCLOAK_CLIENT_ID,
+      username: credentials.email,
+      password: credentials.password,
+    },
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+  );
   if (res.status !== 200) {
-    fail(`login falhou para ${credentials.email}: status ${res.status} ${res.body}`);
+    fail(
+      `login falhou para ${credentials.email}: status ${res.status} ${res.body}. ` +
+        'O Keycloak está no ar? `docker compose up -d --wait`',
+    );
   }
-  const token = res.json('data.accessToken');
+  const token = res.json('access_token');
   if (!token) {
-    fail(`login sem accessToken para ${credentials.email}`);
+    fail(`login sem access_token para ${credentials.email}`);
   }
   return token;
 }
