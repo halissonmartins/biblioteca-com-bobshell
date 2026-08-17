@@ -407,3 +407,15 @@ Também atualizar os screenshots em ./assets/images
 
 ---
 **[16/08/2026 19:58]** commite tudo e crie um PR para main
+
+---
+**[16/08/2026 20:29]** Pesquisar e analisar como incluir Keycloak no projeto.
+A primeira fase terá o básico das funcionalidades do Keycloak: Login do usuário com qualquer e-mail e sem verificação
+Também pesquise e dê sugestões sobre as próximas fases a serem executadas (fora escopo).
+Registre o que ficará fora de escopo nesse momento, mas será implementado nas próximas fases
+Crie o arquivos ./docs/seguranca.md e registre como Keycloak será utilizado para melhorar a segurança do projeto. 
+Analisar impacto no uso do Keycloak em todos os testes do projeto
+Analisar impacto em toda documentação do projeto
+
+---
+**[17/08/2026 00:14]** comite tuto e gere um PR para main
