@@ -43,7 +43,12 @@ openssl x509 -req -in "$DIR/tls.csr" -CA "$DIR/ca.crt" -CAkey "$DIR/ca.key" \
   2>/dev/null
 
 rm -f "$DIR/tls.csr" "$DIR/ca.srl"
-chmod 600 "$DIR/ca.key" "$DIR/tls.key"
+# ca.key nunca sai do host — 600. Já o par tls.* é montado no container, cujo
+# processo roda como uid 1000: no Linux real (CI, clone em ext4) um 600 do seu
+# usuário o deixaria ilegível e o Keycloak nem sobe (no WSL o drvfs mascara
+# isso com 777). Par descartável de localhost: 644 é o compromisso certo.
+chmod 600 "$DIR/ca.key"
+chmod 644 "$DIR/tls.crt" "$DIR/tls.key"
 
 echo "✅ Pronto:"
 echo "   $DIR/tls.crt + $DIR/tls.key  → montados no container pelo compose"

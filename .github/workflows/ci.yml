@@ -187,6 +187,13 @@ jobs:
       - name: Subir o servidor de capas, Mailpit, Keycloak e seu banco
         run: docker compose up -d --wait capas keycloak
 
+      # compose --wait falha sem mostrar por quê quando um container fica
+      # unhealthy (já escondeu um crash de boot do Keycloak). O log conta a
+      # história — imprima antes do job morrer.
+      - name: Logs do Keycloak (diagnóstico de subida)
+        if: failure()
+        run: docker logs biblioteca-keycloak --tail 60
+
       - name: Rodar testes E2E
         working-directory: e2e
         run: npm test
