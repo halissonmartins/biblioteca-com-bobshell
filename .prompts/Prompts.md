@@ -446,3 +446,6 @@ Analisar impacto em toda documentação do projeto
 
 ---
 **[23/08/2026 20:01]** O CI do github action apresentou erro... use o gh cli para identificar o motivo e corrigir o problema
+
+---
+**[23/08/2026 20:32]** (correcao do CI: quick-login check)
