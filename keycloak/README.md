@@ -29,7 +29,7 @@ make db-up   # gera os certs (se faltam) e espera tudo ficar healthy
 | `verifyEmail` | `true` | Fase 2: e-mail confirmado via SMTP (`mailpit` no compose). Fecha o buraco do "qualquer e-mail". Efeito colateral nativo: o cadastro não pede senha — ela é definida ao confirmar o endereço, no link do e-mail |
 | `resetPasswordAllowed` | `true` | Recuperação de senha — existe SMTP desde a Fase 2 |
 | `passwordPolicy` | `length(12) and notUsername(undefined) and passwordHistory(3)` | Fase 2. `senha123` foi aposentada; a senha do seed é `Biblioteca#2026!` |
-| `bruteForceProtected` | `true` (lockout temporário, nunca permanente em dev) | Fase 2: tentativas ilimitadas acabaram. O quick-login check fica **desligado** (`quickLoginCheckMilliSeconds: 0`): logins legítimos e concorrentes da suíte E2E (8 atores no teste da RN-3) não podem contar como brute force — o que protege de verdade é o `failureFactor` |
+| `bruteForceProtected` | `true` (lockout temporário, nunca permanente em dev) | Fase 2: tentativas ilimitadas acabaram. Duas válvulas para o teste e a carga não morderem a proteção: quick-login check **desligado** (`quickLoginCheckMilliSeconds: 0`) e o SPI `allow-concurrent-requests` no compose (desde o KC 25, logins concorrentes do mesmo usuário são rejeitados com `invalid_grant` — é o que os 8 atores da RN-3 fazem). `failureFactor` + lockout seguem valendo |
 | `defaultLocale` | `pt-BR` | As telas de login/cadastro seguem o produto; os testes E2E afirmam sobre elas |
 | `defaultRole` inclui `leitor` | — | Toda conta nova nasce Leitor. `bibliotecario` é atribuído à mão |
 | `accessTokenLifespan` | `900` (15 min) | Mesma vida do token anterior; K6 conta com isso |

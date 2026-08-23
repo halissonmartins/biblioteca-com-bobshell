@@ -449,3 +449,6 @@ Analisar impacto em toda documentação do projeto
 
 ---
 **[23/08/2026 20:32]** (correcao do CI: quick-login check)
+
+---
+**[23/08/2026 20:48]** (correcao do CI: SPI allow-concurrent-requests)

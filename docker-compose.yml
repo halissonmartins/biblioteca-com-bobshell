@@ -61,7 +61,11 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.1
     container_name: biblioteca-keycloak
-    command: ["start", "--import-realm"]
+    # allow-concurrent-requests: desde o KC 25 o brute force protector rejeita
+    # logins concorrentes do MESMO usuário (anti race-attack) — 8 atores do
+    # teste da RN-3 e a carga do K6 recebem invalid_grant com senha correta.
+    # A detecção em si (failureFactor + lockout) continua ativa no realm.
+    command: ["start", "--import-realm", "--spi-brute-force-protector-default-brute-force-detector-allow-concurrent-requests=true"]
     depends_on:
       keycloak-db:
         condition: service_healthy
