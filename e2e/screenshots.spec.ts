@@ -36,6 +36,10 @@ test.describe('Screenshots do produto', () => {
     // As capas vêm do nginx e são `loading="lazy"`: sem esperar a rede parar,
     // a foto sai com metade dos cards em branco.
     await page.waitForLoadState('networkidle')
+    // Nenhuma tela do produto repousa em "Carregando…": se ele estiver visível,
+    // a query ainda não resolveu e a foto sai no estado transitório — já aconteceu
+    // com o detalhe do Livro, cujo título também existe no card do catálogo.
+    await page.waitForFunction(() => !document.body?.innerText.includes('Carregando'))
     await page.screenshot({ path: path.join(SAIDA, arquivo), fullPage })
   }
 
@@ -55,7 +59,10 @@ test.describe('Screenshots do produto', () => {
     await capturar(page, 'catalogo.png', true)
 
     await page.getByRole('link', { name: 'Ver detalhes de A Hora da Estrela' }).click()
-    await expect(page.getByRole('heading', { name: 'A Hora da Estrela' })).toBeVisible()
+    // O heading do título também existe no card do catálogo — esperar por ele
+    // passa antes da navegação SPA trocar o DOM, e a foto saía no loading.
+    // "Sinopse" só existe na página de detalhe.
+    await expect(page.getByRole('heading', { name: 'Sinopse' })).toBeVisible()
     await capturar(page, 'detalhe-livro.png')
 
     // O modal de confirmação é onde as 12h da RN-1 aparecem para o Leitor.
