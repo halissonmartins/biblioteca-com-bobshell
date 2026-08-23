@@ -434,3 +434,6 @@ Analisar impacto em toda documentação do projeto
 
 ---
 **[23/08/2026 19:19]** commite tudo
+
+---
+**[23/08/2026 19:27]** altere o git config para halissonmartins@github.com
