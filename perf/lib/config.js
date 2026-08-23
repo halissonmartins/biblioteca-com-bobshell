@@ -4,20 +4,24 @@
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 // Keycloak — quem emite os tokens (ADR-0009). A API não tem mais /auth/login.
-export const KEYCLOAK_URL = __ENV.KEYCLOAK_URL || 'http://localhost:8081';
+// Fase 2: https com a CA local de `make certs` — rode o k6 com
+// K6_INSECURE_SKIP_TLS_VERIFY=true (`make perf` já faz isso).
+export const KEYCLOAK_URL = __ENV.KEYCLOAK_URL || 'https://localhost:8443';
 export const KEYCLOAK_REALM = __ENV.KEYCLOAK_REALM || 'biblioteca';
-export const KEYCLOAK_CLIENT_ID = __ENV.KEYCLOAK_CLIENT_ID || 'biblioteca-web';
+// Fase 2: Direct Access Grant saiu do `biblioteca-web` e vive no client de teste.
+export const KEYCLOAK_CLIENT_ID = __ENV.KEYCLOAK_CLIENT_ID || 'biblioteca-e2e';
 export const TOKEN_ENDPOINT = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
 
 // Credenciais do realm de desenvolvimento (keycloak/realm-biblioteca.json).
+// A política de senha da Fase 2 exige 12+ caracteres.
 export const READER = {
   email: __ENV.READER_EMAIL || 'leitor@biblioteca.dev',
-  password: __ENV.READER_PASSWORD || 'senha123',
+  password: __ENV.READER_PASSWORD || 'Biblioteca#2026!',
 };
 
 export const LIBRARIAN = {
   email: __ENV.LIBRARIAN_EMAIL || 'bibliotecario@biblioteca.dev',
-  password: __ENV.LIBRARIAN_PASSWORD || 'senha123',
+  password: __ENV.LIBRARIAN_PASSWORD || 'Biblioteca#2026!',
 };
 
 // Perfil de carga modesto: o desafio do sistema é LATÊNCIA, não throughput

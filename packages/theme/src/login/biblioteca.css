@@ -1,0 +1,166 @@
+/*
+ * Tema de login "biblioteca" — sinalização cívica esmaltada (DESIGN.md).
+ * Sobrepõe o CSS padrão do Keycloakify/PatternFly: nada de reescrever telas,
+ * só trazer a tela do Keycloak para dentro do nosso mundo visual.
+ */
+
+:root {
+    /* colors */
+    --bib-primary: #7b1e24;
+    --bib-primary-hover: #661319;
+    --bib-primary-pressed: #520e13;
+    --bib-primary-wash: #faf1f1;
+    --bib-success-ink: #0a3d2c;
+    --bib-warning-ink: #8a5e00;
+    --bib-danger: #c0341b;
+    --bib-danger-ink: #7f1d0f;
+    --bib-surface-plate: #ffffff;
+    --bib-surface-porcelain: #f2f4f3;
+    --bib-surface-field: #e7eae8;
+    --bib-surface-rule: #d3d8d5;
+    --bib-surface-rule-strong: #9ba5a0;
+    --bib-ink-muted: #3c4441;
+    --bib-ink: #16191a;
+
+    /* typography */
+    --bib-display: "Barlow Condensed", Haettenschweiler, Impact, sans-serif;
+    --bib-body: Barlow, system-ui, sans-serif;
+
+    /* rounded */
+    --bib-rounded: 2px;
+}
+
+/* ── Palco ─────────────────────────────────────────────────────────────── */
+
+body.login-pf {
+    background: var(--bib-surface-porcelain);
+    color: var(--bib-ink);
+    font-family: var(--bib-body);
+}
+
+/* Marca no topo — placa esmaltada, título condensado em caixa alta. */
+#kc-header-wrapper,
+#kc-header {
+    font-family: var(--bib-display);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bib-primary);
+}
+
+/* ── Cartão ────────────────────────────────────────────────────────────── */
+
+.card-pf,
+.pf-v5-c-card,
+#kc-content-wrapper .card {
+    background: var(--bib-surface-plate);
+    border-radius: var(--bib-rounded);
+    border: 1px solid var(--bib-surface-rule);
+    box-shadow: none;
+}
+
+/* Título da página ("Entrar", "Registrar-se"…) como headline do sistema. */
+#kc-page-title,
+.card-pf h2,
+.pf-v5-c-card__title {
+    font-family: var(--bib-display);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bib-ink);
+}
+
+/* ── Campos ────────────────────────────────────────────────────────────── */
+
+.pf-v5-c-form-control,
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+    background: var(--bib-surface-plate) !important;
+    color: var(--bib-ink);
+    border: 1px solid var(--bib-surface-rule-strong);
+    border-radius: var(--bib-rounded) !important;
+    font-family: var(--bib-body);
+}
+
+.pf-v5-c-form-control:focus,
+input:focus {
+    border-color: var(--bib-primary) !important;
+    outline: 2px solid var(--bib-primary-wash);
+}
+
+label,
+.pf-v5-c-form__label-text {
+    font-family: var(--bib-body);
+    color: var(--bib-ink-muted);
+}
+
+/* ── Botões ────────────────────────────────────────────────────────────── */
+
+/* Primário: o vermelho esmalte. Cobre #kc-login e os submits das telas
+   (login, registro, credenciais). */
+#kc-login,
+input[type="submit"],
+.pf-v5-c-button.pf-m-primary,
+.btn-primary {
+    background: var(--bib-primary) !important;
+    border-color: var(--bib-primary) !important;
+    color: var(--bib-surface-plate) !important;
+    border-radius: var(--bib-rounded) !important;
+    font-weight: 600;
+}
+
+#kc-login:hover,
+input[type="submit"]:hover,
+.pf-v5-c-button.pf-m-primary:hover,
+.btn-primary:hover {
+    background: var(--bib-primary-hover) !important;
+    border-color: var(--bib-primary-hover) !important;
+}
+
+#kc-login:active,
+input[type="submit"]:active,
+.pf-v5-c-button.pf-m-primary:active,
+.btn-primary:active {
+    background: var(--bib-primary-pressed) !important;
+    border-color: var(--bib-primary-pressed) !important;
+}
+
+/* Secundários/ghost: sem preencher, tinta de primary no texto e na borda. */
+.pf-v5-c-button.pf-m-secondary,
+.pf-v5-c-button.pf-m-link,
+.btn-default,
+a {
+    color: var(--bib-primary);
+    border-radius: var(--bib-rounded);
+}
+
+.pf-v5-c-button.pf-m-secondary:not(.pf-m-disabled),
+.btn-default {
+    background: transparent;
+    border: 1px solid var(--bib-primary);
+    color: var(--bib-primary);
+}
+
+/* ── Feedback ──────────────────────────────────────────────────────────── */
+
+.kc-feedback-text,
+.alert-error,
+.alert-warning,
+.alert-success,
+.pf-v5-c-alert {
+    border-radius: var(--bib-rounded);
+    font-family: var(--bib-body);
+}
+
+.alert-error,
+.pf-v5-c-alert.pf-m-danger {
+    border-left: 4px solid var(--bib-danger);
+    color: var(--bib-danger-ink);
+}
+
+.alert-success,
+.pf-v5-c-alert.pf-m-success {
+    border-left: 4px solid var(--bib-success-ink);
+    color: var(--bib-success-ink);
+}

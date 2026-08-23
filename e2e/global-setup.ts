@@ -8,22 +8,34 @@ import path from 'node:path'
  */
 
 const ISSUER =
-  process.env['KEYCLOAK_ISSUER_URL'] ?? 'http://localhost:8081/realms/biblioteca'
+  process.env['KEYCLOAK_ISSUER_URL'] ?? 'https://localhost:8443/realms/biblioteca'
 
 /**
  * O Keycloak leva ~30 s para subir e importar o realm. Sem esta espera a suíte
  * quebra com 401 e telas de login que nunca carregam — sintomas que apontam
  * para o lugar errado. Falhar aqui, dizendo o que fazer, custa um minuto a
  * menos de diagnóstico.
+ *
+ * Fase 2: o Keycloak responde em https com a CA local de `make certs`. Este
+ * fetch roda fora do Chromium (que usa ignoreHTTPSErrors); se a confiança não
+ * veio de NODE_EXTRA_CA_CERTS, afrouxamos a verificação SÓ aqui, dentro deste
+ * processo efêmero, para o discovery — nunca para os testes.
  */
 async function esperarKeycloak(tentativas = 60): Promise<void> {
   const url = `${ISSUER}/.well-known/openid-configuration`
+  let tlsAfrouxado = false
 
   for (let i = 0; i < tentativas; i++) {
     try {
       const res = await fetch(url)
       if (res.ok) return
-    } catch {
+    } catch (e) {
+      const causa = String((e as Error & { cause?: unknown })?.cause ?? e)
+      if (!tlsAfrouxado && /certificate|self[- ]signed|unable to verify|TLS|SSL/i.test(causa)) {
+        process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0'
+        tlsAfrouxado = true
+        continue
+      }
       // ainda subindo
     }
     await new Promise((r) => setTimeout(r, 2000))
@@ -31,7 +43,7 @@ async function esperarKeycloak(tentativas = 60): Promise<void> {
 
   throw new Error(
     `Keycloak não respondeu em ${url} após ${tentativas * 2}s.\n` +
-      'Suba a infraestrutura antes da suíte:  docker compose up -d --wait',
+      'Suba a infraestrutura antes da suíte:  make db-up',
   )
 }
 

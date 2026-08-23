@@ -27,7 +27,8 @@ const prisma = new PrismaClient();
  * primeiro acesso cria um usuário local novo e a Reserva e o Empréstimo abaixo
  * ficam órfãos de uma conta que ninguém consegue usar.
  *
- * A senha (`senha123` para os três) mora no Keycloak, não aqui.
+ * A senha (`Biblioteca#2026!` para os três — política da Fase 2) mora no
+ * Keycloak, não aqui.
  */
 const KEYCLOAK_USER_IDS = {
   leitor: 'b1b11071-0000-4000-8000-000000000001',
@@ -392,7 +393,7 @@ async function main(): Promise<void> {
     leitor@biblioteca.dev        (papel: leitor — com Reserva e Empréstimo)
     leitor2@biblioteca.dev       (papel: leitor — sem nenhum registro)
     bibliotecario@biblioteca.dev (papel: bibliotecario)
-    Senha (senha123) e papel vivem no Keycloak — ver keycloak/README.md
+    Senha (Biblioteca#2026!) e papel vivem no Keycloak — ver keycloak/README.md
 
   Dados:
     ${authors.length} autores

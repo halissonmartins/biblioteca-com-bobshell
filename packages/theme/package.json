@@ -1,0 +1,27 @@
+{
+  "name": "biblioteca-keycloak-theme",
+  "version": "0.0.0",
+  "description": "Tema de login do Keycloak seguindo DESIGN.md (Keycloakify). Build gera o JAR montado no compose.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "build-keycloak-theme": "npm run build && keycloakify build"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "keycloakify": "^11.15.13",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.8.3",
+    "vite": "^5.0.8"
+  },
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
+  }
+}

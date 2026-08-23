@@ -3,16 +3,36 @@ import { expect, type Page, type APIRequestContext } from '@playwright/test'
 /** Base da API (o webServer sobe em :3000; a UI em :5173 faz proxy /api → :3000). */
 export const API = 'http://localhost:3000'
 
-/** Realm do Keycloak — quem emite os tokens (ADR-0009). Vem do docker compose. */
-export const KEYCLOAK = process.env['KEYCLOAK_URL'] ?? 'http://localhost:8081'
+/**
+ * Realm do Keycloak — quem emite os tokens (ADR-0009). Vem do docker compose.
+ * Fase 2: https obrigatório (`sslRequired: all`) com a CA local de `make certs`.
+ */
+export const KEYCLOAK = process.env['KEYCLOAK_URL'] ?? 'https://localhost:8443'
 export const REALM = 'biblioteca'
-export const KEYCLOAK_CLIENT_ID = 'biblioteca-web'
+/**
+ * Client DE TESTE com Direct Access Grant (Fase 2). O client `biblioteca-web`,
+ * que a SPA usa, não aceita mais grant por senha — token só via tela + PKCE.
+ */
+export const KEYCLOAK_CLIENT_ID = 'biblioteca-e2e'
 export const TOKEN_ENDPOINT = `${KEYCLOAK}/realms/${REALM}/protocol/openid-connect/token`
 
-export const LEITOR = { email: 'leitor@biblioteca.dev', senha: 'senha123' }
+/** SMTP de desenvolvimento (Fase 2) — UI/API REST do Mailpit, onde o Keycloak entrega. */
+export const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:8025'
+
+/**
+ * Senha dos usuários do seed. A política do realm (Fase 2) exige 12+ caracteres;
+ * `senha123`, da Fase 1, foi aposentada junto com o resto da postura frouxa.
+ */
+export const SENHA_SEED = 'Biblioteca#2026!'
+
+export const LEITOR = { email: 'leitor@biblioteca.dev', senha: SENHA_SEED }
 /** Segundo Leitor do seed — sem Reserva nem Empréstimo (isolamento de /me/*) */
-export const LEITOR_2 = { email: 'leitor2@biblioteca.dev', senha: 'senha123' }
-export const BIBLIOTECARIO = { email: 'bibliotecario@biblioteca.dev', senha: 'senha123' }
+export const LEITOR_2 = { email: 'leitor2@biblioteca.dev', senha: SENHA_SEED }
+export const BIBLIOTECARIO = { email: 'bibliotecario@biblioteca.dev', senha: SENHA_SEED }
+
+/** Regex que casa a origem do Keycloak — para waitForURL/toHaveURL. */
+export const keycloakOrigem = (): RegExp =>
+  new RegExp(KEYCLOAK.replace(/^https?:\/\//, ''))
 
 // ---------------------------------------------------------------------------
 // UI
@@ -31,9 +51,9 @@ export const BIBLIOTECARIO = { email: 'bibliotecario@biblioteca.dev', senha: 'se
  * falhou pedindo um botão "Reservar" que a página só mostra a quem entrou. O
  * botão "Sair" só existe com sessão, e é esse o sinal.
  */
-export async function loginUI(page: Page, email: string, senha = 'senha123'): Promise<void> {
+export async function loginUI(page: Page, email: string, senha = SENHA_SEED): Promise<void> {
   await page.goto('/login')
-  await page.waitForURL(new RegExp(KEYCLOAK.replace(/^https?:\/\//, '')))
+  await page.waitForURL(keycloakOrigem())
   await page.locator('#username').fill(email)
   await page.locator('#password').fill(senha)
   await page.locator('#kc-login').click()
@@ -42,21 +62,95 @@ export async function loginUI(page: Page, email: string, senha = 'senha123'): Pr
 }
 
 /**
- * Auto-cadastro pela tela do Keycloak (Fase 1: qualquer e-mail, sem verificação).
- * Devolve o e-mail usado. Quem se cadastra nasce Leitor pelo papel padrão do realm.
+ * Extrai da caixa do Mailpit o link de ação (`/login-actions/action-token`)
+ * que o Keycloak enviou para `email` — verificação de cadastro ou reset de
+ * senha. Os dois usam o mesmo caminho; o que distingue é o claim `typ` do JWT
+ * dentro do parâmetro `key`. Visitar o link executa a ação.
+ *
+ * O envio não é instantâneo: consulta o Mailpit por até ~10 s antes de falhar.
  */
-export async function registrarUI(page: Page, email: string, senha = 'senha123'): Promise<string> {
+export async function linkDeAcaoDoEmail(
+  request: APIRequestContext,
+  email: string,
+  tipo: 'verify-email' | 'reset-credentials',
+): Promise<string> {
+  const regexLink =
+    /https:\/\/[^\s"<>]+\/realms\/biblioteca\/login-actions\/action-token\?[^\s"<>]+/
+
+  for (let tentativa = 0; tentativa < 10; tentativa++) {
+    const res = await request.get(`${MAILPIT}/api/v1/search?query=to:${encodeURIComponent(email)}`)
+    if (res.ok()) {
+      const { messages } = (await res.json()) as { messages: Array<{ ID: string }> }
+      for (const { ID } of messages) {
+        const msg = (await (await request.get(`${MAILPIT}/api/v1/message/${ID}`)).json()) as {
+          Text?: string
+        }
+        for (const link of (msg.Text ?? '').match(new RegExp(regexLink.source, 'g')) ?? []) {
+          if (tipoDoActionToken(link) === tipo) return link
+        }
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+  throw new Error(`Nenhum action token "${tipo}" chegou ao Mailpit para ${email} em ~10 s`)
+}
+
+/** Decodifica o claim `typ` do action token (JWT) embutido no parâmetro `key`. */
+function tipoDoActionToken(link: string): string {
+  const key = new URL(link).searchParams.get('key') ?? ''
+  const payload = JSON.parse(Buffer.from(key.split('.')[1] ?? '', 'base64url').toString('utf8'))
+  return typeof payload['typ'] === 'string' ? payload['typ'] : ''
+}
+
+/**
+ * Auto-cadastro pela tela do Keycloak até a tela de DEFINIR SENHA (Fase 2).
+ *
+ * Com `verifyEmail: true`, o Keycloak não pede senha no cadastro: a conta nasce
+ * só com e-mail e nome, e a senha é criada depois de confirmar o endereço — é o
+ * que impede alguém de cadastrar e-mail alheio com senha própria. Este helper
+ * preenche o formulário, busca o link de verificação no Mailpit (:8025) e o
+ * abre NO MESMO navegador, caindo no formulário de nova senha.
+ */
+export async function registrarUI(page: Page, email: string): Promise<void> {
   await page.goto('/login')
-  await page.waitForURL(new RegExp(KEYCLOAK.replace(/^https?:\/\//, '')))
+  await page.waitForURL(keycloakOrigem())
   await page.locator('#kc-registration a, #kc-registration-container a').click()
   await page.locator('#firstName').fill('Pessoa')
   await page.locator('#lastName').fill('Recem-Cadastrada')
   await page.locator('#email').fill(email)
-  await page.locator('#password').fill(senha)
+  await page.locator('input[type=submit]').click()
+
+  const link = await linkDeAcaoDoEmail(page.request, email, 'verify-email')
+  await page.goto(link)
+  await page.locator('#password-new').waitFor()
+}
+
+/** Define a senha inicial na tela pós-verificação (ou troca senha via link de reset). */
+export async function definirSenhaInicial(page: Page, senha = SENHA_SEED): Promise<void> {
+  await page.locator('#password-new').fill(senha)
   await page.locator('#password-confirm').fill(senha)
   await page.locator('input[type=submit]').click()
-  // Mesmo motivo do loginUI: só o "Sair" prova que a sessão existe.
-  await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
+}
+
+/**
+ * Cadastro completo: registra, confirma e-mail, define a senha e entra como
+ * Leitor (papel padrão do realm). Devolve o e-mail usado.
+ */
+export async function registrarEEntrar(
+  page: Page,
+  email: string,
+  senha = SENHA_SEED,
+): Promise<string> {
+  await registrarUI(page, email)
+  await definirSenhaInicial(page, senha)
+
+  // A execução do action token pode terminar com sessão já estabelecida (SSO)
+  // ou de volta à tela de login — os dois caminhos terminam logados aqui.
+  try {
+    await page.getByRole('button', { name: 'Sair' }).waitFor({ timeout: 5_000 })
+  } catch {
+    await loginUI(page, email, senha)
+  }
   return email
 }
 
@@ -85,13 +179,13 @@ export interface ApiUser {
  * pessoa é no realm, e `GET /me` diz qual é o `users.id` — o que as Reservas e
  * os Empréstimos referenciam, e o que os specs comparam.
  *
- * Usa o Direct Access Grant do client `biblioteca-web`, ligado justamente para
- * que teste e carga obtenham token sem navegador (docs/seguranca.md).
+ * Usa o Direct Access Grant do client `biblioteca-e2e` — o `biblioteca-web` não
+ * aceita mais grant por senha desde a Fase 2 (docs/seguranca.md).
  */
 export async function apiLogin(
   request: APIRequestContext,
   email: string,
-  senha = 'senha123',
+  senha = SENHA_SEED,
 ): Promise<{ token: string; user: ApiUser }> {
   const res = await request.post(TOKEN_ENDPOINT, {
     form: {
@@ -212,7 +306,7 @@ export interface Actor {
 export async function newActor(
   playwright: { request: { newContext: () => Promise<APIRequestContext> } },
   email: string,
-  senha = 'senha123',
+  senha = SENHA_SEED,
 ): Promise<Actor> {
   const ctx = await playwright.request.newContext()
   const { token, user } = await apiLogin(ctx, email, senha)
