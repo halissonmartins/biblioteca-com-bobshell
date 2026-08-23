@@ -437,3 +437,9 @@ Analisar impacto em toda documentação do projeto
 
 ---
 **[23/08/2026 19:27]** altere o git config para halissonmartins@github.com
+
+---
+**[23/08/2026 19:33]** o screenshot detalhe-livro.png ficou com a tela de loading.
+
+---
+**[23/08/2026 19:47]** commit tudo e faça o push
