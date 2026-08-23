@@ -20,11 +20,15 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 | Camada | Tecnologia |
 |---|---|
 | Backend | Node.js 20 + Express + TypeScript strict |
-| Frontend | React 18 + TypeScript strict |
+| Frontend | React 19 + TypeScript strict (Tailwind, React Query, react-router) |
 | Identidade | Keycloak 26.7 (OIDC — Authorization Code + PKCE) |
 | Banco | PostgreSQL 15 + Prisma ORM |
 | Testes | Vitest (unit/integração) + Playwright (e2e) |
 | CI/CD | GitHub Actions + Docker |
+
+**Monorepo sem package.json na raiz e sem workspaces** — cada pacote
+(`packages/api`, `packages/web`, `packages/theme`, `e2e`) instala as próprias
+deps. Não tente `npm install` na raiz. Lint também difere por pacote: API usa ESLint, Web usa **oxlint**.
 
 ## Comandos
 
@@ -32,27 +36,40 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 make setup    # instala deps + docker compose up + migrate + seed
 make dev      # API (porta 3000) + Web (porta 5173) em watch
 make test     # Vitest — todos os testes unitários e de integração
-make lint     # ESLint + TypeScript typecheck
+make lint     # API: ESLint + typecheck · Web: oxlint
 make build    # build de produção
 make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
+make certs    # gera CA local + certificado https://localhost:8443 do Keycloak (primeira vez)
+make theme-build # regenera o JAR do tema de login (packages/theme) — commitar depois
 make capas    # baixa as capas ausentes para assets/capas/ — só ao incluir Livro novo (ADR-0008)
 make keycloak-export # persiste no repositório o realm alterado pelo admin console
 make screenshots # recaptura as telas de assets/images/ que o README usa
 ```
 
+**Dois `.env`, não um:** `make env` copia `.env.example` para `packages/api/.env`
+**e** `packages/web/.env` — o Vite só lê o `.env` do próprio pacote, então as
+`VITE_KEYCLOAK_*` nunca chegam à SPA se ficarem só na API. Toda variável nova vai
+para `.env.example` no mesmo PR.
+
 **Rodar um único teste:**
 ```bash
-npx vitest run packages/api/src/domain/reservation/reservation.test.ts
+npx vitest run packages/api/src/domain/reservation/reservationService.test.ts   # raiz do repo
 cd e2e && npx playwright test catalogo.spec.ts
 ```
 
+Os testes Vitest **não precisam de Docker nem de Keycloak**: os repositórios são
+mockados (`vi.mock`) e os tokens RS256 dos testes são assinados localmente em
+`packages/api/src/test/keycloak.ts`.
+
 **E2E (Playwright — dirige a UI real):**
 ```bash
-docker compose up -d        # sobe o Postgres (raiz do repo)
-cd e2e && npm install        # primeira vez
-npm run install:browsers     # baixa o Chromium (primeira vez)
-npm test                     # webServer sobe API+Web; globalSetup migra+popula
+make e2e-setup   # primeira vez: deps do e2e + Chromium
+make e2e         # sobe Postgres+capas+Keycloak via compose e roda a suíte
 ```
+O `webServer` do `playwright.config.ts` sobe API+Web; o `globalSetup` espera o
+Keycloak, aplica migrations e roda o seed. Postgres, capas e Keycloak vêm do
+`docker compose up -d` — **os três**, não só o banco (sem capas, `catalogo.spec.ts`
+quebra por timeout; sem Keycloak, tudo falha com 401).
 
 Onde cada cenário vai, quais Livros já estão reservados por outros testes e como
 mexer no relógio dos dados: [`e2e/AGENTS.md`](e2e/AGENTS.md) — **leia antes de
@@ -101,7 +118,6 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
 - **Capa de Livro é arquivo em `assets/capas/<isbn>.jpg`**, versionado, servido pelo nginx do compose. `coverUrl` guarda caminho relativo (`/capas/…`), nunca URL externa — nada de imagem sai da rede em runtime (ADR-0008)
 - Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`
-- Toda variável de ambiente nova vai para `.env.example` no mesmo PR
 - **`domain/` não emite telemetria** — nem `@opentelemetry/api`, nem logger. Métricas ficam em `api/` e `infra/` (ADR-0007)
 - **Id de entidade nunca é atributo de métrica** — só de span (cardinalidade)
 - **Métrica nova é declarada em `infra/telemetry/metrics.ts`** e documentada em `docs/observabilidade.md`

@@ -80,14 +80,18 @@ aplicação (por isso não estão em `.env.example`).
 | `READER_EMAIL` / `READER_PASSWORD` | seed dev | credenciais do leitor |
 | `LIBRARIAN_EMAIL` / `LIBRARIAN_PASSWORD` | seed dev | credenciais do bibliotecário |
 | `PERF_BOOKS` / `PERF_AUTHORS` | `250000` / `5000` | volume do seed de performance |
-| `KEYCLOAK_URL` | `http://localhost:8081` | de onde vem o token (ADR-0009) |
-| `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` | `biblioteca` / `biblioteca-web` | realm e client usados no Direct Access Grant |
+| `KEYCLOAK_URL` | `https://localhost:8443` | de onde vem o token (ADR-0009). TLS com a CA local de `make certs` |
+| `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` | `biblioteca` / `biblioteca-e2e` | realm e client usados no Direct Access Grant — o `biblioteca-web` recusa grant por senha desde a Fase 2 |
 
 Exemplo com carga maior:
 
 ```bash
 k6 run -e VUS=50 -e DURATION=1m perf/scenarios/catalog-search.js
 ```
+
+> **TLS:** o Keycloak responde em https com a CA local de `make certs`. Rode o k6
+> com `K6_INSECURE_SKIP_TLS_VERIFY=true` — é o que `make perf` e `make perf-smoke`
+> já fazem.
 
 ## Diagnóstico da busca do catálogo (otimização aplicada)
 

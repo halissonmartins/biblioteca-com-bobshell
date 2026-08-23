@@ -53,7 +53,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | RF-L4 | Ver suas reservas ainda não expiradas. |
 | RF-L5 | Listar os livros que pegou emprestado e as respectivas datas de vencimento. |
 | RF-L6 | Visualizar os detalhes de um autor, incluindo todos os livros que ele publicou. |
-| RF-L7 | Criar a própria conta e entrar no sistema. Fase 1: **qualquer e-mail, sem verificação**; quem se cadastra nasce leitor (RN-7). Ver [ADR-0009](decisoes/0009-identidade-com-keycloak.md) e [seguranca.md](seguranca.md). |
+| RF-L7 | Criar a própria conta e entrar no sistema. Fase 2: cadastro com **e-mail verificado** — a senha é definida ao confirmar o endereço; quem se cadastra nasce leitor (RN-7). Ver [ADR-0009](decisoes/0009-identidade-com-keycloak.md) e [seguranca.md](seguranca.md). |
 
 ### 5.2 Bibliotecário
 
@@ -144,7 +144,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 - [ ] Leitor não consegue efetivar empréstimo sozinho; apenas bibliotecário (RN-2, RN-7).
 - [ ] RNF-1 a RNF-4 verificados em teste de carga com volume equivalente a 10k leitores ativos e 250k livros.
 - [ ] Disponibilidade exibida ao leitor reflete o estado visto pelo bibliotecário.
-- [ ] Visitante cria conta com qualquer e-mail, entra como leitor e consegue reservar (RF-L7).
+- [ ] Visitante cria conta, confirma o e-mail, define a senha, entra como leitor e consegue reservar (RF-L7).
 - [ ] Conta recém-criada não consegue executar ação de balcão (RN-2, RN-7).
 
 ## 11. Métricas de sucesso

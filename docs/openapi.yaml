@@ -28,12 +28,12 @@ components:
         A API não emite token: obtenha-o no realm `biblioteca` e envie no header
         `Authorization`. Não há cookie de sessão.
 
-        Discovery: `http://localhost:8081/realms/biblioteca/.well-known/openid-configuration`
+        Discovery: `https://localhost:8443/realms/biblioteca/.well-known/openid-configuration`
 
         O token precisa ter `iss` do realm e `aud` contendo `biblioteca-api`.
     openId:
       type: openIdConnect
-      openIdConnectUrl: http://localhost:8081/realms/biblioteca/.well-known/openid-configuration
+      openIdConnectUrl: https://localhost:8443/realms/biblioteca/.well-known/openid-configuration
 
   # -------------------------------------------------------------------------
   # Schemas — espelham packages/shared/src/types/domain.ts

@@ -261,16 +261,19 @@ Então recebo erro 403 Forbidden
 **Quero** criar uma conta com o meu e-mail  
 **Para** poder reservar Livros sem depender do balcão
 
-> Fase 1 da identidade: cadastro com **qualquer e-mail e sem verificação**. A
-> tela é a do Keycloak, não nossa. O que essa escolha deixa em aberto, e quando
-> se fecha, está em [`docs/seguranca.md`](../seguranca.md).
+> Fase 2 da identidade: o cadastro pede **e-mail verificado** — a conta nasce
+> sem senha, e ela é definida ao confirmar o endereço pelo link que chega no
+> Mailpit (SMTP de desenvolvimento). A tela é a do Keycloak, não nossa. O que
+> cada fase deixa em aberto está em [`docs/seguranca.md`](../seguranca.md).
 
 ### Critérios de aceite
 
 ```gherkin
 Dado que sou um visitante na tela de acesso
-Quando escolho "Cadastre-se" e informo nome, e-mail e senha
-Então minha conta é criada sem nenhuma confirmação por e-mail
+Quando escolho "Cadastre-se" e informo nome e e-mail
+Então a conta é criada pendente de confirmação
+E recebo um e-mail com o link de verificação (no Mailpit, em dev)
+E, ao visitar o link, defino a minha senha
 E entro autenticado, no Catálogo
 E recebo o papel Leitor
 
@@ -283,9 +286,13 @@ Dado que acabei de criar minha conta
 Quando tento acessar uma tela ou rota de Bibliotecário
 Então sou bloqueado (RN-7) — auto-cadastro nunca concede o papel de balcão
 
-Dado que sou um visitante
-Quando informo um e-mail de domínio que não existe
-Então o cadastro é aceito do mesmo jeito (Fase 1 — sem verificação)
+Dado que estou definindo a minha senha pela primeira vez
+Quando informo uma senha abaixo da política do realm
+Então o Keycloak recusa na tela (mínimo de 12 caracteres na Fase 2)
+
+Dado que esqueci a minha senha
+Quando peço a recuperação e sigo o link recebido por e-mail
+Então defino uma nova credencial e a anterior deixa de valer
 ```
 
 ---

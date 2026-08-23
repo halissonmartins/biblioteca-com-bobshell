@@ -16,7 +16,7 @@ C4Context
 
   System(biblioteca, "Sistema de Biblioteca", "Permite reservas on-line e gestão de empréstimos presenciais.")
 
-  System_Ext(email, "Serviço de E-mail", "Envio de notificações (fora de escopo v1).")
+  System_Ext(email, "Serviço de E-mail", "Envio de notificações de produto (v2, fora de escopo). O e-mail transacional da identidade (verificação de conta, reset) em dev é o Mailpit, interno ao compose.")
   System_Ext(capasFonte, "Google Books / Open Library", "Origem das capas de Livro. Acessados só na ingestão manual (make capas), nunca em runtime — ADR-0008.")
 
   Rel(leitor, biblioteca, "Navega, reserva, consulta", "HTTPS")
@@ -37,9 +37,11 @@ C4Container
   Person(bibliotecario, "Bibliotecário")
 
   Container_Boundary(sistema, "Sistema de Biblioteca") {
-    Container(web, "Web App", "React 18 + TypeScript", "SPA servida como estáticos. Consome a API REST.")
+    Container(web, "Web App", "React 19 + TypeScript", "SPA servida como estáticos. Consome a API REST.")
     Container(api, "API REST", "Node.js 20 + Express + TypeScript", "Regras de negócio e acesso ao banco via Prisma. Resource server: valida o token do Keycloak, nunca o emite — ADR-0009.")
-    Container(keycloak, "Keycloak", "Keycloak 26 (OIDC)", "Provedor de identidade: login, auto-cadastro, papéis e emissão de token. Guarda a credencial — a API não. Realm versionado em keycloak/.")
+    Container(keycloak, "Keycloak", "Keycloak 26 (OIDC)", "Provedor de identidade: login com PKCE, auto-cadastro com e-mail verificado, papéis e emissão de token. Guarda a credencial — a API não. Realm versionado em keycloak/; TLS com CA local.")
+    ContainerDb(keycloakDb, "Banco do Keycloak", "PostgreSQL 15", "Realm, contas e sessões — dedicado, com ciclo de vida independente do banco do produto (Fase 2).")
+    Container(mailpit, "Mailpit (dev)", "axllent/mailpit", "SMTP de desenvolvimento: recebe verificação de conta e reset de senha. UI/API em :8025 — nada sai para a rede real.")
     ContainerDb(db, "Banco de Dados", "PostgreSQL 15", "Livros, Cópias, Usuários, Reservas, Empréstimos, Avaliações.")
     Container(capas, "Servidor de Capas", "nginx (local) / CDN (produção)", "Serve /capas/{isbn}.jpg a partir de assets/capas/. Não fala com a API nem com o banco — ADR-0008.")
   }
@@ -58,6 +60,8 @@ C4Container
   Rel(web, capas, "Carrega a capa do Livro", "HTTPS / imagem")
   Rel(web, keycloak, "Autentica e obtém token", "OIDC — Authorization Code + PKCE")
   Rel(api, keycloak, "Busca as chaves públicas do realm", "JWKS / HTTPS")
+  Rel(keycloak, keycloakDb, "Persiste realm e contas", "JDBC / TCP")
+  Rel(keycloak, mailpit, "Entrega verificação de conta e reset de senha", "SMTP :1025")
   Rel(api, db, "Lê e escreve", "Prisma / TCP")
   Rel(api, collector, "Logs, métricas e traces", "OTLP / gRPC")
   Rel(prom, collector, "Raspa métricas", "HTTP :8889")
@@ -68,9 +72,11 @@ C4Container
   Rel(grafana, jaeger, "Consulta", "HTTP")
 ```
 
-> O Keycloak **sobe** com `docker compose up -d`: sem ele ninguém autentica. A
-> senha nunca atravessa a nossa origem — o navegador fala com ele diretamente, e
-> a API só recebe o token pronto.
+> O Keycloak **sobe** com `make db-up` (que gera antes a CA local do TLS):
+> sem ele ninguém autentica. Responde em https://localhost:8443 com
+> `sslRequired: all` — token não trafega em claro, nem em localhost. A senha
+> nunca atravessa a nossa origem — o navegador fala com ele diretamente, e a
+> API só recebe o token pronto.
 >
 > A stack de observabilidade **não sobe** com `docker compose up -d` — vive no
 > perfil `obs` e é ferramenta de desenvolvimento, não parte do produto entregue.

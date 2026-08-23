@@ -23,14 +23,15 @@ Fluxo híbrido do produto: o **Leitor** navega o catálogo e reserva on-line; o 
 ## Rodar em 3 comandos
 
 ```bash
-cp .env.example .env
-make setup    # instala dependências e sobe Postgres, capas e Keycloak
-make dev      # inicia API (porta 3000) e Web (porta 5173) em modo watch
+cp .env.example .env   # troque KC_BOOTSTRAP_ADMIN_PASSWORD antes da primeira subida
+make setup             # instala dependências, gera certs e sobe Postgres, capas e Keycloak
+make dev               # inicia API (porta 3000) e Web (porta 5173) em modo watch
 ```
 
-Entre com `leitor@biblioteca.dev` / `senha123` — ou clique em **Cadastre-se** e
-crie uma conta com qualquer e-mail. O login acontece no Keycloak
-(http://localhost:8081), não numa tela nossa.
+Entre com `leitor@biblioteca.dev` / `Biblioteca#2026!` — ou clique em **Cadastre-se**
+e crie uma conta confirmando o e-mail que chega no Mailpit (http://localhost:8025).
+O login acontece na tela do Keycloak (https://localhost:8443 — importe
+`keycloak/certs/ca.crt` para o navegador confiar), não numa tela nossa.
 
 ## Comandos disponíveis
 
@@ -38,12 +39,14 @@ crie uma conta com qualquer e-mail. O login acontece no Keycloak
 make setup    # instala deps + docker compose up + prisma migrate + seed
 make dev      # inicia API + Web em modo watch
 make test     # roda testes unitários e de integração (Vitest)
-make test-e2e # roda testes E2E (Playwright)
+make e2e      # roda testes E2E (Playwright) — sobe o stack antes
 make lint     # ESLint + TypeScript typecheck
 make build    # build de produção (api + web)
 make migrate  # aplica migrations Prisma pendentes
 make seed     # popula banco com dados de desenvolvimento
 make keycloak-export # persiste no repositório o realm alterado pelo admin console
+make certs    # gera a CA local e o certificado https do Keycloak (primeira vez)
+make theme-build # regenera o JAR do tema de login (packages/theme)
 make capas    # baixa as capas ausentes (só ao incluir Livro novo)
 make screenshots # recaptura as telas de assets/images/ usadas neste README
 ```
@@ -65,14 +68,16 @@ só valida o token contra o JWKS do realm e nunca vê credencial
 ([ADR-0009](docs/decisoes/0009-identidade-com-keycloak.md)). O realm é versionado
 em [`keycloak/realm-biblioteca.json`](keycloak/realm-biblioteca.json).
 
-Nesta primeira fase qualquer pessoa se cadastra com **qualquer e-mail, sem
-verificação**, e entra como Leitor; `bibliotecario` é atribuído à mão no admin
-console. O que isso deixa deliberadamente em aberto, e o que vem nas próximas
-fases, está em [`docs/seguranca.md`](docs/seguranca.md).
+O cadastro pede **e-mail confirmado** (o SMTP de dev é o Mailpit), senha com
+mínimo de 12 caracteres, e o login é https — a Fase 2 fechou o que a Fase 1
+deixou deliberadamente frouxo; a lista do que foi fechado (e o que continua em
+aberto por decisão) está em [`docs/seguranca.md`](docs/seguranca.md).
+`bibliotecario` é atribuído à mão no admin console.
 
 | Endereço | O que é |
 |---|---|
-| http://localhost:8081 | Admin console (`admin`/`admin`) e telas de login e cadastro |
+| https://localhost:8443 | Admin console e telas de login e cadastro (credenciais `KC_BOOTSTRAP_ADMIN_*` do `.env`) |
+| http://localhost:8025 | Mailpit — caixa de entrada de dev (verificação de conta, reset de senha) |
 | http://localhost:9002/metrics | Métricas do Keycloak (logins, cadastros) |
 
 ### Observabilidade
@@ -102,7 +107,7 @@ Detalhes em [`docs/observabilidade.md`](docs/observabilidade.md).
 ```
 packages/
 ├── api/          # API REST (Node.js 20 + Express + TypeScript)
-├── web/          # SPA (React 18 + TypeScript)
+├── web/          # SPA (React 19 + TypeScript)
 └── shared/       # Tipos compartilhados gerados do schema
 ```
 
