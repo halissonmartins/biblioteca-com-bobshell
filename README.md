@@ -1,5 +1,9 @@
 # Sistema de Biblioteca
 
+[![CI](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml/badge.svg)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+[![Cobertura — API](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=api)](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=api)
+[![Cobertura — Web](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=web)
+
 Sistema web híbrido de catálogo, reservas e empréstimos de biblioteca.
 
 ## 📸 Telas
