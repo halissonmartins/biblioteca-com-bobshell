@@ -207,18 +207,99 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # E2E — contrato HTTP da API REST (Playwright request-only, sem navegador)
+  # ---------------------------------------------------------------------------
+  # Suíte irmã do e2e-ci: mesmo stack de verdade, mas só API + Postgres +
+  # Keycloak. Sem SPA, sem servidor de capas e sem Chromium — nenhum teste
+  # usa navegador, então o job não instala nem cacheia browser algum.
+  e2e-api-rest-ci:
+    name: "E2E — API REST (sem navegador)"
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: biblioteca
+          POSTGRES_PASSWORD: biblioteca
+          POSTGRES_DB: biblioteca
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U biblioteca"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://biblioteca:biblioteca@localhost:5432/biblioteca
+      KEYCLOAK_ISSUER_URL: https://localhost:8443/realms/biblioteca
+      KEYCLOAK_AUDIENCE: biblioteca-api
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependências da API
+        working-directory: packages/api
+        run: npm ci
+
+      - name: Instalar dependências do E2E de API
+        working-directory: e2e-api-rest
+        run: npm ci
+
+      # Mesma preparação do e2e-ci: o compose interpola credenciais e espera os
+      # certificados TLS de keycloak/certs/. Sem o Keycloak ninguém autentica —
+      # a suíte inteira falharia com 401 apontando para o lugar errado.
+      - name: Criar .env da raiz (variáveis do compose)
+        run: cp .env.example .env
+
+      - name: Gerar certificados locais (TLS do Keycloak)
+        run: ./scripts/gerar-certificados.sh
+
+      # O `--wait` segura até o realm estar importado e healthy (~40 s na
+      # primeira subida). Mailpit e keycloak-db entram sozinhos via depends_on.
+      - name: Subir o Keycloak e seu banco
+        run: docker compose up -d --wait keycloak
+
+      # compose --wait falha sem mostrar por quê quando um container fica
+      # unhealthy (já escondeu um crash de boot do Keycloak). O log conta a
+      # história — imprima antes do job morrer.
+      - name: Logs do Keycloak (diagnóstico de subida)
+        if: failure()
+        run: docker logs biblioteca-keycloak --tail 60
+
+      - name: Rodar testes E2E da API REST
+        working-directory: e2e-api-rest
+        run: npm test
+
+      - name: Publicar relatório em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-api-rest
+          path: e2e-api-rest/playwright-report/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
   # Gate: bloqueia merge se qualquer job falhou
   # ---------------------------------------------------------------------------
   ci-gate:
     name: "CI Gate"
     runs-on: ubuntu-latest
-    needs: [api-ci, web-ci, e2e-ci]
+    needs: [api-ci, web-ci, e2e-ci, e2e-api-rest-ci]
     if: always()
     steps:
       - name: Verificar resultado dos jobs
         run: |
-          if [[ "${{ needs.api-ci.result }}" != "success" || "${{ needs.web-ci.result }}" != "success" || "${{ needs.e2e-ci.result }}" != "success" ]]; then
-            echo "❌ CI falhou — api-ci: ${{ needs.api-ci.result }}, web-ci: ${{ needs.web-ci.result }}, e2e-ci: ${{ needs.e2e-ci.result }}"
+          if [[ "${{ needs.api-ci.result }}" != "success" || "${{ needs.web-ci.result }}" != "success" || "${{ needs.e2e-ci.result }}" != "success" || "${{ needs.e2e-api-rest-ci.result }}" != "success" ]]; then
+            echo "❌ CI falhou — api-ci: ${{ needs.api-ci.result }}, web-ci: ${{ needs.web-ci.result }}, e2e-ci: ${{ needs.e2e-ci.result }}, e2e-api-rest-ci: ${{ needs.e2e-api-rest-ci.result }}"
             exit 1
           fi
           echo "✅ Todos os checks passaram."
