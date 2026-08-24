@@ -1,5 +1,9 @@
 # Sistema de Biblioteca
 
+[![CI](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml/badge.svg)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+[![Cobertura — API](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=api)](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=api)
+[![Cobertura — Web](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/halissonmartins/biblioteca-com-bobshell/branch/main/graph/badge.svg?flag=web)
+
 Sistema web híbrido de catálogo, reservas e empréstimos de biblioteca.
 
 ## 📸 Telas
@@ -106,7 +110,7 @@ Detalhes em [`docs/observabilidade.md`](docs/observabilidade.md).
 
 ```
 packages/
-├── api/          # API REST (Node.js 20 + Express + TypeScript)
+├── api/          # API REST (Node.js 24 + Express + TypeScript)
 ├── web/          # SPA (React 19 + TypeScript)
 └── shared/       # Tipos compartilhados gerados do schema
 ```
@@ -135,7 +139,7 @@ Copie `.env.example` para `.env` e preencha os valores. Nunca commite `.env`.
 
 ## Pré-requisitos
 
-- Node.js 20+
+- Node.js 24+
 - Docker + Docker Compose — sobe Postgres, o servidor de capas e o Keycloak
 - `make`
 

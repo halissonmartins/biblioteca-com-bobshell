@@ -7,7 +7,7 @@ E2E := e2e
 E2E_API := e2e-api-rest
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env certs theme-build db-up migrate seed capas screenshots clean e2e e2e-setup e2e-api e2e-api-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
+.PHONY: help setup dev test coverage lint build install env certs theme-build db-up migrate seed capas screenshots clean e2e e2e-setup e2e-api e2e-api-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -84,6 +84,10 @@ dev-web:
 
 test: ## Vitest — todos os testes unitários e de integração
 	cd $(API) && npm run test
+
+coverage: ## Cobertura de testes (API + Web, com threshold)
+	cd $(API) && npm run test:coverage
+	cd $(WEB) && npm run test:coverage
 
 lint: ## ESLint + TypeScript typecheck
 	cd $(API) && npm run lint && npm run typecheck

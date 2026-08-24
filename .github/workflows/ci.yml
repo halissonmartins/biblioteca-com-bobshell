@@ -47,10 +47,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: packages/api/package-lock.json
 
@@ -69,8 +69,17 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Testes (Vitest)
-        run: npm run test
+      - name: Testes com cobertura (Vitest)
+        run: npm run test:coverage
+
+      # Repo público: upload tokenless funciona; o secret é opcional e só
+      # passa a valer se o projeto ficar privado.
+      - name: Publicar cobertura da API no Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/api/coverage/lcov.info
+          flags: api
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # ---------------------------------------------------------------------------
   # Web — typecheck · lint (oxlint) · build (Vite)
@@ -87,10 +96,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: packages/web/package-lock.json
 
@@ -102,6 +111,16 @@ jobs:
 
       - name: Lint (oxlint)
         run: npm run lint
+
+      - name: Testes com cobertura (Vitest)
+        run: npm run test:coverage
+
+      - name: Publicar cobertura da Web no Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/web/coverage/lcov.info
+          flags: web
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build de produção
         run: npm run build
@@ -138,10 +157,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Instalar dependências da API
         working-directory: packages/api
@@ -241,10 +260,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Instalar dependências da API
         working-directory: packages/api
