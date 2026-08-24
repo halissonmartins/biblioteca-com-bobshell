@@ -17,7 +17,7 @@ Com agentes de codificação, testes são o contrato que impede o agente de queb
 |---|---|---|---|
 | **Unitário** | Regras de negócio em `domain/` | **Vitest** | Ao lado do arquivo: `*.test.ts` |
 | **Integração** | Rotas HTTP com banco real | **Vitest + supertest** | `src/api/**/*.test.ts` |
-| **E2E** | Fluxos críticos ponta a ponta | **Playwright** | `e2e/` na raiz do monorepo |
+| **E2E** | Fluxos críticos ponta a ponta (UI) e contrato HTTP | **Playwright** | `e2e/` (dirige o navegador) e `e2e-api-rest/` (request-only, sem navegador) na raiz do monorepo |
 
 ### Regras
 

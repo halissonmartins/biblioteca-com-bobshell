@@ -23,12 +23,12 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 | Frontend | React 19 + TypeScript strict (Tailwind, React Query, react-router) |
 | Identidade | Keycloak 26.7 (OIDC — Authorization Code + PKCE) |
 | Banco | PostgreSQL 15 + Prisma ORM |
-| Testes | Vitest (unit/integração) + Playwright (e2e) |
+| Testes | Vitest (unit/integração) + Playwright (e2e de UI em `e2e/`, e2e do contrato HTTP sem navegador em `e2e-api-rest/`) |
 | CI/CD | GitHub Actions + Docker |
 
 **Monorepo sem package.json na raiz e sem workspaces** — cada pacote
-(`packages/api`, `packages/web`, `packages/theme`, `e2e`) instala as próprias
-deps. Não tente `npm install` na raiz. Lint também difere por pacote: API usa ESLint, Web usa **oxlint**.
+(`packages/api`, `packages/web`, `packages/theme`, `e2e`, `e2e-api-rest`)
+instala as próprias deps. Não tente `npm install` na raiz. Lint também difere por pacote: API usa ESLint, Web usa **oxlint**.
 
 ## Comandos
 
@@ -71,11 +71,19 @@ Keycloak, aplica migrations e roda o seed. Postgres, capas e Keycloak vêm do
 `docker compose up -d` — **os três**, não só o banco (sem capas, `catalogo.spec.ts`
 quebra por timeout; sem Keycloak, tudo falha com 401).
 
+**E2E do contrato HTTP (Playwright request-only — API REST, sem navegador):**
+```bash
+make e2e-api-setup   # primeira vez: deps do e2e-api-rest (não baixa navegador)
+make e2e-api         # sobe Postgres+Keycloak via compose e roda a suíte de contrato
+```
+Mesma regra de ouro das duas suítes: valor numérico de regra se confere no JSON.
+
 Onde cada cenário vai, quais Livros já estão reservados por outros testes e como
 mexer no relógio dos dados: [`e2e/AGENTS.md`](e2e/AGENTS.md) — **leia antes de
-escrever teste E2E**. A regra que mais se esquece: valor numérico de regra (12h de
-RN-1, 7 dias de RN-8) se confere no JSON da resposta, nunca só no texto formatado
-da tela.
+escrever teste E2E** (o equivalente da suíte de contrato HTTP é
+[`e2e-api-rest/AGENTS.md`](e2e-api-rest/AGENTS.md)). A regra que mais se esquece:
+valor numérico de regra (12h de RN-1, 7 dias de RN-8) se confere no JSON da
+resposta, nunca só no texto formatado da tela.
 
 **Comandos individuais (packages/api):**
 ```bash

@@ -1,0 +1,13 @@
+{
+  "name": "e2e-api-rest",
+  "version": "0.0.0",
+  "private": true,
+  "description": "E2E do contrato HTTP da API REST (Playwright, sem navegador) — API + Postgres + Keycloak",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^20.17.57"
+  }
+}

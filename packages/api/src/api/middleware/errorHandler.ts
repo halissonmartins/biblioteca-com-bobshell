@@ -35,29 +35,37 @@ export function errorHandler(
     rota: req.originalUrl,
   };
 
-  if (err instanceof AppError) {
-    span?.setAttribute('app.error_code', err.code);
+  // Corpo JSON malformado é entrada inválida, não defeito do servidor. Sem a
+  // conversão abaixo, a SyntaxError do body-parser cairia no ramo de erro não
+  // tratado — 500 que, fora de produção, vazaria a mensagem interna do parse.
+  const erro =
+    (err as { type?: string } | null)?.type === 'entity.parse.failed'
+      ? new AppError('VALIDATION_ERROR', 'Corpo JSON inválido')
+      : err;
+
+  if (erro instanceof AppError) {
+    span?.setAttribute('app.error_code', erro.code);
     log.warn(
-      { ...contexto, status: err.statusCode, code: err.code, erro: err.message },
+      { ...contexto, status: erro.statusCode, code: erro.code, erro: erro.message },
       'requisição rejeitada',
     );
-    res.status(err.statusCode).json({
+    res.status(erro.statusCode).json({
       error: {
-        code: err.code,
-        message: err.message,
+        code: erro.code,
+        message: erro.message,
       },
     });
     return;
   }
 
-  span?.recordException(err instanceof Error ? err : new Error(String(err)));
+  span?.recordException(erro instanceof Error ? erro : new Error(String(erro)));
   span?.setStatus({ code: SpanStatusCode.ERROR, message: 'erro não tratado' });
-  log.error({ ...contexto, status: 500, err }, 'erro não tratado');
+  log.error({ ...contexto, status: 500, err: erro }, 'erro não tratado');
 
   // Erro inesperado — não vazar detalhes internos em produção
   const message =
-    process.env['NODE_ENV'] !== 'production' && err instanceof Error
-      ? err.message
+    process.env['NODE_ENV'] !== 'production' && erro instanceof Error
+      ? erro.message
       : 'Erro interno do servidor';
 
   res.status(500).json({

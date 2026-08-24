@@ -7,7 +7,9 @@
 
 import express from 'express';
 import cors from 'cors';
+import type { NextFunction, Request, Response } from 'express';
 
+import { AppError } from '../shared/errors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { httpLogger, requestId } from './middleware/requestContext.js';
 import healthRouter from './routes/health.js';
@@ -44,6 +46,21 @@ export function createApp(): express.Application {
   app.use('/reservations', reservationsRouter);
   app.use('/loans', loansRouter);
   app.use('/me', meRouter);
+
+  // ── Rota sem match ────────────────────────────────────────────────────────
+  // O default do Express seria HTML ("Cannot GET …"), o que quebra clientes
+  // que esperam o envelope de erro JSON da casa. Passar pelo AppError mantém
+  // um único formato de resposta de erro — e o log de rejeição de graça.
+  app.use(
+    (
+      req: Request,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura de middleware exige os 3 parâmetros posicionais
+      _res: Response,
+      next: NextFunction,
+    ): void => {
+      next(new AppError('NOT_FOUND', `Rota não encontrada: ${req.method} ${req.originalUrl}`));
+    },
+  );
 
   // ── Handler global de erros (deve ser o último middleware) ────────────────
   app.use(errorHandler);

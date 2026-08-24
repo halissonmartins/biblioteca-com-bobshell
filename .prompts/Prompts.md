@@ -452,3 +452,22 @@ Analisar impacto em toda documentação do projeto
 
 ---
 **[23/08/2026 20:48]** (correcao do CI: SPI allow-concurrent-requests)
+---
+**[23/08/2026 21:34]** Explore o repositório /mnt/c/estudo/biblioteca-com-bobshell com profundidade média. NÃO escreva código — só pesquisa e relatório. Preciso de:
+
+1. Lista completa das rotas HTTP da API REST: método, caminho, papel exigido (leitor/bibliotecario/público) — procure em packages/api/src/api/ (ou onde ficarem as rotas/routes). Inclua também middlewares de autorização relevantes.
+2. Resumo dos arquivos em e2e/: liste cada .spec.ts e descreva os cenários (nomes dos testes/test.describe) contidos em contrato-api.spec.ts, regras-negocio-api.spec.ts e autorizacao-api.spec.ts especificamente.
+3. Conteúdo resumido do e2e/playwright.config.ts (webServer, baseURL, workers, projects) e do e2e/package.json (scripts, deps).
+4. Estrutura de helpers: e2e/helpers.ts e e2e/db.ts — quais funções exportam e para que servem (apiLogin, newActor etc).
+5. CI: conteúdo completo de todos os arquivos .github/workflows/*.yml — especialmente jobs existentes (lint, test, e2e-ci, gate). Descreva gatilhos, dependências entre jobs (needs), serviços docker usados.
+6. Makefile: targets relacionados a e2e (e2e-setup, e2e, db-up, obs-up etc) e o que executam.
+7. packages/api: como a API sobe em dev (script dev/start), porta, variáveis de ambiente necessárias (.env.example), e se há script de seed separado.
+8. Existe algum diretório ou menção prévia a "e2e-api-rest" no repo?
+
+Retorne um relatório estruturado e objetivo com caminhos de arquivo e números de linha quando útil.
+
+---
+**23/08/2026 22:08** Rodada final de verificação — lint completo do monorepo, typecheck dos dois pacotes e Vitest:
+
+---
+**23/08/2026 22:17** todo o plano foi executado completamente? Caso sim, commite tudo e crie um pull requests para main

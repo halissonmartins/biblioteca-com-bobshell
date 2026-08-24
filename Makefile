@@ -4,9 +4,10 @@
 API := packages/api
 WEB := packages/web
 E2E := e2e
+E2E_API := e2e-api-rest
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env certs theme-build db-up migrate seed capas screenshots clean e2e e2e-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
+.PHONY: help setup dev test lint build install env certs theme-build db-up migrate seed capas screenshots clean e2e e2e-setup e2e-api e2e-api-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -97,6 +98,12 @@ e2e-setup: ## Instala deps do e2e + baixa o Chromium (primeira vez)
 
 e2e: db-up ## Testes end-to-end (Playwright) — sobe API+Web, migra e popula automaticamente
 	cd $(E2E) && npm test
+
+e2e-api-setup: ## Instala as deps do e2e-api-rest (sem baixar navegador)
+	cd $(E2E_API) && npm install
+
+e2e-api: db-up ## Testes E2E do contrato HTTP da API (sem navegador) — migra e popula automaticamente
+	cd $(E2E_API) && npm test
 
 screenshots: db-up ## Recaptura as telas do produto em assets/images/ (usadas no README)
 	cd $(E2E) && SHOTS=1 npx playwright test screenshots.spec.ts

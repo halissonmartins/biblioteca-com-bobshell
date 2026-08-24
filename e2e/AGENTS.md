@@ -18,6 +18,14 @@ Os `*.test.ts` dentro de `packages/api` **não são E2E**: são Vitest + superte
 `vi.mock` nos repositórios, justamente para não tocar o banco. Um bug que só
 aparece com Prisma e Postgres de verdade passa por eles.
 
+**Suíte irmã: `e2e-api-rest/`.** Os três specs de API desta pasta
+(`contrato-api`, `autorizacao-api`, `regras-negocio-api`) também rodam lá, sem
+navegador — são cópias mantidas em paralelo, então **uma mudança de contrato
+precisa ser aplicada nas duas** (o job `e2e-api-rest-ci` do gate executa a
+cópia contra banco próprio, por isso não há conflito no CI). Localmente, não
+rode as duas suítes ao mesmo tempo contra o mesmo banco: os Livros da tabela
+abaixo são consumidos pelos dois lados.
+
 ## Onde cada cenário vai
 
 | Arquivo | O que entra |
