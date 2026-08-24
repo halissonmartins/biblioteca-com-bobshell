@@ -6,7 +6,7 @@ WEB := packages/web
 E2E := e2e
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test lint build install env db-up migrate seed capas screenshots clean e2e e2e-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
+.PHONY: help setup dev test lint build install env certs theme-build db-up migrate seed capas screenshots clean e2e e2e-setup keycloak-export perf-seed perf-smoke perf obs-up obs-down obs-logs obs-status obs-dashboards obs-clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -15,9 +15,16 @@ help: ## Lista os alvos disponíveis
 setup: env install db-up migrate seed ## Cria .env + instala deps + sobe Postgres + migra + popula o banco
 	@echo "Setup concluído. Rode 'make dev'."
 
-env: ## Cria os .env de api e web a partir do .env.example (se ainda não existirem)
-	# Dois arquivos, não um: o Vite lê o .env do próprio pacote, então as
-	# variáveis VITE_KEYCLOAK_* nunca chegariam à SPA se ficassem só na API.
+env: ## Cria os .env (raiz + api + web) a partir do .env.example (se ainda não existirem)
+	# Três arquivos: o Vite lê o .env do próprio pacote (VITE_KEYCLOAK_*), e o
+	# docker compose interpola KC_BOOTSTRAP_ADMIN_*/KEYCLOAK_DB_* do .env da
+	# RAIZ — é de lá que vêm as credenciais do Keycloak (Fase 2).
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "Criado .env (raiz) a partir do .env.example."; \
+	else \
+		echo ".env (raiz) já existe — mantido."; \
+	fi
 	@for pkg in $(API) $(WEB); do \
 		if [ ! -f $$pkg/.env ]; then \
 			cp .env.example $$pkg/.env; \
@@ -31,12 +38,22 @@ install: ## Instala dependências de todos os pacotes
 	cd $(API) && npm install
 	cd $(WEB) && npm install
 
-db-up: ## Sobe Postgres, capas e Keycloak via docker compose (aguarda healthcheck)
+certs: ## Gera CA local + certificado https://localhost:8443 do Keycloak (primeira vez)
+	# Fase 2: sslRequired: all no realm. Importe keycloak/certs/ca.crt no
+	# navegador/SO para o login funcionar fora dos testes E2E.
+	@./scripts/gerar-certificados.sh
+
+theme-build: ## Regenera o JAR do tema de login (packages/theme — requer Node e Maven)
+	cd packages/theme && npm install && npm run build-keycloak-theme && \
+	cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar jar/biblioteca-login.jar && \
+	echo "✅ JAR atualizado em packages/theme/jar/biblioteca-login.jar (versionar como as capas)."
+
+db-up: certs ## Sobe Postgres, capas e Keycloak via docker compose (aguarda healthcheck)
 	docker compose up -d --wait
 
 keycloak-export: ## Exporta o realm do container para keycloak/realm-biblioteca.json
 	# Único jeito de preservar mudança feita no admin console: o estado vive no
-	# volume, e `down -v` o leva junto. Ver keycloak/README.md.
+	# Postgres do keycloak-db, e `down -v` o leva junto. Ver keycloak/README.md.
 	docker exec biblioteca-keycloak /opt/keycloak/bin/kc.sh export \
 		--realm biblioteca --file /tmp/realm-biblioteca.json
 	docker cp biblioteca-keycloak:/tmp/realm-biblioteca.json keycloak/realm-biblioteca.json
@@ -87,12 +104,16 @@ screenshots: db-up ## Recaptura as telas do produto em assets/images/ (usadas no
 perf-seed: ## Popula ~250k livros para os testes de performance (use -- --reset p/ recriar)
 	cd $(API) && npm run db:seed:perf
 
+# K6 fala https com o Keycloak (:8443) usando a CA local de `make certs` —
+# sem âncora no trust store do k6, pulamos a verificação (só localhost).
+K6_TLS := K6_INSECURE_SKIP_TLS_VERIFY=true
+
 perf-smoke: ## Sanidade K6 — bate em todos os endpoints uma vez (API precisa estar no ar)
-	k6 run perf/smoke.js
+	$(K6_TLS) k6 run perf/smoke.js
 
 perf: ## Testes de performance K6 — todos os cenários (requer 'make dev' + 'make perf-seed')
 	@rc=0; for f in perf/scenarios/*.js; do \
-		echo "▶ $$f"; k6 run "$$f" || rc=1; \
+		echo "▶ $$f"; $(K6_TLS) k6 run "$$f" || rc=1; \
 	done; \
 	[ $$rc -eq 0 ] && echo "✅ Todos os thresholds passaram." || echo "❌ Algum threshold foi violado (ver acima)."; \
 	exit $$rc

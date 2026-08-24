@@ -5,12 +5,14 @@ Complementa o [`AGENTS.md`](../AGENTS.md) da raiz. Vale para tudo dentro de `e2e
 ## O que esta pasta é
 
 Playwright contra o **stack real**: API em `:3000`, SPA em `:5173`, Postgres em
-`:5432`, o servidor de capas em `:8080` e o **Keycloak em `:8081`**. Sem mock,
-sem stub, sem interceptação de rede — nem no login: os testes preenchem a tela
-do Keycloak de verdade. O `webServer` do `playwright.config.ts` sobe API e Web; o
-`global-setup.ts` espera o Keycloak, aplica migrations e roda o seed uma vez,
-antes do primeiro teste. Postgres, capas e Keycloak vêm do
-`docker compose up -d` — os três, não só o banco.
+`:5432`, o servidor de capas em `:8080` e o **Keycloak em
+`https://localhost:8443`** (Fase 2: TLS com a CA local de `make certs`; o
+`ignoreHTTPSErrors` do Playwright cobre o Chromium, e o fetch do global-setup tem
+fallback próprio). Sem mock, sem stub, sem interceptação de rede — nem no login:
+os testes preenchem a tela do Keycloak de verdade. O `webServer` do
+`playwright.config.ts` sobe API e Web; o `global-setup.ts` espera o Keycloak,
+aplica migrations e roda o seed uma vez, antes do primeiro teste. Postgres,
+keycloak-db, Mailpit, capas e Keycloak vêm do `docker compose up -d`.
 
 Os `*.test.ts` dentro de `packages/api` **não são E2E**: são Vitest + supertest com
 `vi.mock` nos repositórios, justamente para não tocar o banco. Um bug que só
@@ -53,10 +55,18 @@ ainda estava no ar, e o passo seguinte navegaria como visitante — foi exatamen
 assim que US-03 falhou pedindo um botão "Reservar" que a página só mostra a quem
 entrou. O "Sair" só existe com sessão. Vale o mesmo para `registrarUI`.
 
+**Auto-cadastro não pede senha — a senha vem depois do e-mail (Fase 2).** Com
+`verifyEmail: true`, o Keycloak registra a conta só com e-mail e nome; quem
+confirma o endereço pelo link do Mailpit cai no formulário "defina sua senha"
+(`registrarUI` para naquela tela; `definirSenhaInicial` submete;
+`registrarEEntrar` faz o caminho completo até logado). Testes que precisam da
+tela de verificação pendente devem usar o formulário direto, não o helper.
+
 **Token de API vem do Keycloak, não da API.** `apiLogin()` bate no token endpoint
-do realm (Direct Access Grant) e depois em `GET /me` para descobrir o **id local**
-— que é o que Reservas e Empréstimos referenciam, e o que os specs comparam. O
-`sub` do token é outro identificador; não confunda os dois.
+do realm pelo client `biblioteca-e2e` (Direct Access Grant — o `biblioteca-web`
+recusa com `unauthorized_client` desde a Fase 2) e depois em `GET /me` para
+descobrir o **id local** — que é o que Reservas e Empréstimos referenciam, e o
+que os specs comparam. O `sub` do token é outro identificador; não confunda os dois.
 
 **Concorrência exige um contexto por requisição.** Um `APIRequestContext` reaproveita
 a conexão e enfileira as requisições: `Promise.all` sobre o mesmo contexto testa
@@ -109,12 +119,12 @@ Ao adicionar cenário que reserve, escolha um Livro livre ou devolva a Cópia no
 **Leitores do seed.** `leitor@biblioteca.dev` (Ana Lima) tem Reserva e Empréstimo;
 `leitor2@biblioteca.dev` (Bruno Costa) não tem nada, e é isso que o torna útil —
 isolamento e estado vazio. `bibliotecario@biblioteca.dev` é Carlos Mendes. Senha
-`senha123` para todos.
+`Biblioteca#2026!` para todos (política da Fase 2 exige 12+ caracteres).
 
 ## Rodar
 
 ```bash
-docker compose up -d          # Postgres, capas e Keycloak, na raiz do repo
+make db-up                    # certs + Postgres, keycloak-db, Mailpit, capas e Keycloak
 npm install                   # primeira vez
 npm run install:browsers      # baixa o Chromium, primeira vez
 npm test                      # suíte inteira

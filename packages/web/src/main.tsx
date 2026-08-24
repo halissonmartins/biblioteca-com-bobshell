@@ -16,7 +16,7 @@ const queryClient = new QueryClient({
   },
 })
 
-const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8081'
+const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL ?? 'https://localhost:8443'
 const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM ?? 'biblioteca'
 const KEYCLOAK_CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'biblioteca-web'
 

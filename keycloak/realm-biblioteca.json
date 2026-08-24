@@ -7,8 +7,8 @@
   "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "verifyEmail": false,
-  "resetPasswordAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
   "rememberMe": false,
   "editUsernameAllowed": false,
 
@@ -16,13 +16,33 @@
   "supportedLocales": ["pt-BR", "en"],
   "defaultLocale": "pt-BR",
 
-  "sslRequired": "none",
+  "sslRequired": "all",
 
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
 
-  "bruteForceProtected": false,
+  "passwordPolicy": "length(12) and notUsername(undefined) and passwordHistory(3)",
+
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "quickLoginCheckMilliSeconds": 0,
+
+  "loginTheme": "biblioteca",
+
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "biblioteca@biblioteca.dev",
+    "fromDisplayName": "Biblioteca",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false",
+    "envelopeFrom": ""
+  },
 
   "roles": {
     "realm": [
@@ -64,12 +84,12 @@
     {
       "clientId": "biblioteca-web",
       "name": "Biblioteca — SPA",
-      "description": "SPA React. Authorization Code + PKCE. Direct Access Grant fica ligado porque é assim que Playwright e K6 obtêm token sem navegador — desligar é item da Fase 2 (docs/seguranca.md).",
+      "description": "SPA React. Authorization Code + PKCE. Sem Direct Access Grant (Fase 2): token só via navegador, com tela e PKCE (docs/seguranca.md).",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
+      "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "frontchannelLogout": true,
@@ -79,6 +99,34 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:5173/*"
       },
+      "protocolMappers": [
+        {
+          "name": "audience-biblioteca-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "biblioteca-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "biblioteca-e2e",
+      "name": "Biblioteca — Testes e Carga (Playwright/K6)",
+      "description": "Direct Access Grant para Playwright e K6 obterem token sem navegador. Restrito a localhost; em produção este client NÃO deve existir no realm (docs/seguranca.md §5).",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
       "protocolMappers": [
         {
           "name": "audience-biblioteca-api",
@@ -106,7 +154,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "senha123", "temporary": false }
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
       ],
       "realmRoles": ["leitor"]
     },
@@ -119,7 +167,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "senha123", "temporary": false }
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
       ],
       "realmRoles": ["leitor"]
     },
@@ -132,7 +180,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "senha123", "temporary": false }
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
       ],
       "realmRoles": ["bibliotecario"]
     }

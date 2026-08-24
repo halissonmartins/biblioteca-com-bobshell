@@ -14,9 +14,9 @@ import {
 /**
  * Autentica no Keycloak e retorna o access token (ADR-0009).
  *
- * Usa o Direct Access Grant do client `biblioteca-web` — o mesmo caminho do
- * Playwright, e o motivo de o grant continuar ligado nesta fase. O token vale
- * 15 min: cenário com DURATION acima disso precisa relogar por iteração.
+ * Usa o Direct Access Grant do client `biblioteca-e2e` (Fase 2) — o client da
+ * SPA não aceita mais grant por senha. O token vale 15 min: cenário com DURATION
+ * acima disso precisa relogar por iteração.
  */
 export function login(credentials) {
   const res = http.post(

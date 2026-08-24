@@ -104,7 +104,7 @@ describe('authenticate()', () => {
   // legítimo, de outro realm ou destinado a outro serviço, continua sendo um
   // JWT bem assinado.
   it('rejeita token de outro emissor (iss)', async () => {
-    const token = await emitirToken({ issuer: 'http://localhost:8081/realms/outro' });
+    const token = await emitirToken({ issuer: 'https://keycloak-alheio.example/realms/outro' });
     const next = await autenticar(comToken(token));
     expect(erroDe(next).code).toBe('TOKEN_INVALID');
   });

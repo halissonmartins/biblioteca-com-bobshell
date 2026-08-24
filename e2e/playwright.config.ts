@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 /**
  * E2E — dirige a UI real (Vite :5173) que consome a API (:3000) + Postgres,
- * autenticando no Keycloak (:8081).
+ * autenticando no Keycloak (https://localhost:8443 — Fase 2, TLS com CA local).
  *
- * Local:  docker compose up -d  &&  npm install  &&  npm test   (nesta pasta)
+ * Local:  make db-up  &&  npm install  &&  npm test   (nesta pasta)
  * CI:     job `e2e-ci` em .github/workflows/ci.yml
  *
  * webServer sobe API e Web automaticamente; globalSetup espera o Keycloak,
@@ -21,7 +21,7 @@ const apiEnv = {
   // Não há segredo de assinatura: a API valida o token contra o JWKS do realm
   // (ADR-0009). O Keycloak vem do `docker compose up -d`, não do webServer.
   KEYCLOAK_ISSUER_URL:
-    process.env['KEYCLOAK_ISSUER_URL'] ?? 'http://localhost:8081/realms/biblioteca',
+    process.env['KEYCLOAK_ISSUER_URL'] ?? 'https://localhost:8443/realms/biblioteca',
   KEYCLOAK_AUDIENCE: process.env['KEYCLOAK_AUDIENCE'] ?? 'biblioteca-api',
   PORT: String(API_PORT),
   NODE_ENV: 'development',
@@ -43,6 +43,10 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     headless: true,
+    // O Keycloak responde em https://localhost:8443 com certificado da CA local
+    // de `make certs`. Fora do navegador (fetch do global-setup) a confiança vem
+    // de NODE_EXTRA_CA_CERTS; aqui, dentro do Chromium, isto basta.
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

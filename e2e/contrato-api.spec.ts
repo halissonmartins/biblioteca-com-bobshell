@@ -11,6 +11,7 @@ import {
   newActor,
   BIBLIOTECARIO,
   LEITOR,
+  SENHA_SEED,
   TOKEN_ENDPOINT,
   KEYCLOAK_CLIENT_ID,
 } from './helpers'
@@ -453,5 +454,22 @@ test.describe('Contrato HTTP da API', () => {
     // errada no token endpoint — não 401, que é para o client não autenticado.
     expect(res.status()).toBe(400)
     expect((await res.json()).error).toBe('invalid_grant')
+  })
+
+  test('Direct Access Grant do client da SPA está desligado (Fase 2)', async ({ request }) => {
+    // Na Fase 1 o grant por senha ficava ligado no `biblioteca-web` por
+    // conveniência de Playwright e K6. Desde a Fase 2 ele vive só no client
+    // `biblioteca-e2e`: com e-mail e senha de alguém, não se obtém mais token
+    // sem passar pela tela com PKCE (docs/seguranca.md).
+    const res = await request.post(TOKEN_ENDPOINT, {
+      form: {
+        grant_type: 'password',
+        client_id: 'biblioteca-web',
+        username: LEITOR.email,
+        password: SENHA_SEED,
+      },
+    })
+    expect(res.status()).toBe(400)
+    expect((await res.json()).error).toBe('unauthorized_client')
   })
 })

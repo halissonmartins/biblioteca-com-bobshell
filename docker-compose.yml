@@ -50,33 +50,62 @@ services:
   # Identidade — Keycloak (ADR-0009). Fora de qualquer profile pelo mesmo motivo
   # do `capas`: sem ele não há login, então tem que subir no `docker compose up -d`.
   #
+  # Fase 2 (docs/seguranca.md): modo `start` (produção) com Postgres dedicado,
+  # TLS obrigatório (`sslRequired: all` no realm) e credenciais de bootstrap que
+  # vêm do `.env` da raiz — nunca mais `admin/admin` versionado aqui.
+  #
   # O realm é importado de keycloak/realm-biblioteca.json e só na PRIMEIRA subida —
-  # depois o estado mora no volume. Para reimportar, ver keycloak/README.md.
+  # depois o estado mora no Postgres do keycloak-db. Para reimportar, ver keycloak/README.md.
+  # Os certificados vêm de `make certs` (scripts/gerar-certificados.sh) — CA local
+  # self-signed para https://localhost:8443.
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.1
     container_name: biblioteca-keycloak
-    command: ["start-dev", "--import-realm"]
+    # allow-concurrent-requests: desde o KC 25 o brute force protector rejeita
+    # logins concorrentes do MESMO usuário (anti race-attack) — 8 atores do
+    # teste da RN-3 e a carga do K6 recebem invalid_grant com senha correta.
+    # A detecção em si (failureFactor + lockout) continua ativa no realm.
+    command: ["start", "--import-realm", "--spi-brute-force-protector-default-brute-force-detector-allow-concurrent-requests=true"]
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
-      # 26.x: KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD estão depreciados.
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Credencial de bootstrap do admin console. Vem do `.env` da raiz (Fase 2):
+      # os valores default abaixo existem só para o CI; troque no seu .env local.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      # Frontend fixo em https: é este issuer que chega nos tokens — precisa bater
+      # EXATAMENTE com KEYCLOAK_ISSUER_URL da API e VITE_KEYCLOAK_URL da SPA.
+      KC_HOSTNAME: https://localhost:8443
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+      # Com TLS na porta principal, o management herdaria https — e o
+      # healthcheck do compose (bash /dev/tcp, sem curl) só fala http. O :9000 é
+      # interno da rede do compose (Prometheus), então http aqui não é fraqueza.
+      KC_HTTP_MANAGEMENT_SCHEME: "http"
       # Emite keycloak_user_events_total — é de onde o painel "Autenticação" do
       # dashboard biblioteca-saude-api passa a ler os logins (docs/observabilidade.md).
       KC_EVENT_METRICS_USER_ENABLED: "true"
+      # Par gerado por `make certs`. Com sslRequired: all no realm, http nem responde.
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/certs/tls.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/certs/tls.key
       # Sem teto explícito a JVM pega 70% da RAM do container. Mesmo orçamento de
       # memória da stack de observabilidade — ver o bloco abaixo.
       JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
     volumes:
-      # O volume vai em /opt/keycloak/data, não em .../data/h2: aquele diretório
-      # existe na imagem como keycloak:root, e é dele que o volume novo herda o
-      # dono. Apontando para .../data/h2 — que não existe — o Docker cria como
-      # root e o processo (uid 1000) não consegue abrir o banco H2.
-      - biblioteca-keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-biblioteca.json:/opt/keycloak/data/import/realm-biblioteca.json:ro
+      - ./keycloak/certs:/opt/keycloak/conf/certs:ro
+      # Tema de login gerado pelo Keycloakify (packages/theme) seguindo DESIGN.md.
+      # Versionado como as capas: `make theme-build` regenera se você mexer nele.
+      - ./packages/theme/jar/biblioteca-login.jar:/opt/keycloak/providers/biblioteca-login.jar:ro
     ports:
-      - "8081:8080"   # 8080 no host já é do `capas`
+      - "8443:8443"   # frontend — https (o 8080/8081 não é mais exposto)
       # 9002, não 9000: a 9000 costuma estar tomada no WSL2 (ver Graylog abaixo).
       # Quem raspa as métricas é o Prometheus, por dentro da rede (keycloak:9000).
       - "9002:9000"   # management — /health/ready e /metrics
@@ -89,6 +118,38 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+    restart: unless-stopped
+
+  # Banco DEDICADO do Keycloak (Fase 2) — substitui o H2 embutido do start-dev.
+  # Separado do Postgres do produto: backup/ciclo de vida independentes, e um
+  # `make clean` (derruba o volume do banco do produto) não leva as contas do realm.
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: biblioteca-keycloak-db
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: keycloak
+    volumes:
+      - biblioteca-keycloak-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    restart: unless-stopped
+
+  # SMTP de desenvolvimento (Fase 2): recebe os e-mails de verificação de conta
+  # e de recuperação de senha que o Keycloak dispara. Nada sai para a rede real.
+  # UI + API REST em :8025 — é dela que o helper `confirmarEmail` do e2e extrai
+  # o link de verificação.
+  mailpit:
+    image: axllent/mailpit:v1.24
+    container_name: biblioteca-mailpit
+    ports:
+      - "8025:8025"   # UI web + API REST
+    mem_limit: 64m
     restart: unless-stopped
 
   # ===========================================================================
@@ -260,7 +321,7 @@ services:
 
 volumes:
   biblioteca-pgdata:
-  biblioteca-keycloak-data:
+  biblioteca-keycloak-pgdata:
   biblioteca-prometheus-data:
   biblioteca-grafana-data:
   biblioteca-mongodb-data:

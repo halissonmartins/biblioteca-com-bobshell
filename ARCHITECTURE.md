@@ -45,7 +45,7 @@ packages/
 │   └── scripts/                ← Ferramentas de dev fora do processo servidor
 │                                 (baixar-capas.ts — ingestão única, ADR-0008)
 │
-├── web/                        ← SPA React 18 + TypeScript
+├── web/                        ← SPA React 19 + TypeScript
 │   └── src/
 │       ├── pages/              ← Uma pasta por rota principal
 │       ├── components/         ← Componentes reutilizáveis (seguem DESIGN.md)
@@ -58,8 +58,13 @@ packages/
 │                                 (gerados do schema Prisma / OpenAPI)
 │
 keycloak/
-└── realm-biblioteca.json       ← O realm: clients, papéis, políticas de cadastro.
-                                  Fonte de verdade da identidade (ADR-0009)
+├── realm-biblioteca.json       ← O realm: clients, papéis, políticas de cadastro.
+│                                 Fonte de verdade da identidade (ADR-0009)
+└── certs/                      ← CA local + certificado https://localhost:8443
+                                  gerados por `make certs` (gitignore)
+
+packages/theme/                 ← Tema de login do Keycloak (Keycloakify, DESIGN.md).
+                                  O JAR buildado fica versionado em jar/
 ```
 
 ## Invariantes arquiteturais
@@ -100,6 +105,7 @@ PostgreSQL
 | Subir a API | `packages/api/src/index.ts` |
 | Adicionar rota nova | `packages/api/src/api/routes/` + middleware em `middleware/auth.ts` |
 | Mexer em identidade, papéis ou cadastro | `keycloak/realm-biblioteca.json` → `docs/seguranca.md` (a lógica de papel fica em `domain/auth/authService.ts`) |
+| Mudar a tela de login/cadastro do Keycloak | `packages/theme/src/` → `make theme-build` → commitar o JAR novo |
 | Mudar regra de negócio | `packages/api/src/domain/<domínio>/` |
 | Mudar schema do banco | `packages/api/prisma/schema.prisma` → gerar migration → atualizar tipos |
 | Adicionar tela nova | `packages/web/src/pages/` |

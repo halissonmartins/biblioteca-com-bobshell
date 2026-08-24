@@ -28,7 +28,10 @@ import type { Role } from '@prisma/client';
 import type { AuthDeps, UserLookup } from '../domain/auth/authService.js';
 import { setKeySet } from '../infra/keycloak/tokenVerifier.js';
 
-export const ISSUER = 'http://localhost:8081/realms/biblioteca';
+// Mesmo issuer do realm real (https://localhost:8443 — Fase 2). Nos testes o
+// valor só precisa bater com o que o verificador lê do ambiente; ninguém sai
+// para a rede.
+export const ISSUER = 'https://localhost:8443/realms/biblioteca';
 export const AUDIENCE = 'biblioteca-api';
 const KID = 'chave-de-teste';
 

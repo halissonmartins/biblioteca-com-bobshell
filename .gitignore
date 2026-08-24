@@ -11,3 +11,10 @@ build/
 /e2e/test-results/
 /e2e/playwright-report/
 /e2e/blob-report/
+
+# Certificados locais gerados por `make certs` (Fase 2 — TLS)
+/keycloak/certs/
+
+# Build do tema Keycloakify (o JAR final em packages/theme/jar/ é versionado)
+/packages/theme/dist/
+/packages/theme/dist_keycloak/
