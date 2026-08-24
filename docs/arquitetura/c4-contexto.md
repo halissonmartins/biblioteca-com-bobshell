@@ -38,7 +38,7 @@ C4Container
 
   Container_Boundary(sistema, "Sistema de Biblioteca") {
     Container(web, "Web App", "React 19 + TypeScript", "SPA servida como estáticos. Consome a API REST.")
-    Container(api, "API REST", "Node.js 20 + Express + TypeScript", "Regras de negócio e acesso ao banco via Prisma. Resource server: valida o token do Keycloak, nunca o emite — ADR-0009.")
+    Container(api, "API REST", "Node.js 24 + Express + TypeScript", "Regras de negócio e acesso ao banco via Prisma. Resource server: valida o token do Keycloak, nunca o emite — ADR-0009.")
     Container(keycloak, "Keycloak", "Keycloak 26 (OIDC)", "Provedor de identidade: login com PKCE, auto-cadastro com e-mail verificado, papéis e emissão de token. Guarda a credencial — a API não. Realm versionado em keycloak/; TLS com CA local.")
     ContainerDb(keycloakDb, "Banco do Keycloak", "PostgreSQL 15", "Realm, contas e sessões — dedicado, com ciclo de vida independente do banco do produto (Fase 2).")
     Container(mailpit, "Mailpit (dev)", "axllent/mailpit", "SMTP de desenvolvimento: recebe verificação de conta e reset de senha. UI/API em :8025 — nada sai para a rede real.")

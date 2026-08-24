@@ -110,7 +110,7 @@ Detalhes em [`docs/observabilidade.md`](docs/observabilidade.md).
 
 ```
 packages/
-├── api/          # API REST (Node.js 20 + Express + TypeScript)
+├── api/          # API REST (Node.js 24 + Express + TypeScript)
 ├── web/          # SPA (React 19 + TypeScript)
 └── shared/       # Tipos compartilhados gerados do schema
 ```
@@ -139,7 +139,7 @@ Copie `.env.example` para `.env` e preencha os valores. Nunca commite `.env`.
 
 ## Pré-requisitos
 
-- Node.js 20+
+- Node.js 24+
 - Docker + Docker Compose — sobe Postgres, o servidor de capas e o Keycloak
 - `make`
 

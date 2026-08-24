@@ -19,7 +19,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | Node.js 20 + Express + TypeScript strict |
+| Backend | Node.js 24 + Express + TypeScript strict |
 | Frontend | React 19 + TypeScript strict (Tailwind, React Query, react-router) |
 | Identidade | Keycloak 26.7 (OIDC — Authorization Code + PKCE) |
 | Banco | PostgreSQL 15 + Prisma ORM |
