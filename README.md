@@ -23,6 +23,7 @@ Fluxo híbrido do produto: o **Leitor** navega o catálogo e reserva on-line; o 
 ![Reservas do Bibliotecário](assets/images/bibliotecario-reservas.png)
 
 > Capturas geradas com Playwright a partir da UI real (`e2e/`).
+> O passo a passo de cada tela está no [Manual do Usuário](docs/manual/manual-do-usuario.md).
 
 ## Rodar em 3 comandos
 
@@ -126,6 +127,7 @@ packages/
 | [`docs/produto/PRODUCT.md`](docs/produto/PRODUCT.md) | Usuários, propósito, princípios e compromissos do produto |
 | [`docs/produto/glossario.md`](docs/produto/glossario.md) | Linguagem ubíqua do domínio |
 | [`docs/produto/user-stories.md`](docs/produto/user-stories.md) | Histórias com critério de aceite testável |
+| [`docs/manual/manual-do-usuario.md`](docs/manual/manual-do-usuario.md) | Passo a passo das telas para Leitor e Bibliotecário, com screenshots |
 | [`docs/design/fluxos.md`](docs/design/fluxos.md) | Fluxos principais com estados de erro |
 | [`docs/seguranca.md`](docs/seguranca.md) | Como a identidade funciona, o que a Fase 1 não protege e o que vem depois |
 | [`docs/observabilidade.md`](docs/observabilidade.md) | Como o backend é observado: logs, métricas, traces e dashboards |

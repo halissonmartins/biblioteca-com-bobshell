@@ -17,6 +17,9 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
   `Devolução`, `Disponibilidade`, `Avaliação`). Use **exatamente** no código.
 - [User Stories](produto/user-stories.md) — histórias do Leitor (US/RF-L*) e
   do Bibliotecário (RF-B*), com critérios de aceite.
+- [Manual do Usuário](manual/manual-do-usuario.md) — passo a passo das telas da
+  aplicação web, com capturas, para Leitor e Bibliotecário. Atualizar ao mudar
+  qualquer fluxo de UI.
 
 ## Arquitetura
 
