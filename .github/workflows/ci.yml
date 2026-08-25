@@ -45,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"
@@ -72,15 +72,6 @@ jobs:
       - name: Testes com cobertura (Vitest)
         run: npm run test:coverage
 
-      # Repo público: upload tokenless funciona; o secret é opcional e só
-      # passa a valer se o projeto ficar privado.
-      - name: Publicar cobertura da API no Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: packages/api/coverage/lcov.info
-          flags: api
-          token: ${{ secrets.CODECOV_TOKEN }}
-
   # ---------------------------------------------------------------------------
   # Web — typecheck · lint (oxlint) · build (Vite)
   # ---------------------------------------------------------------------------
@@ -94,10 +85,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"
@@ -114,13 +105,6 @@ jobs:
 
       - name: Testes com cobertura (Vitest)
         run: npm run test:coverage
-
-      - name: Publicar cobertura da Web no Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: packages/web/coverage/lcov.info
-          flags: web
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build de produção
         run: npm run build
@@ -155,10 +139,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -175,7 +159,7 @@ jobs:
         run: npm ci
 
       - name: Cache dos navegadores Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
@@ -219,7 +203,7 @@ jobs:
 
       - name: Publicar relatório em caso de falha
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: e2e/playwright-report/
@@ -258,10 +242,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -300,7 +284,7 @@ jobs:
 
       - name: Publicar relatório em caso de falha
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-api-rest
           path: e2e-api-rest/playwright-report/
