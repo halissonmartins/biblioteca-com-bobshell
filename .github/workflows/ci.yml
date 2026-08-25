@@ -72,15 +72,6 @@ jobs:
       - name: Testes com cobertura (Vitest)
         run: npm run test:coverage
 
-      # Repo público: upload tokenless funciona; o secret é opcional e só
-      # passa a valer se o projeto ficar privado.
-      - name: Publicar cobertura da API no Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          files: packages/api/coverage/lcov.info
-          flags: api
-          token: ${{ secrets.CODECOV_TOKEN }}
-
   # ---------------------------------------------------------------------------
   # Web — typecheck · lint (oxlint) · build (Vite)
   # ---------------------------------------------------------------------------
@@ -114,13 +105,6 @@ jobs:
 
       - name: Testes com cobertura (Vitest)
         run: npm run test:coverage
-
-      - name: Publicar cobertura da Web no Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          files: packages/web/coverage/lcov.info
-          flags: web
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build de produção
         run: npm run build
