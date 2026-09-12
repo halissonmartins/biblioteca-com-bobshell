@@ -160,7 +160,9 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
             size="sm"
             onClick={onClose}
             aria-label="Fechar modal"
-            className="!p-1 text-surface-0 hover:bg-primary-600"
+            // O `.btn-sm` já garante 44px de altura; a largura vinha do ícone de
+            // 20px mais o padding e ficava em 28px — alvo de 28×44 no polegar.
+            className="!p-1 min-w-[44px] text-surface-0 hover:bg-primary-600"
           >
             <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

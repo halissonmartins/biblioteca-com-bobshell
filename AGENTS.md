@@ -14,6 +14,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Segurança: [`docs/seguranca.md`](docs/seguranca.md) — identidade com Keycloak, papéis e o que a Fase 1 deixa em aberto. **Leia antes de mexer em autenticação, autorização ou no realm.**
 - Observabilidade: [`docs/observabilidade.md`](docs/observabilidade.md) — logs, métricas, traces e dashboards. **Leia antes de adicionar métrica, span ou log.**
 - Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
+- Layout responsivo: [`docs/design/responsivo.md`](docs/design/responsivo.md) — as três larguras de referência, o que muda em cada uma e o spec que guarda o resultado. **Leia antes de mexer em breakpoint, tabela ou trilho de navegação.**
 
 ## Stack
 
@@ -43,7 +44,7 @@ make certs    # gera CA local + certificado https://localhost:8443 do Keycloak (
 make theme-build # regenera o JAR do tema de login (packages/theme) — commitar depois
 make capas    # baixa as capas ausentes para assets/capas/ — só ao incluir Livro novo (ADR-0008)
 make keycloak-export # persiste no repositório o realm alterado pelo admin console
-make screenshots # recaptura as telas de assets/images/ que o README usa
+make screenshots # recaptura as telas de assets/images/ nas três molduras (desktop, smartphone, tablet)
 ```
 
 **Dois `.env`, não um:** `make env` copia `.env.example` para `packages/api/.env`

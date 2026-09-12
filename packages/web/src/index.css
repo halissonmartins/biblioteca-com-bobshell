@@ -215,6 +215,22 @@
     }
   }
 
+  /* O link do caminho (breadcrumb) é alvo isolado numa barra de navegação, não
+     link no meio de frase: a exceção "inline" da WCAG 2.5.8 não o cobre e ele
+     media 54×17. Mesmo método do `.link-registro` — o piso segue o método de
+     entrada, não a largura da tela. */
+  .link-caminho {
+    @apply inline-flex items-center min-h-[24px]
+           hover:text-primary-600
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900;
+  }
+
+  @media (pointer: coarse) {
+    .link-caminho {
+      @apply min-h-[44px];
+    }
+  }
+
   /* --- Tabela: registro de circulação, filete fino, cabeçalho em legenda --- */
   .table-container {
     @apply overflow-x-auto rounded-sm border border-surface-200 bg-surface-0;
@@ -244,10 +260,17 @@
     @apply bg-surface-100;
   }
 
-  /* Abaixo de sm a linha vira ficha: sem isso a coluna de ação do balcão
+  /* Abaixo de lg a linha vira ficha: sem isso a coluna de ação do balcão
      ficava fora do quadro dentro de um overflow silencioso, e a tarefa que o
-     produto existe para cumprir sumia da tela do celular. */
-  @media (max-width: 639px) {
+     produto existe para cumprir sumia da tela.
+
+     O limiar é 1024px, não 640px, porque o que decide não é o telefone e sim a
+     largura que sobra para a tabela: o balcão tem seis colunas e a última é a
+     ação. No tablet em retrato (768px) a tabela de Reservas pedia 740px dentro
+     de um contêiner de 718px — medido — e "Efetivar empréstimo" saía do quadro
+     pelo mesmo overflow silencioso que a ficha existe para eliminar. Em 1024px
+     o trilho já saiu da lateral (ver Navbar) e a tabela volta com 976px. */
+  @media (max-width: 1023px) {
     .table-empilha thead {
       @apply sr-only;
     }
@@ -309,8 +332,18 @@
     @apply px-6 py-5;
   }
 
+  /* Abaixo de sm as ações empilham em largura cheia, a primária em cima
+     (`flex-col-reverse` inverte a ordem do DOM, que termina na primária). Lado a
+     lado, o par mais largo — "Manter reserva" + "Cancelar reserva" — pedia 342px
+     dentro dos 310 do diálogo em 390px: os botões encolhiam e a caixa alta
+     condensada quebrava no meio da palavra. */
   .modal-footer {
-    @apply flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-200;
+    @apply flex flex-col-reverse gap-3 px-6 py-4 border-t border-surface-200
+           sm:flex-row sm:items-center sm:justify-end;
+  }
+
+  .modal-footer > * {
+    @apply w-full sm:w-auto;
   }
 
   /* --- Alertas: chapa de aviso. A cor é filete de contorno e ícone; o campo
@@ -345,7 +378,7 @@
   }
 
   .zona-link {
-    @apply flex items-center gap-3 px-4 py-3 rounded-none whitespace-nowrap
+    @apply flex items-center gap-3 px-3 sm:px-4 py-3 rounded-none whitespace-nowrap
            font-display text-base font-semibold uppercase tracking-placa
            text-surface-0/75
            transition-colors duration-100

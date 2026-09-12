@@ -141,7 +141,7 @@ export function CatalogoPage() {
               <p className="legenda mb-4">
                 {data.pagination.total} livro{data.pagination.total !== 1 ? 's' : ''} encontrado{data.pagination.total !== 1 ? 's' : ''}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                 {data.data.map((book) => (
                   <BookCard key={book.id} book={book} />
                 ))}

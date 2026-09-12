@@ -567,3 +567,10 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[12/09/2026 16:19]** commite e feche a issue
+
+---
+**[12/09/2026 16:25]** implemente a issue #21
+---
+**[12/09/2026 17:26]** Continue de onde parou na última sessão. Tinha um shell executando há muito tempo e encerrei a sessão.
+---
+**[12/09/2026 17:36]** sim

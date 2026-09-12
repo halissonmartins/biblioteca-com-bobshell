@@ -46,6 +46,9 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
   ([design/design-system.md](design/design-system.md) descreve o mundo anterior
   e hoje só redireciona para cá.)
 - [Fluxos do Usuário](design/fluxos.md) — jornadas de Leitor e Bibliotecário.
+- [Layout responsivo](design/responsivo.md) — as sete telas em 390, 768 e
+  1024px: o que muda em cada largura e o spec que guarda o resultado. **Leia
+  antes de mexer em breakpoint, tabela ou trilho de navegação.**
 
 ## API
 

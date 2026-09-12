@@ -35,12 +35,25 @@ abaixo são consumidos pelos dois lados.
 | `autorizacao-api.spec.ts` | 401, 403 e isolamento entre Leitores |
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
 | `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6), os dois limites por Leitor (RN-9, RN-10) e o cancelamento (RN-11), inclusive disputando a linha com o balcão |
+| `responsivo.spec.ts` | Layout das sete telas em 390, 768 e 1024px — rolagem horizontal, overflow escondido e alvo de toque de 44×44 |
 | `helpers.ts` | Login, arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
 
-`screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele cria
-Reserva só para posar para a foto e estragaria a Disponibilidade que os outros
-specs afirmam. Roda por `make screenshots` e grava em `assets/images/`.
+`screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele mexe no
+estado da tela só para posar para a foto e estragaria a Disponibilidade que os
+outros specs afirmam. Roda por `make screenshots` e grava em `assets/images/` em
+três molduras — a larga com o nome simples (`catalogo.png`) e as estreitas com o
+sufixo do aparelho (`catalogo-smartphone.png`, `catalogo-tablet.png`). **Tela
+nova entra nas três de uma vez**; captura de celular feita à mão sai do lugar no
+primeiro ajuste de UI (issue #21).
+
+`responsivo.spec.ts` **faz** parte da suíte: só navega e mede, não cria Reserva
+nem Empréstimo, então pode rodar em qualquer ponto sem mexer na Disponibilidade
+alheia. Ele usa "Ensaio sobre a Cegueira" — o Livro sem Cópia disponível do seed,
+que ninguém consome — justamente para não depender do relógio de outro cenário.
+Os perfis emulam toque (`hasTouch`/`isMobile`): sem isso o Chromium reporta
+ponteiro fino, as regras de 44px do `@media (pointer: coarse)` não entram na
+conta e o teste passa medindo a régua errada.
 
 `dashboards.spec.ts` **não faz parte da suíte**: fica atrás de `OBS=1`, roda com
 `playwright.dashboards.config.ts` e é chamado por `make obs-dashboards`.
