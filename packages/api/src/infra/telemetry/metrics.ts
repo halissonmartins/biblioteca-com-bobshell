@@ -117,12 +117,6 @@ export const autenticacaoFalhas: Counter = meter.createCounter('biblioteca.auten
   unit: '{falha}',
 });
 
-/** Atributo `resultado`: 'sucesso' | 'falha'. */
-export const logins: Counter = meter.createCounter('biblioteca.logins', {
-  description: 'Tentativas de login',
-  unit: '{login}',
-});
-
 // ── Infraestrutura ──────────────────────────────────────────────────────────
 
 /**
