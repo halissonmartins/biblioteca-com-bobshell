@@ -113,7 +113,7 @@ Reserva usa um Livro dedicado para não mexer na Disponibilidade que outro teste
 |---|---|
 | Ensaio sobre a Cegueira | seed — 0 disponíveis, só leitura |
 | O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia |
-| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta |
+| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta e Reserva disputada no balcão (este devolve a Cópia no fim) |
 | Dom Casmurro | `contrato-api` — POST /reservations |
 | Memórias Póstumas de Brás Cubas | `contrato-api` — POST /loans e RN-6 |
 | A Hora da Estrela | `contrato-api` (devolução) e `reservas-leitor` (expira em breve) |

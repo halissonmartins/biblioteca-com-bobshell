@@ -135,6 +135,25 @@ describe('createLoan()', () => {
     ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
+  it('lança CONFLICT quando a Reserva é convertida por outra requisição durante a escrita (RN-6)', async () => {
+    // A Reserva estava ativa na checagem e deixou de estar antes do commit: a
+    // transação devolve null em vez de estourar o índice único de
+    // loans.reservationId, que chegaria à borda como 500.
+    const deps = makeDeps({
+      createLoanTx: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    // Quem perdeu a corrida recebe a mesma mensagem de quem tentou converter uma
+    // Reserva já convertida — para o Bibliotecário é a mesma situação.
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toThrow('Esta reserva já foi convertida em empréstimo.');
+  });
+
   it('lança CONFLICT quando a Reserva foi cancelada (RN-6)', async () => {
     const deps = makeDeps({
       findReservationById: vi.fn().mockResolvedValue(

@@ -49,6 +49,8 @@ export interface LoanServiceDeps {
   /**
    * Persiste o novo Empréstimo, marca a Cópia como 'loaned' e a Reserva como convertida
    * em uma única transação (RN-6, race condition).
+   * Retorna null se a Reserva foi convertida entre a validação acima e a escrita —
+   * outra requisição levou a mesma Reserva primeiro.
    */
   createLoanTx: (params: {
     reservationId: string;
@@ -56,7 +58,7 @@ export interface LoanServiceDeps {
     userId: string;
     librarianId: string;
     dueAt: Date;
-  }) => Promise<{ loanId: string }>;
+  }) => Promise<{ loanId: string } | null>;
 
   /**
    * Busca um Empréstimo pelo id.
@@ -123,7 +125,7 @@ export async function createLoan(
   }
 
   // Persiste atomicamente: Empréstimo criado + Cópia → 'loaned' + Reserva → convertedAt = now
-  const { loanId } = await deps.createLoanTx({
+  const created = await deps.createLoanTx({
     reservationId: input.reservationId,
     copyId: reservation.copyId,
     userId: reservation.userId,
@@ -131,8 +133,19 @@ export async function createLoan(
     dueAt: input.dueAt,
   });
 
+  // RN-6: a leitura da Reserva e a escrita do Empréstimo não são o mesmo instante.
+  // Duas requisições sobre a mesma Reserva passam juntas pela checagem acima e só
+  // uma converte — a outra recebe a mesma resposta de quem tentou converter uma
+  // Reserva já convertida, porque é exatamente isso que aconteceu.
+  if (!created) {
+    throw new AppError(
+      'CONFLICT',
+      'Esta reserva já foi convertida em empréstimo.',
+    );
+  }
+
   return {
-    loanId,
+    loanId: created.loanId,
     copyId: reservation.copyId,
     dueAt: input.dueAt.toISOString(),
   };

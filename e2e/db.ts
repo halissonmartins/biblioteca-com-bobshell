@@ -85,3 +85,8 @@ export async function copyStatus(copyId: string): Promise<string> {
 export async function countReservationsForCopy(copyId: string): Promise<number> {
   return withDb((db) => db.reservation.count({ where: { copyId } }))
 }
+
+/** Quantos Empréstimos saíram de uma Reserva — detecta conversão dupla (RN-6). */
+export async function countLoansForReservation(reservationId: string): Promise<number> {
+  return withDb((db) => db.loan.count({ where: { reservationId } }))
+}

@@ -51,7 +51,17 @@ export async function findReservationById(
 
 /**
  * Persiste o Empréstimo, marca a Cópia como 'loaned' e a Reserva como convertida
- * em uma única transação (protege contra race condition — RN-6).
+ * em uma única transação (RN-6).
+ * Retorna null se a Reserva já tinha sido convertida entre a validação do serviço
+ * e a escrita — outro Bibliotecário, ou o mesmo com dois cliques, chegou primeiro.
+ *
+ * O UPDATE da Reserva é condicionado a `convertedAt: null` e vem ANTES da criação
+ * do Empréstimo: é ele que decide quem converte. Duas requisições concorrentes
+ * passam juntas pela checagem de `convertedAt` no serviço; a segunda espera o lock
+ * da linha da Reserva, reavalia o WHERE depois do commit da primeira e não afeta
+ * nenhuma linha — daí `count === 0`. Sem essa condição a corrida ia parar no índice
+ * único de `loans.reservationId`, e a violação crua do Prisma virava 500 na borda,
+ * no lugar do 409 que a regra já previa. Mesmo desenho de `createReservationTx`.
  */
 export async function createLoanTx(params: {
   reservationId: string;
@@ -59,32 +69,44 @@ export async function createLoanTx(params: {
   userId: string;
   librarianId: string;
   dueAt: Date;
-}): Promise<{ loanId: string }> {
+}): Promise<{ loanId: string } | null> {
   const { reservationId, copyId, userId, librarianId, dueAt } = params;
   const now = new Date();
 
-  const [loan, , reservation] = await prisma.$transaction([
-    prisma.loan.create({
+  const criado = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.reservation.updateMany({
+      where: { id: reservationId, convertedAt: null },
+      data: { convertedAt: now },
+    });
+    if (count === 0) return null;
+
+    const loan = await tx.loan.create({
       data: { reservationId, copyId, userId, librarianId, dueAt },
       select: { id: true },
-    }),
-    prisma.copy.update({
+    });
+
+    await tx.copy.update({
       where: { id: copyId },
       data: { status: 'loaned' },
-    }),
-    prisma.reservation.update({
+    });
+
+    // createdAt sai da mesma transação: mede o tempo entre a Reserva e a
+    // retirada. Alimenta a taxa de conversão Reserva→Empréstimo do PRD §11.
+    // `updateMany` não devolve a linha, então a leitura é explícita — e só o
+    // caminho vencedor paga por ela.
+    const reservation = await tx.reservation.findUniqueOrThrow({
       where: { id: reservationId },
-      data: { convertedAt: now },
-      // createdAt sai da mesma transação: mede o tempo entre a Reserva e a
-      // retirada sem custar uma query extra. Alimenta a taxa de conversão
-      // Reserva→Empréstimo do PRD §11.
       select: { createdAt: true },
-    }),
-  ]);
+    });
 
-  conversaoDuracao.record((now.getTime() - reservation.createdAt.getTime()) / 1000);
+    return { loanId: loan.id, reservaCriadaEm: reservation.createdAt };
+  });
 
-  return { loanId: loan.id };
+  if (criado === null) return null;
+
+  conversaoDuracao.record((now.getTime() - criado.reservaCriadaEm.getTime()) / 1000);
+
+  return { loanId: criado.loanId };
 }
 
 // ---------------------------------------------------------------------------

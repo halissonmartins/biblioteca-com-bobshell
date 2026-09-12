@@ -6,11 +6,18 @@ import {
   apiGetBook,
   apiErrorOf,
   bearer,
+  inDaysISO,
   newActor,
+  BIBLIOTECARIO,
   LEITOR,
   LEITOR_2,
 } from './helpers'
-import { copyStatus, countReservationsForCopy, expireReservation } from './db'
+import {
+  copyStatus,
+  countLoansForReservation,
+  countReservationsForCopy,
+  expireReservation,
+} from './db'
 
 /**
  * Regras que só existem no tempo e na concorrência.
@@ -18,10 +25,10 @@ import { copyStatus, countReservationsForCopy, expireReservation } from './db'
  * Nenhuma delas cabe na UI: o navegador não emite duas requisições no mesmo
  * instante e não sabe esperar doze horas. São as duas propriedades de US-03 que
  * ficaram sem teste desde o começo — a última Cópia disputada e o prazo que vence
- * sozinho — e ambas são observadas aqui no sistema real, com o job de expiração
- * de produção rodando no processo da API.
+ * sozinho — mais a Reserva disputada no balcão, e todas são observadas aqui no
+ * sistema real, com o job de expiração de produção rodando no processo da API.
  */
-test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5)', () => {
+test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5, RN-6)', () => {
   test('US-03 — a última Cópia é de um Leitor só, ainda que todos peçam ao mesmo tempo', async ({ playwright }) => {
     const ana = await newActor(playwright, LEITOR.email)
 
@@ -123,6 +130,66 @@ test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5)', () => {
     const denovo = await apiCreateReservation(ana.ctx, ana.token, livro.id)
     expect(denovo.id).not.toBe(reserva.id)
 
+    await ana.dispose()
+  })
+
+  test('RN-6 — a mesma Reserva vira um Empréstimo só, ainda que o balcão peça duas vezes', async ({ playwright }) => {
+    const ana = await newActor(playwright, LEITOR.email)
+
+    // Livro compartilhado com o cenário acima: este teste devolve a Cópia no fim,
+    // então a Disponibilidade termina onde começou.
+    const livro = await apiBookByTitle(ana.ctx, 'A Paixão Segundo G.H.')
+    const disponiveisAntes = livro.availableCopies
+    expect(disponiveisAntes, 'o cenário exige uma Cópia livre').toBeGreaterThan(0)
+
+    const reserva = await apiCreateReservation(ana.ctx, ana.token, livro.id)
+
+    // Seis efetivações da MESMA Reserva, disparadas juntas — o duplo clique do
+    // balcão e o segundo Bibliotecário atendendo a mesma pessoa são a mesma corrida.
+    // Contexto HTTP próprio por requisição pela razão de sempre: um
+    // APIRequestContext enfileira as chamadas e o teste passaria por serialização
+    // acidental. Sem o UPDATE condicionado a `convertedAt: null` na transação, todas
+    // passam pela checagem do serviço e batem no índice único de loans.reservationId
+    // — que chegava à borda como 500, não como a recusa que a regra já previa.
+    const balcao = await Promise.all(
+      Array.from({ length: 6 }, () => newActor(playwright, BIBLIOTECARIO.email)),
+    )
+
+    const respostas = await Promise.all(
+      balcao.map((bibliotecario) =>
+        bibliotecario.ctx.post(`${API}/loans`, {
+          headers: bearer(bibliotecario.token),
+          data: { reservationId: reserva.id, dueAt: inDaysISO(7) },
+        }),
+      ),
+    )
+    const status = respostas.map((r) => r.status())
+
+    expect(status.filter((s) => s === 201), `status recebidos: ${status.join(',')}`).toHaveLength(1)
+    expect(status.filter((s) => s === 409)).toHaveLength(5)
+    expect(status.filter((s) => s === 500), 'corrida perdida não é defeito de servidor').toHaveLength(0)
+
+    // Quem perdeu recebe a mesma resposta de quem tenta converter uma Reserva já
+    // convertida — para o Bibliotecário é a mesma situação
+    for (const recusada of respostas.filter((r) => r.status() === 409)) {
+      expect((await apiErrorOf(recusada)).code).toBe('CONFLICT')
+    }
+
+    // Empréstimo duplo é invisível pela API (a Cópia só pode estar 'loaned' uma vez)
+    // e só aparece olhando a tabela
+    expect(await countLoansForReservation(reserva.id)).toBe(1)
+    expect(await copyStatus(reserva.copy.id)).toBe('loaned')
+
+    // Devolve a Cópia ao acervo — o Livro é compartilhado
+    const vencedor = respostas.find((r) => r.status() === 201)!
+    const emprestimo = (await vencedor.json()).data.loan as { id: string }
+    const devolucao = await balcao[0]!.ctx.patch(`${API}/loans/${emprestimo.id}/return`, {
+      headers: bearer(balcao[0]!.token),
+    })
+    expect(devolucao.status()).toBe(200)
+    expect((await apiGetBook(ana.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+
+    await Promise.all(balcao.map((bibliotecario) => bibliotecario.dispose()))
     await ana.dispose()
   })
 })
