@@ -501,3 +501,30 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[12/09/2026 09:34]** commite tudo que está nessa branch
+
+---
+**[12/09/2026 09:37]** faça o merge o código que foi mergeado agora pouco na branch main nessa branch que estamos trabalhando
+
+---
+**[12/09/2026 09:41]** execute o projeto completamente e me guia para realizar um teste manual
+
+---
+**[12/09/2026 09:58]** ao acessar o link de login aparece somente a mensagem "Encaminhando para o acesso seguro…".
+
+---
+**[12/09/2026 10:08]** crie uma issue para esse problema
+
+---
+**[12/09/2026 10:23]** Como eu acesso o e-mail via mailpit? Quero criar um nova conta leitor3@biblioteca.dev
+
+---
+**[12/09/2026 10:37]** Leia todas as issues em aberto. Analise a descrição de cada uma. Edite e melhore a descrição somente para as que estiverem mal descritas.
+
+---
+**[12/09/2026 10:45]** Analise novamente a ISSUE #18
+
+---
+**[12/09/2026 10:58]** Leia todas as issues em aberto e selecione uma para resolver
+
+---
+**[12/09/2026 11:16]** commite

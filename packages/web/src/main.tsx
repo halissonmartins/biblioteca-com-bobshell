@@ -29,6 +29,12 @@ const oidcConfig: AuthProviderProps = {
   response_type: 'code',
   scope: 'openid profile email',
   automaticSilentRenew: true,
+  // Sem isto o `oidc-client-ts` chama `fetch` **sem** AbortController
+  // (`requestTimeoutInSeconds` não tem valor padrão): um Keycloak que descarta
+  // o pacote em vez de recusar a conexão — firewall, host morto em rede viva,
+  // contêiner travado — deixa a descoberta pendurada para sempre, e a tela de
+  // acesso nunca chega a saber que falhou. Medido: 30 s sem erro nenhum.
+  requestTimeoutInSeconds: 10,
   // O Keycloak honra o Accept-Language do browser antes do defaultLocale do
   // realm: sem isto, quem tem o navegador em inglês vê "Sign in to your
   // account" no meio de um produto inteiramente em português.

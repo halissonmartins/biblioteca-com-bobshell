@@ -10,11 +10,12 @@
  * local. Ter uma única fonte de verdade evita a tela e a API discordarem sobre
  * quem é Bibliotecário.
  */
-import { useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth as useOidc } from 'react-oidc-context'
 import { setToken, clearToken } from '@/api/client'
 import { getMe } from '@/api/me'
+import { descreverErroDeAcesso } from '@/utils/authError'
 import type { User } from '../../../shared/src/types/domain'
 import { AuthContext } from './authContext'
 
@@ -33,6 +34,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [perfilRecusado, setPerfilRecusado] = useState(false)
 
   const accessToken = oidc.user?.access_token ?? null
+
+  /**
+   * A falha do fluxo de acesso vem daqui, não de uma rejeição de `login()`.
+   *
+   * O `react-oidc-context` embrulha os métodos de navegação: no erro ele
+   * despacha ERROR para o próprio estado e **resolve com `null`** em vez de
+   * rejeitar (v3.3.1). Sem repassar `oidc.error`, o `.catch()` da tela de
+   * acesso nunca rodava e ela ficava presa em "Encaminhando…" com o botão
+   * desabilitado para sempre, qualquer que fosse a indisponibilidade do
+   * Keycloak (issue #27).
+   */
+  const error = useMemo(() => descreverErroDeAcesso(oidc.error), [oidc.error])
 
   /**
    * Há token, mas o perfil ainda não chegou.
@@ -119,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessToken,
         isAuthenticated: user !== null,
         isLoading: oidc.isLoading || perfilPendente,
+        error,
         login,
         logout,
       }}
