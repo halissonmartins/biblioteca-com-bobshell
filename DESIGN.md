@@ -355,6 +355,25 @@ O corpo do título tem três degraus, calculados por **comprimento total e pela 
 
 A zona é derivada do gênero por **FNV-1a de 32 bits com avalanche final**, entre as seis zonas não-oxblood. Mesmo gênero, mesma zona, sempre — nunca um mapa fixo, que ficaria desatualizado no primeiro gênero novo. O hash anterior (djb2) colidia sistematicamente e jogava todos os gêneros numa cor só; se o algoritmo mudar, a distribuição precisa ser verificada de novo.
 
+### Favicon (marca)
+
+Uma placa em miniatura: chapa oxblood (`primary`) com canto duro e um "B" em
+caixa alta condensada branca. A aba do navegador é a porta de entrada do trilho,
+e oxblood é a cor da navegação — a Regra do Cargo Fixo vale também aqui. O "B"
+é desenhado em segmentos retos com chanfro, e não com a Barlow: um favicon não
+carrega webfont, e a 16px a curva de uma fonte vira borrão onde o chanfro
+continua nítido.
+
+- **Fonte única:** `packages/web/public/favicon.svg`. Nenhum raster é desenhado
+  à mão.
+- **Rasters gerados** por `node scripts/gerar-favicons.mjs` (Chromium do
+  Playwright de `e2e/`): `favicon.ico` (16 e 32px), `apple-touch-icon.png`
+  (180px, sem canto — o iOS aplica a própria máscara) e
+  `packages/theme/public/favicon-32x32.png`, que as páginas de login do
+  Keycloak usam.
+- **Para mudar a marca:** edite o SVG, rode o script, rode `make theme-build` e
+  versione o JAR junto com os rasters.
+
 ## Do's and Don'ts
 
 ### Do:
