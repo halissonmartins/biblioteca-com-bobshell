@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test'
-import { apiLogin, apiReserveByTitle, loginUI, LEITOR, LEITOR_2 } from './helpers'
+import {
+  apiLogin,
+  apiReserveByTitle,
+  loginUI,
+  LEITOR,
+  LEITOR_2,
+  LEITOR_TELA_RESERVA,
+} from './helpers'
 import { expireAllReservationsOf, setReservationExpiry } from './db'
 
 /** Extrai o número de cópias disponíveis do texto da tela de detalhes. */
@@ -16,8 +23,12 @@ function parseMinutos(texto: string): number {
 }
 
 test.describe('Reservas do Leitor (US-03, US-04)', () => {
+  // Leitor dedicado: este cenário é o único do arquivo que **cria** Reserva por
+  // conta própria, e com RN-10 somar a Reserva dele às da Ana aproximaria o teto
+  // sem que o teste tivesse nada a dizer sobre isso. A Ana continua nos cenários
+  // que **leem** a lista dela — é o estado do seed que os torna possíveis.
   test('US-03 — reserva Livro disponível, decrementa Disponibilidade e confirma expiração (RN-1, RN-3, RN-4)', async ({ page }) => {
-    await loginUI(page, LEITOR.email)
+    await loginUI(page, LEITOR_TELA_RESERVA.email)
 
     // Livro dedicado para não colidir com asserts de outros testes
     await page.goto('/')

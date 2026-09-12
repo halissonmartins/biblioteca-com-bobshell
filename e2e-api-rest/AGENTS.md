@@ -22,7 +22,7 @@ Vite e capas — o job `e2e-api-rest-ci` roda em paralelo ao `e2e-ci` no gate.
 |---|---|
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, identidade |
 | `autorizacao-api.spec.ts` | 401, 403, papéis e isolamento entre Leitores |
-| `regras-negocio-api.spec.ts` | Prazo (RN-1/RN-5/RN-6) e concorrência pela última Cópia |
+| `regras-negocio-api.spec.ts` | Prazo (RN-1/RN-5/RN-6) e concorrência: a última Cópia (RN-3), a Reserva duplicada (RN-9) e o teto por Leitor (RN-10) |
 | `contrato-extensoes.spec.ts` | Cenários que só esta suíte tem: `/health`, filtros `search`/`genre`, filtro `?userId=` de `/loans`, `/me` do Bibliotecário, envelope de erro fora das rotas (404 JSON, corpo malformado → 422) |
 | `helpers.ts` | Login por token (`apiLogin`, client `biblioteca-e2e`), arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
@@ -34,12 +34,19 @@ RN-8 se afirmam sobre `expiresAt` e `dueAt` da resposta, nunca sobre texto forma
 
 **Um contexto HTTP por ator** (`newActor`) — e por requisição quando o teste é
 de concorrência: um `APIRequestContext` reaproveita a conexão e enfileira as
-chamadas, o que testaria serialização, não corrida.
+chamadas, o que testaria serialização, não corrida. Para requisições concorrentes
+**do mesmo Leitor** (RN-9, RN-10) use `newActors(playwright, email, n)`: ele cria os
+contextos em sequência porque o primeiro `GET /me` de uma conta é o que provisiona o
+espelho local dela, e dois logins simultâneos disputariam o mesmo INSERT.
 
 **Tempo se adianta, não se espera.** Use as fixtures de `db.ts`
 (`expireReservation`, `expireReservationAsJobWould`); o job de expiração da API
 roda a cada minuto e processa todo dado que o teste deixar vencido — conte com
 isso ao afirmar sobre estado posterior.
+
+**Cenário devolve o que consumiu.** `releaseReservation` (`db.ts`) cancela a Reserva
+e libera a Cópia na mesma transação — o que o job faria, sem esperar o tique. Quem
+converteu em Empréstimo devolve pelo caminho de produção (`PATCH /loans/:id/return`).
 
 **O Keycloak não é opcional.** Sem ele a suíte inteira falha com 401; o
 `global-setup` confere o discovery antes do primeiro teste e falha dizendo o que fazer.
@@ -60,6 +67,35 @@ caráter permanente justamente para reduzir esse atrito.
 Leitores do seed e senha: ver a tabela equivalente em [`e2e/AGENTS.md`](../e2e/AGENTS.md)
 — `leitor@biblioteca.dev` tem Reserva e Empréstimo, `leitor2@biblioteca.dev`
 está limpo, `bibliotecario@biblioteca.dev` é Carlos Mendes.
+
+## Um Leitor por cenário que cria Reserva
+
+O equivalente da tabela de Livros, do lado de quem reserva — e a razão de esta suíte
+ter ficado vermelha quando RN-9 e RN-10 chegaram à API (issues #28, #29, #30). A
+Reserva passou a ser um recurso **do Leitor**: o mesmo Leitor não tem duas Reservas
+ativas do mesmo Livro (Empréstimo em aberto do título conta junto) e não passa de
+três ativas. Como o banco é o mesmo do começo ao fim da suíte, um Leitor
+reaproveitado acumula, e a partir de certo ponto o pedido é recusado com
+`DUPLICATE_RESERVATION` ou `RESERVATION_LIMIT_REACHED` onde o teste esperava 201 —
+falha por acumulação, não por defeito do sistema.
+
+Por isso **cada cenário que cria Reserva tem a própria conta**, declarada por nome em
+`helpers.ts` e alocada na tabela de [`e2e/AGENTS.md`](../e2e/AGENTS.md) (as duas
+suítes compartilham os specs, então compartilham a alocação). As contas vivem em
+`keycloak/realm-biblioteca.json` com o prefixo **`e2e-`**, que delimita o território
+dos testes: conta criada à mão para explorar o produto pode usar
+`leitorN@biblioteca.dev` sem colidir. Nenhuma tem linha no seed — o espelho local
+nasce no primeiro `GET /me` (JIT provisioning, ADR-0009). **Conta nova é mudança de
+realm, e mudança de realm é arquivo** (`keycloak/README.md`).
+
+A Ana do seed ficou com o que **lê** — as listas de `/me/*` e o filtro `?userId=` do
+balcão dependem do estado que o seed dá a ela.
+
+E a fila de US-03 são **oito contas distintas**, não duas alternadas: com RN-9 um
+Leitor não disputa consigo mesmo, e alternar contas faria sete perdedores receberem
+`DUPLICATE_RESERVATION` — a contagem `1× 201 + 7× 409` continuaria batendo e a
+proteção da última Cópia ficaria sem cobertura. É a asserção do `code`
+(`NO_COPY_AVAILABLE`) que denuncia.
 
 ## Rodar
 

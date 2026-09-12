@@ -70,6 +70,36 @@ export async function expireReservationAsJobWould(reservationId: string): Promis
   )
 }
 
+/**
+ * Libera uma Reserva ativa agora: cancela e devolve a Cópia ao acervo na mesma
+ * transação — exatamente o que `expireReservationsTx` faz quando o job passa,
+ * sem esperar o próximo tique de um minuto.
+ *
+ * Existe por causa de RN-9 e RN-10, que fizeram da Reserva um recurso do Leitor:
+ * um cenário que termina segurando Reserva gasta uma das três vagas do seu
+ * Leitor e bloqueia aquele Livro para ele — inclusive na repetição do próprio
+ * cenário, quando o Playwright repete um teste que falhou. Cenário que consome
+ * Cópia e não precisa do estado depois desfaz o que fez aqui.
+ *
+ * Só para Reserva ainda ativa: uma já convertida em Empréstimo se desfaz pela
+ * Devolução (`PATCH /loans/:id/return`), que é caminho de produção.
+ */
+export async function releaseReservation(reservationId: string): Promise<void> {
+  await withDb((db) =>
+    db.$transaction(async (tx) => {
+      const { copyId } = await tx.reservation.update({
+        where: { id: reservationId },
+        data: { cancelledAt: new Date() },
+        select: { copyId: true },
+      })
+      await tx.copy.updateMany({
+        where: { id: copyId, status: 'reserved' },
+        data: { status: 'available' },
+      })
+    }),
+  )
+}
+
 /** Status atual de uma Cópia — 'available' | 'reserved' | 'loaned' (glossario.md). */
 export async function copyStatus(copyId: string): Promise<string> {
   return withDb(async (db) => {

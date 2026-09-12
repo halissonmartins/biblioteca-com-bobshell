@@ -34,7 +34,7 @@ abaixo são consumidos pelos dois lados.
 | `autenticacao.spec.ts` | Entrada, saída, guarda de rota e **auto-cadastro** (a tela é a do Keycloak) |
 | `autorizacao-api.spec.ts` | 401, 403 e isolamento entre Leitores |
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
-| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar |
+| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6) e os dois limites por Leitor (RN-9, RN-10) |
 | `helpers.ts` | Login, arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
 
@@ -81,6 +81,12 @@ a conexão e enfileira as requisições: `Promise.all` sobre o mesmo contexto te
 serialização, não concorrência. O teste da última Cópia cria oito contextos de
 propósito. Sem isso ele passava contra o código que ainda tinha a reserva dupla.
 
+Quando as requisições concorrentes são **do mesmo Leitor** — os cenários de RN-9 e
+RN-10 —, use `newActors(playwright, email, n)`: ele cria os contextos em sequência,
+porque o primeiro `GET /me` de uma conta é o que provisiona o espelho local dela e
+dois logins simultâneos de quem ainda não tem linha em `users` disputariam o mesmo
+INSERT. A concorrência que interessa é a das requisições de negócio, depois.
+
 **Tempo se adianta, não se espera.** Prazo de 12h não é observável esperando, e a API
 não expõe endpoint que envelheça uma Reserva. Use as fixtures de `db.ts`
 (`expireReservation`, `setReservationExpiry`, `expireAllReservationsOf`) — o resto do
@@ -112,22 +118,67 @@ Reserva usa um Livro dedicado para não mexer na Disponibilidade que outro teste
 | Livro | Quem usa |
 |---|---|
 | Ensaio sobre a Cegueira | seed — 0 disponíveis, só leitura |
-| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia |
-| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta e Reserva disputada no balcão (este devolve a Cópia no fim) |
-| Dom Casmurro | `contrato-api` — POST /reservations |
+| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia (devolve as duas Cópias no fim) |
+| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta e Reserva disputada no balcão (os dois devolvem a Cópia no fim) |
+| Dom Casmurro | `contrato-api` (POST /reservations) e `regras-negocio-api` (teto de RN-10, devolve) |
 | Memórias Póstumas de Brás Cubas | `contrato-api` — POST /loans e RN-6 |
-| A Hora da Estrela | `contrato-api` (devolução) e `reservas-leitor` (expira em breve) |
+| A Hora da Estrela | `contrato-api` (devolução), `regras-negocio-api` (Reserva duplicada de RN-9, devolve) e `reservas-leitor` (expira em breve) |
 | A Metamorfose | `autorizacao-api` (isolamento) e `bibliotecario` (modal) |
-| Cem Anos de Solidão | `bibliotecario` — US-10 |
-| O Amor nos Tempos do Cólera | `bibliotecario` — US-11 |
-| O Processo | `reservas-leitor` — US-03 |
+| Cem Anos de Solidão | `bibliotecario` (US-10) e `regras-negocio-api` (teto de RN-10, devolve) |
+| O Amor nos Tempos do Cólera | `bibliotecario` (US-11) e `regras-negocio-api` (teto de RN-10, devolve) |
+| O Processo | `reservas-leitor` (US-03) e `regras-negocio-api` (teto de RN-10, devolve) |
 
 Ao adicionar cenário que reserve, escolha um Livro livre ou devolva a Cópia no fim.
+Cenário que só precisa da Cópia durante a asserção devolve com `releaseReservation`
+(`db.ts`) — cancela e libera a Cópia na mesma transação, como o job faria, sem
+esperar o tique de um minuto. Quem converte em Empréstimo devolve pelo caminho de
+produção (`PATCH /loans/:id/return`).
 
-**Leitores do seed.** `leitor@biblioteca.dev` (Ana Lima) tem Reserva e Empréstimo;
-`leitor2@biblioteca.dev` (Bruno Costa) não tem nada, e é isso que o torna útil —
-isolamento e estado vazio. `bibliotecario@biblioteca.dev` é Carlos Mendes. Senha
-`Biblioteca#2026!` para todos (política da Fase 2 exige 12+ caracteres).
+**Um Leitor por cenário que cria Reserva.** É o outro lado da tabela acima, e
+existe desde RN-9 e RN-10 (issues #28, #29, #30): a Reserva passou a ser um recurso
+**do Leitor**, não só da Cópia. O mesmo Leitor não tem duas Reservas ativas do mesmo
+Livro — Empréstimo em aberto do título conta junto — e não passa de três ativas. Com
+o banco compartilhado do começo ao fim da suíte, um Leitor reaproveitado acumula, e a
+partir de certo ponto os pedidos são recusados por acumulação em vez de por defeito
+do sistema. Foi exatamente assim que as duas suítes ficaram vermelhas quando as
+regras chegaram à API: `DUPLICATE_RESERVATION` e `RESERVATION_LIMIT_REACHED` onde o
+teste esperava 201.
+
+As contas ficam em `keycloak/realm-biblioteca.json` com o prefixo **`e2e-`** e vêm
+nomeadas por cenário em `helpers.ts`. O prefixo delimita o território dos testes:
+conta criada à mão para explorar o produto pode usar `leitorN@biblioteca.dev` sem
+colidir com o que a suíte espera encontrar. Nenhuma delas tem linha no seed — o
+espelho local nasce no primeiro `GET /me` (JIT provisioning, ADR-0009). **Conta nova
+é mudança de realm, e mudança de realm é arquivo:** editar o JSON e recriar o
+contêiner para reimportar (`keycloak/README.md`), nunca clicar no admin console.
+
+| Leitor | Quem usa |
+|---|---|
+| `leitor@biblioteca.dev` (Ana Lima) | seed — Reserva + Empréstimo de "Ensaio sobre a Cegueira". É o estado que `/me/*`, o balcão e `reservas-leitor` **leem**; só `reservas-leitor` US-04 cria Reserva com ela |
+| `leitor2@biblioteca.dev` (Bruno Costa) | `autorizacao-api` — isolamento e estado vazio |
+| `e2e-reserva@` | `contrato-api` RN-1 — POST /reservations |
+| `e2e-emprestimo@` | `contrato-api` RN-8 — POST /loans |
+| `e2e-devolucao@` | `contrato-api` RN-5 — PATCH /loans/:id/return |
+| `e2e-vencida@` | `contrato-api` RN-6 — Reserva vencida não vira Empréstimo |
+| `e2e-ultima-copia@` | `regras-negocio-api` US-03 — dono da primeira Cópia |
+| `e2e-fila1@` … `e2e-fila8@` | `regras-negocio-api` US-03 — a fila pela última Cópia |
+| `e2e-expiracao@` | `regras-negocio-api` RN-1/RN-5 |
+| `e2e-balcao-duplo@` | `regras-negocio-api` RN-6 — seis efetivações da mesma Reserva |
+| `e2e-duplicada@` | `regras-negocio-api` RN-9 |
+| `e2e-teto@` | `regras-negocio-api` RN-10 |
+| `e2e-balcao-efetiva@` | `bibliotecario` US-10 |
+| `e2e-balcao-expira@` | `bibliotecario` US-10 — Reserva que vence com o modal aberto |
+| `e2e-balcao-devolve@` | `bibliotecario` US-11 |
+| `e2e-tela-reserva@` | `reservas-leitor` US-03 |
+
+**A fila de US-03 são oito contas distintas, não duas alternadas.** Com RN-9 um Leitor
+não disputa consigo mesmo: alternando contas, sete perdedores recebem
+`DUPLICATE_RESERVATION`, a contagem `1× 201 + 7× 409` continua batendo e o UPDATE
+condicionado a `status: 'available'` — o que protege a última Cópia — fica sem
+cobertura nenhuma. É a asserção do `code` (`NO_COPY_AVAILABLE`) que denuncia.
+
+`bibliotecario@biblioteca.dev` é Carlos Mendes. Senha `Biblioteca#2026!` para todos
+(política da Fase 2 exige 12+ caracteres).
 
 ## Rodar
 

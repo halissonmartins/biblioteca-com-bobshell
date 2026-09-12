@@ -543,3 +543,12 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[12/09/2026 11:43]** sim, siga. Também feche o escopo da API (código + testes de unidade + docs) e abra issue própria para a rework das suítes E2E
+
+---
+**[12/09/2026 11:48]** Os jobs e2e-ci e e2e-api-rest-ci seguem vermelhos até a #30. Implemente essa issue.
+
+---
+**[12/09/2026 14:14]** feche as issues que foram resolvidas até o momento.
+
+---
+**[12/09/2026 14:18]** sim, somente commite o #30

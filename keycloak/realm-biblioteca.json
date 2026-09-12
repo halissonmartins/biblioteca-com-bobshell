@@ -183,6 +183,279 @@
         { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
       ],
       "realmRoles": ["bibliotecario"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000004",
+      "username": "e2e-reserva@biblioteca.dev",
+      "email": "e2e-reserva@biblioteca.dev",
+      "firstName": "Daniela",
+      "lastName": "Rocha",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000005",
+      "username": "e2e-emprestimo@biblioteca.dev",
+      "email": "e2e-emprestimo@biblioteca.dev",
+      "firstName": "Eduardo",
+      "lastName": "Prado",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000006",
+      "username": "e2e-devolucao@biblioteca.dev",
+      "email": "e2e-devolucao@biblioteca.dev",
+      "firstName": "Fernanda",
+      "lastName": "Dias",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000007",
+      "username": "e2e-vencida@biblioteca.dev",
+      "email": "e2e-vencida@biblioteca.dev",
+      "firstName": "Gustavo",
+      "lastName": "Nunes",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000008",
+      "username": "e2e-ultima-copia@biblioteca.dev",
+      "email": "e2e-ultima-copia@biblioteca.dev",
+      "firstName": "Helena",
+      "lastName": "Braga",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000009",
+      "username": "e2e-fila1@biblioteca.dev",
+      "email": "e2e-fila1@biblioteca.dev",
+      "firstName": "Igor",
+      "lastName": "Teles",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000010",
+      "username": "e2e-fila2@biblioteca.dev",
+      "email": "e2e-fila2@biblioteca.dev",
+      "firstName": "Joana",
+      "lastName": "Peixoto",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000011",
+      "username": "e2e-fila3@biblioteca.dev",
+      "email": "e2e-fila3@biblioteca.dev",
+      "firstName": "Kléber",
+      "lastName": "Antunes",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000012",
+      "username": "e2e-fila4@biblioteca.dev",
+      "email": "e2e-fila4@biblioteca.dev",
+      "firstName": "Lívia",
+      "lastName": "Sampaio",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000013",
+      "username": "e2e-fila5@biblioteca.dev",
+      "email": "e2e-fila5@biblioteca.dev",
+      "firstName": "Marcos",
+      "lastName": "Vilela",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000014",
+      "username": "e2e-fila6@biblioteca.dev",
+      "email": "e2e-fila6@biblioteca.dev",
+      "firstName": "Natália",
+      "lastName": "Ferraz",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000015",
+      "username": "e2e-fila7@biblioteca.dev",
+      "email": "e2e-fila7@biblioteca.dev",
+      "firstName": "Otávio",
+      "lastName": "Bastos",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000016",
+      "username": "e2e-fila8@biblioteca.dev",
+      "email": "e2e-fila8@biblioteca.dev",
+      "firstName": "Paula",
+      "lastName": "Rezende",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000017",
+      "username": "e2e-expiracao@biblioteca.dev",
+      "email": "e2e-expiracao@biblioteca.dev",
+      "firstName": "Quirino",
+      "lastName": "Salles",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000018",
+      "username": "e2e-balcao-duplo@biblioteca.dev",
+      "email": "e2e-balcao-duplo@biblioteca.dev",
+      "firstName": "Raquel",
+      "lastName": "Amorim",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000019",
+      "username": "e2e-duplicada@biblioteca.dev",
+      "email": "e2e-duplicada@biblioteca.dev",
+      "firstName": "Sérgio",
+      "lastName": "Vasques",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000020",
+      "username": "e2e-teto@biblioteca.dev",
+      "email": "e2e-teto@biblioteca.dev",
+      "firstName": "Tereza",
+      "lastName": "Goulart",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000021",
+      "username": "e2e-balcao-efetiva@biblioteca.dev",
+      "email": "e2e-balcao-efetiva@biblioteca.dev",
+      "firstName": "Ubirajara",
+      "lastName": "Pinto",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000022",
+      "username": "e2e-balcao-expira@biblioteca.dev",
+      "email": "e2e-balcao-expira@biblioteca.dev",
+      "firstName": "Vanessa",
+      "lastName": "Cordeiro",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000023",
+      "username": "e2e-balcao-devolve@biblioteca.dev",
+      "email": "e2e-balcao-devolve@biblioteca.dev",
+      "firstName": "Wagner",
+      "lastName": "Lustosa",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
+    },
+    {
+      "id": "b1b11071-0000-4000-8000-000000000024",
+      "username": "e2e-tela-reserva@biblioteca.dev",
+      "email": "e2e-tela-reserva@biblioteca.dev",
+      "firstName": "Yara",
+      "lastName": "Beltrão",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Biblioteca#2026!", "temporary": false }
+      ],
+      "realmRoles": ["leitor"]
     }
   ]
 }
