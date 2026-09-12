@@ -117,7 +117,10 @@ async function main(): Promise<void> {
     // Saramago
     prisma.book.create({
       data: {
-        isbn: '9780156027748',
+        // Blindness, Harvest Books — a tradução de Giovanni Pontiero. O ISBN
+        // anterior (9780156027748) é de "Heaven's Command", de Jan Morris: o
+        // Livro nunca ia achar capa, porque a chave apontava para outra obra.
+        isbn: '9780156007757',
         title: 'Ensaio sobre a Cegueira',
         genre: 'Ficção literária',
         synopsis: 'Uma epidemia de cegueira branca assola uma cidade anônima.',
@@ -159,7 +162,9 @@ async function main(): Promise<void> {
     // Machado
     prisma.book.create({
       data: {
-        isbn: '9788535910483',
+        // Oxford University Press, tradução de John Gledson. O ISBN anterior
+        // (9788535910483) não existe em fonte nenhuma.
+        isbn: '9780195103083',
         title: 'Dom Casmurro',
         genre: 'Romance clássico',
         synopsis: 'Bentinho e Capitu: o ciúme e a dúvida que permeiam um relacionamento.',
@@ -211,7 +216,10 @@ async function main(): Promise<void> {
     }),
     prisma.book.create({
       data: {
-        isbn: '9780805209983',
+        // Schocken, mesma coleção de A Metamorfose. O ISBN anterior
+        // (9780805209983) era um dígito fora e caía em "The Jewish Sabbath",
+        // de Pinchas Peli.
+        isbn: '9780805209990',
         title: 'O Processo',
         genre: 'Ficção absurda',
         synopsis: 'Josef K. é preso sem razão aparente e sem saber de que é acusado.',

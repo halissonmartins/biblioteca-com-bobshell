@@ -87,7 +87,7 @@ components:
       required: [id, isbn, title, genre, authorId, createdAt]
       properties:
         id:          { type: string }
-        isbn:        { type: string, example: '9780156027748' }
+        isbn:        { type: string, example: '9780156007757' }
         title:       { type: string, example: 'Ensaio sobre a Cegueira' }
         synopsis:
           oneOf:
@@ -152,7 +152,7 @@ components:
       required: [id, code, status, bookId]
       properties:
         id:     { type: string }
-        code:   { type: string, example: '9780156027748-C1' }
+        code:   { type: string, example: '9780156007757-C1' }
         status: { $ref: '#/components/schemas/CopyStatus' }
         bookId: { type: string }
 
@@ -166,7 +166,7 @@ components:
       required: [id, code, book]
       properties:
         id:   { type: string }
-        code: { type: string, example: '9780156027748-C1' }
+        code: { type: string, example: '9780156007757-C1' }
         book:
           allOf:
             - $ref: '#/components/schemas/Book'

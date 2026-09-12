@@ -46,14 +46,22 @@ Não há upload de capa pelo Bibliotecário, nem rota de imagem na API.
 
 Nenhuma das fontes responde 404 de forma confiável — elas devolvem **200 com uma imagem que não é a capa**. Sem isso o repositório encheria de lixo com cara de acervo. O script recusa, nesta ordem:
 
-1. **Assinaturas de recusa conhecidas** — a chapa cinza do Google (uma por nível de `zoom`, hashes documentados no script) e o que cada fonte devolve para um ISBN inexistente, consultado uma vez por execução.
+1. **Assinaturas de recusa conhecidas** — as recusas do Google que passam por capa (a chapa cinza e o letreiro "image not available", uma assinatura por nível de `zoom`, hashes documentados no script) e o que cada fonte devolve para um ISBN inexistente, consultado uma vez por execução.
 2. **Piso e teto de bytes** — abaixo de 5 KB é placeholder; acima de 1 MB a candidata fica reservada e só entra se nenhuma menor servir (medido: "A Paixão Segundo G.H." só existe acima do teto).
 3. **Proporção** — no `zoom` maior o Google devolve, para alguns volumes, uma **tira do topo da capa** (medido: 800×128 em Kafka). Fora da faixa 0,5–0,9 de largura/altura, recusa.
-4. **Duplicatas na mesma execução** — dois Livros não têm a mesma capa. Bytes repetidos são recusa com rosto novo; os arquivos envolvidos são apagados. É esta rede que segura o dia em que os hashes do item 1 mudarem.
+4. **Duplicatas na mesma execução** — dois Livros não têm a mesma capa. Bytes repetidos são recusa com rosto novo; os arquivos envolvidos são apagados.
+
+Esta última rede tem um furo conhecido, e ele custou uma capa: ela só dispara com **dois ou mais** Livros recebendo a mesma imagem. Quando o Google trocou a chapa cinza por um letreiro "image not available" (800×1043, 46 KB — passa em tamanho, formato e proporção), um único Livro do lote foi recusado, nenhuma duplicata se formou e o letreiro entrou como capa (issue #26). A assinatura nova está no script; a lição que fica é a do item 5.
+
+5. **O olho, antes do commit.** Nenhum filtro automático distingue a capa de um letreiro bem-comportado. Ao rodar `make capas`, **abra os `.jpg` baixados** antes de commitar. É a verificação mais barata que existe e a única que pega tanto recusa disfarçada quanto capa do livro errado.
 
 ### ISBNs do seed
 
-A ingestão expôs um defeito nos dados de desenvolvimento: vários ISBNs do `seed.ts` não correspondiam à obra (um deles trouxe a capa de *The Temple of Dawn*, de Mishima, para "O Amor nos Tempos do Cólera") e outros eram de edições sem capa em nenhuma fonte. Seis foram corrigidos para edições reais e **conferidos visualmente, capa a capa**. Quatro Livros seguem sem capa de propósito — inclusive "O Nome de Deus", que é um título inventado pelo próprio seed e por isso nunca terá arte. É a demonstração viva de que a placa não é fallback triste: metade do Catálogo de desenvolvimento vive dela.
+A ingestão expôs um defeito nos dados de desenvolvimento: vários ISBNs do `seed.ts` não correspondiam à obra (um deles trouxe a capa de *The Temple of Dawn*, de Mishima, para "O Amor nos Tempos do Cólera") e outros eram de edições sem capa em nenhuma fonte. Seis foram corrigidos para edições reais e **conferidos visualmente, capa a capa**.
+
+A issue #26 fechou o resto. Os quatro Livros que seguiam sem capa não eram quatro casos de "a fonte não tem": eram **ISBNs que apontavam para outra obra**, e nenhuma fonte jamais teria a capa pedida porque a chave estava errada. `9780156027748` ("Ensaio sobre a Cegueira") é de *Heaven's Command*, de Jan Morris; `9780805209983` ("O Processo") estava um dígito fora e caía em *The Jewish Sabbath*, de Pinchas Peli; `9788535910483` ("Dom Casmurro") não existe em fonte nenhuma. Os três foram corrigidos para edições reais — Harvest, Schocken e Oxford — e conferidos visualmente como os seis anteriores.
+
+**Nove dos dez Livros do seed têm capa real.** O décimo, "O Nome de Deus", é um título inventado pelo próprio seed e por isso nunca terá arte: obra que não foi publicada não tem capa para se buscar. Fica com a placa tipográfica **de propósito**, e é bom que fique — é a demonstração viva de que a placa não é fallback triste, e o único lugar do Catálogo de desenvolvimento onde ela ainda aparece.
 
 ## Alternativas consideradas
 
