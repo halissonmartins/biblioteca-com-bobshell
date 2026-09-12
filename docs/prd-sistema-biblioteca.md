@@ -54,6 +54,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | RF-L5 | Listar os livros que pegou emprestado e as respectivas datas de vencimento. |
 | RF-L6 | Visualizar os detalhes de um autor, incluindo todos os livros que ele publicou. |
 | RF-L7 | Criar a própria conta e entrar no sistema. Fase 2: cadastro com **e-mail verificado** — a senha é definida ao confirmar o endereço; quem se cadastra nasce leitor (RN-7). Ver [ADR-0009](decisoes/0009-identidade-com-keycloak.md) e [seguranca.md](seguranca.md). |
+| RF-L8 | **Cancelar uma reserva ativa própria**, liberando a cópia de volta ao acervo na hora. Sem isso a reserva só saía por conversão ou pelas 12h de RN-1, e a cópia ficava bloqueada o prazo inteiro mesmo quando o leitor já sabia que não ia buscar. |
 
 ### 5.2 Bibliotecário
 
@@ -79,6 +80,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | RN-8 | O empréstimo vence em **7 dias corridos** a partir da efetivação. O bibliotecário pode ajustar a data no balcão. |
 | RN-9 | Um leitor tem **no máximo uma reserva ativa por livro**. Empréstimo em aberto do mesmo livro também impede nova reserva — a cópia já está com ele. Reserva expirada ou cancelada não conta. |
 | RN-10 | Um leitor tem **no máximo 3 reservas ativas** ao mesmo tempo. O limite conta apenas reservas ativas: não há teto de empréstimo. |
+| RN-11 | Só o **próprio leitor** cancela a própria reserva, e só enquanto ela está **ativa**. Reserva já convertida em empréstimo se desfaz por devolução no balcão, não por cancelamento. O cancelamento libera a cópia imediatamente (RN-5) e devolve a vaga de RN-10. **Cancelamento e expiração são desfechos distintos** e não se confundem no registro nem na tela: um é desistência, o outro é esquecimento. |
 
 ## 7. Requisitos de performance
 
@@ -140,12 +142,15 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 
 ## 10. Critérios de aceite
 
-- [ ] Todos os requisitos RF-L1 a RF-L7 e RF-B1 a RF-B5 implementados e testados.
+- [ ] Todos os requisitos RF-L1 a RF-L8 e RF-B1 a RF-B5 implementados e testados.
 - [ ] Reserva criada expira e libera a cópia automaticamente após 12h (RN-1, RN-5).
 - [ ] Tentativa de reserva sem cópia disponível é bloqueada com mensagem clara (RN-3).
 - [ ] Leitor não consegue efetivar empréstimo sozinho; apenas bibliotecário (RN-2, RN-7).
 - [ ] Segunda reserva do mesmo livro pelo mesmo leitor é recusada com 409 e motivo claro (RN-9).
 - [ ] Leitor com 3 reservas ativas não cria a quarta; a recusa diz o limite (RN-10).
+- [ ] Leitor cancela reserva ativa própria e a cópia volta ao acervo na hora (RF-L8, RN-11).
+- [ ] Leitor não cancela reserva de outro, nem reserva já convertida em empréstimo (RN-11).
+- [ ] Reserva cancelada aparece como **cancelada**, não como expirada, no balcão (RN-11).
 - [ ] RNF-1 a RNF-4 verificados em teste de carga com volume equivalente a 10k leitores ativos e 250k livros.
 - [ ] Disponibilidade exibida ao leitor reflete o estado visto pelo bibliotecário.
 - [ ] Visitante cria conta, confirma o e-mail, define a senha, entra como leitor e consegue reservar (RF-L7).
@@ -157,6 +162,7 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | --- | --- |
 | Taxa de conversão reserva → empréstimo | > 70% (indica que a reserva evita deslocamento inútil) |
 | Taxa de reservas expiradas sem retirada | < 20% |
+| Taxa de reservas canceladas pelo leitor | acompanhar, sem alvo — cancelamento é cópia devolvida cedo, não falha (RF-L8) |
 | p95 de carregamento da página de detalhes | < 300 ms |
 | Tempo médio de atendimento no balcão | < 3 s por operação |
 | Adoção: leitores que usam reserva on-line | > 50% dos leitores ativos em 6 meses |

@@ -12,10 +12,13 @@ import {
   BIBLIOTECARIO,
   FILA_ULTIMA_COPIA,
   LEITOR_BALCAO_DUPLO,
+  LEITOR_CANCELA_CORRIDA,
+  LEITOR_CANCELA_TETO,
   LEITOR_DUPLICADA,
   LEITOR_EXPIRACAO,
   LEITOR_TETO,
   LEITOR_ULTIMA_COPIA,
+  apiCancelReservation,
   type ReservationDto,
 } from './helpers'
 import {
@@ -32,9 +35,10 @@ import {
  * Nenhuma delas cabe na UI: o navegador não emite duas requisições no mesmo
  * instante e não sabe esperar doze horas. São as duas propriedades de US-03 que
  * ficaram sem teste desde o começo — a última Cópia disputada e o prazo que vence
- * sozinho — mais a Reserva disputada no balcão e os dois limites por Leitor
- * (RN-9 e RN-10), e todas são observadas aqui no sistema real, com o job de
- * expiração de produção rodando no processo da API.
+ * sozinho — mais a Reserva disputada no balcão, os dois limites por Leitor
+ * (RN-9 e RN-10) e o cancelamento pelo Leitor (RF-L8, RN-11), que disputa a
+ * mesma linha com o balcão. Todas são observadas aqui no sistema real, com o job
+ * de expiração de produção rodando no processo da API.
  *
  * Cada cenário tem o **próprio Leitor** (`helpers.ts`, tabela em `AGENTS.md`):
  * desde RN-9 e RN-10 a Reserva é um recurso do Leitor, e um Leitor reaproveitado
@@ -49,7 +53,7 @@ import {
  */
 const TETO_DE_RESERVAS_ATIVAS = 3
 
-test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5, RN-6, RN-9, RN-10)', () => {
+test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5, RN-6, RN-9, RN-10, RN-11)', () => {
   test('US-03 — a última Cópia é de um Leitor só, ainda que todos peçam ao mesmo tempo', async ({ playwright }) => {
     const dono = await newActor(playwright, LEITOR_ULTIMA_COPIA.email)
 
@@ -293,8 +297,13 @@ test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5, RN-6, RN-9,
     // Um Livro por pedido, todos diferentes: assim nenhuma recusa pode vir de RN-9
     // nem de RN-3, e o único limite que sobra para explicar a última é o teto. São
     // teto + 1 pedidos — o mínimo para ver a recusa.
+    //
+    // Dom Casmurro está fora do conjunto de propósito: `contrato-api` estaciona a
+    // última Cópia dele numa Reserva vencida, que só volta ao acervo quando o job
+    // passa. Um Livro cuja Disponibilidade depende do relógio não serve de
+    // pré-condição.
     const titulos = [
-      'Dom Casmurro',
+      'A Hora da Estrela',
       'Cem Anos de Solidão',
       'O Amor nos Tempos do Cólera',
       'O Processo',
@@ -349,6 +358,129 @@ test.describe('Regras de negócio no sistema real (RN-1, RN-3, RN-5, RN-6, RN-9,
     }
 
     await Promise.all(contextos.map((actor) => actor.dispose()))
+    await leitor.dispose()
+  })
+  test('RN-11 — cancelar devolve a vaga do teto e libera o Livro para o mesmo Leitor', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA_TETO.email)
+
+    // Mesmos quatro Livros do cenário de RN-10, e pelo mesmo motivo: um por
+    // pedido, para que nenhuma recusa possa vir de RN-9 nem de RN-3.
+    const titulos = [
+      'A Hora da Estrela',
+      'Cem Anos de Solidão',
+      'O Amor nos Tempos do Cólera',
+      'O Processo',
+    ]
+    const livros = await Promise.all(titulos.map((t) => apiBookByTitle(leitor.ctx, t)))
+    for (const livro of livros) {
+      expect(livro.availableCopies, `${livro.title} precisa de Cópia livre`).toBeGreaterThan(0)
+    }
+
+    // Enche o teto em sequência — aqui o assunto é a consequência do
+    // cancelamento, não a corrida (essa é o cenário de RN-10 acima)
+    const noTeto: ReservationDto[] = []
+    for (const livro of livros.slice(0, TETO_DE_RESERVAS_ATIVAS)) {
+      noTeto.push(await apiCreateReservation(leitor.ctx, leitor.token, livro.id))
+    }
+
+    const quarto = livros[TETO_DE_RESERVAS_ATIVAS]!
+    const recusado = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
+      data: { bookId: quarto.id },
+    })
+    expect(recusado.status()).toBe(409)
+    expect((await apiErrorOf(recusado)).code).toBe('RESERVATION_LIMIT_REACHED')
+
+    // RN-11 — cancelar devolve a vaga. Sem isto o Leitor ficaria preso no teto
+    // por até 12h por Reservas que ele mesmo já sabe que não vai retirar, e o
+    // cancelamento resolveria metade do problema: libera a Cópia, não o Leitor.
+    const cancelada = await apiCancelReservation(leitor.ctx, leitor.token, noTeto[0]!.id)
+    expect(cancelada.status).toBe('cancelled')
+
+    const agoraVai = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
+      data: { bookId: quarto.id },
+    })
+    expect(agoraVai.status(), 'a vaga cancelada tinha de estar livre').toBe(201)
+    const doQuarto = (await agoraVai.json()).data.reservation as ReservationDto
+
+    // RN-9 — e o Livro cancelado volta a ser reservável pelo MESMO Leitor. É a
+    // outra metade da regra: "expirada ou cancelada não conta" (PRD, RN-9).
+    // Antes de cancelar existir, só a expiração destravava isso — e custava 12h.
+    await apiCancelReservation(leitor.ctx, leitor.token, noTeto[1]!.id)
+    const denovo = await apiCreateReservation(leitor.ctx, leitor.token, cancelada.copy.book.id)
+    expect(denovo.copy.book.id).toBe(cancelada.copy.book.id)
+    expect(denovo.id).not.toBe(cancelada.id)
+
+    // Termina onde começou
+    for (const reserva of [noTeto[2]!, doQuarto, denovo]) {
+      await releaseReservation(reserva.id)
+    }
+    for (const antes of livros) {
+      expect((await apiGetBook(leitor.ctx, antes.id)).availableCopies).toBe(antes.availableCopies)
+    }
+
+    await leitor.dispose()
+  })
+
+  test('RF-L8 — cancelamento e balcão disputam a mesma Reserva: um vence, nunca os dois', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA_CORRIDA.email)
+
+    const livro = await apiBookByTitle(leitor.ctx, 'A Hora da Estrela')
+    const disponiveisAntes = livro.availableCopies
+    expect(disponiveisAntes, 'o cenário exige uma Cópia livre').toBeGreaterThan(0)
+
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
+
+    // O Leitor desiste pelo celular no exato momento em que o Bibliotecário
+    // confirma a efetivação no balcão. As duas escritas querem a MESMA linha de
+    // Reserva e a MESMA Cópia, em direções opostas: uma devolve ao acervo, a
+    // outra entrega ao Leitor. Sem o UPDATE condicional em cada lado, as duas
+    // passam pelas checagens dos serviços e a Cópia termina 'available' com o
+    // livro fisicamente fora da biblioteca — a Disponibilidade passaria a mentir
+    // para todos os Leitores.
+    const [balcao] = await newActors(playwright, BIBLIOTECARIO.email, 1)
+    const [leitorCorrida] = await newActors(playwright, LEITOR_CANCELA_CORRIDA.email, 1)
+
+    const [cancelamento, efetivacao] = await Promise.all([
+      leitorCorrida!.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+        headers: bearer(leitorCorrida!.token),
+      }),
+      balcao!.ctx.post(`${API}/loans`, {
+        headers: bearer(balcao!.token),
+        data: { reservationId: reserva.id, dueAt: inDaysISO(7) },
+      }),
+    ])
+
+    const status = [cancelamento.status(), efetivacao.status()]
+    expect(status.filter((s) => s === 200 || s === 201), `status: ${status.join(',')}`).toHaveLength(1)
+    expect(status.filter((s) => s === 409)).toHaveLength(1)
+    expect(status.filter((s) => s === 500), 'corrida perdida não é defeito de servidor').toHaveLength(0)
+
+    // A Reserva tem um desfecho só, e o estado da Cópia é o que aquele desfecho
+    // manda — é aqui que a inconsistência apareceria
+    const cancelouPrimeiro = cancelamento.status() === 200
+    if (cancelouPrimeiro) {
+      expect(await countLoansForReservation(reserva.id)).toBe(0)
+      expect(await copyStatus(reserva.copy.id)).toBe('available')
+      expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+      expect((await apiErrorOf(efetivacao)).code).toBe('CONFLICT')
+    } else {
+      expect(await countLoansForReservation(reserva.id)).toBe(1)
+      expect(await copyStatus(reserva.copy.id)).toBe('loaned')
+      expect((await apiErrorOf(cancelamento)).code).toBe('CONFLICT')
+
+      // Devolve a Cópia ao acervo — o Livro é compartilhado com outros cenários
+      const emprestimo = (await efetivacao.json()).data.loan as { id: string }
+      const devolucao = await balcao!.ctx.patch(`${API}/loans/${emprestimo.id}/return`, {
+        headers: bearer(balcao!.token),
+      })
+      expect(devolucao.status()).toBe(200)
+      expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+    }
+
+    await leitorCorrida!.dispose()
+    await balcao!.dispose()
     await leitor.dispose()
   })
 })

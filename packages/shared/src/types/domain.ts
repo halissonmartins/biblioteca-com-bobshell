@@ -56,7 +56,14 @@ export interface User {
 export interface Reservation {
   id: string;
   expiresAt: string; // ISO 8601
+  /**
+   * Os três desfechos, mutuamente exclusivos. `expiredAt` é do job de expiração
+   * (RN-1) e `cancelledAt` é da desistência do Leitor (RF-L8): até a issue #20
+   * eram o mesmo campo, e a tela não tinha como distinguir "o prazo passou" de
+   * "eu desisti" — dizia "Expirada" nos dois casos.
+   */
   convertedAt: string | null;
+  expiredAt: string | null;
   cancelledAt: string | null;
   copyId: string;
   userId: string;
@@ -101,6 +108,9 @@ export interface ReviewWithUser extends Review {
 /**
  * Status derivado de uma Reserva, calculado pela API a cada leitura.
  * Nunca persiste como campo — ver reservationRepository.
+ *
+ * `expired` e `cancelled` são desfechos distintos: o prazo de RN-1 passou, ou o
+ * Leitor desistiu (RF-L8).
  */
 export type ReservationStatus = 'active' | 'expired' | 'converted' | 'cancelled';
 

@@ -552,3 +552,9 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[12/09/2026 14:18]** sim, somente commite o #30
+
+---
+**[12/09/2026 14:57]** implemente a issue #20 — não há rota de cancelamento em reservations.ts
+
+---
+**[12/09/2026 15:58]** commite

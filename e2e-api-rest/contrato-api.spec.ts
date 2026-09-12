@@ -11,6 +11,7 @@ import {
   newActor,
   BIBLIOTECARIO,
   LEITOR,
+  LEITOR_CANCELA,
   LEITOR_DEVOLUCAO,
   LEITOR_EMPRESTIMO,
   LEITOR_RESERVA,
@@ -19,7 +20,7 @@ import {
   TOKEN_ENDPOINT,
   KEYCLOAK_CLIENT_ID,
 } from './helpers'
-import { expireReservation, expireReservationAsJobWould } from './db'
+import { copyStatus, expireReservation, expireReservationAsJobWould } from './db'
 
 /**
  * Contrato HTTP do caminho feliz e das rejeições de entrada.
@@ -111,6 +112,108 @@ test.describe('Contrato HTTP da API', () => {
     })
     expect(semCopia.status()).toBe(409)
     expect((await apiErrorOf(semCopia)).code).toBe('NO_COPY_AVAILABLE')
+
+    await leitor.dispose()
+  })
+
+  test('RF-L8 — PATCH /reservations/:id/cancel devolve 200, encerra a Reserva e libera a Cópia', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA.email)
+
+    const livro = await apiBookByTitle(leitor.ctx, 'Dom Casmurro')
+    const disponiveisAntes = livro.availableCopies
+    expect(disponiveisAntes, 'o cenário exige uma Cópia livre').toBeGreaterThan(0)
+
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes - 1)
+
+    const antes = Date.now()
+    const res = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    const depois = Date.now()
+
+    expect(res.status()).toBe(200)
+    const cancelada = (await res.json()).data.reservation
+
+    // A resposta é a Reserva encerrada, não vazia: é dela que a tela tira o novo
+    // rótulo da linha sem esperar o refetch da lista.
+    expect(cancelada).toMatchObject({
+      id: reserva.id,
+      status: 'cancelled',
+      user: { id: leitor.user.id, email: LEITOR_CANCELA.email },
+    })
+
+    // O campo importa, não só o status: `cancelledAt` é desistência do Leitor e
+    // `expiredAt` é o job (RN-1). Afirmar apenas sobre `status` deixaria passar a
+    // troca de um pelo outro — que é exatamente o defeito que separou os campos.
+    expect(cancelada.expiredAt).toBeNull()
+    expect(cancelada.convertedAt).toBeNull()
+    const cancelledAt = new Date(cancelada.cancelledAt).getTime()
+    expect(cancelledAt).toBeGreaterThanOrEqual(antes)
+    expect(cancelledAt).toBeLessThanOrEqual(depois)
+
+    // RN-5: a Cópia volta ao acervo na hora, sem esperar as 12h nem o job
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+    expect(await copyStatus(reserva.copy.id)).toBe('available')
+
+    // E sai da lista do Leitor, que só mostra Reservas ativas (RF-L4)
+    const minhas = await leitor.ctx.get(`${API}/me/reservations`, { headers: bearer(leitor.token) })
+    expect(minhas.status()).toBe(200)
+    expect(((await minhas.json()).data as Array<{ id: string }>).map((r) => r.id)).not.toContain(
+      reserva.id,
+    )
+
+    // Cancelar de novo é conflito, não um segundo cancelamento — o duplo clique
+    // da tela não pode liberar Cópia duas vezes
+    const repetida = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(repetida.status()).toBe(409)
+    expect((await apiErrorOf(repetida)).code).toBe('CONFLICT')
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+
+    // Reserva inexistente é 404 (o mesmo que a de outro Leitor — ver autorizacao-api)
+    const inexistente = await leitor.ctx.patch(`${API}/reservations/nao-existe/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(inexistente.status()).toBe(404)
+    expect((await apiErrorOf(inexistente)).code).toBe('NOT_FOUND')
+
+    await leitor.dispose()
+  })
+
+  test('RF-L8 — Reserva vencida não é cancelada: RN-1 chegou primeiro', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA.email)
+
+    // Mesmo Livro do cenário acima, e de propósito: aquele devolveu a Cópia ao
+    // acervo e RN-9 não conta Reserva cancelada, então este Leitor pode reservar
+    // o mesmo título outra vez. É a consequência da regra, afirmada de graça.
+    const livro = await apiBookByTitle(leitor.ctx, 'Dom Casmurro')
+    const disponiveisAntes = livro.availableCopies
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
+
+    // O caso real: a aba ficou aberta, o prazo correu e o botão continuou na tela
+    await expireReservation(reserva.id)
+
+    const res = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(res.status()).toBe(409)
+    // Não é CONFLICT genérico: "expirou" diz ao Leitor que a Cópia já voltou e
+    // que reservar de novo é o próximo passo
+    expect((await apiErrorOf(res)).code).toBe('RESERVATION_EXPIRED')
+
+    // Mesma resposta depois de o job passar — não depende desse tempo
+    await expireReservationAsJobWould(reserva.id)
+    const depoisDoJob = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(depoisDoJob.status()).toBe(409)
+    expect((await apiErrorOf(depoisDoJob)).code).toBe('RESERVATION_EXPIRED')
+
+    // A Cópia desta Reserva vencida volta pelo job; o acervo não ficou devendo
+    // nada por causa do cancelamento recusado
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes - 1)
 
     await leitor.dispose()
   })

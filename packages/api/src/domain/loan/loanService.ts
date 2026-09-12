@@ -105,22 +105,26 @@ export async function createLoan(
     );
   }
 
-  // O prazo é checado antes do cancelamento de propósito. O job de expiração grava
-  // `cancelledAt` para registrar que a Reserva venceu (RN-1), então uma Reserva
-  // vencida chega aqui cancelada — e dizer ao Bibliotecário que ela "foi cancelada"
-  // manda ele procurar um cancelamento que ninguém fez. Quem venceu, venceu; o
-  // cancelamento só responde por si quando o prazo ainda estava de pé.
+  // O cancelamento vem primeiro desde a issue #20. Antes dela, `cancelledAt` era
+  // onde o job de expiração registrava o vencimento (RN-1): toda Reserva vencida
+  // chegava aqui "cancelada", e dizer isso ao Bibliotecário mandava ele procurar
+  // um cancelamento que ninguém fez — por isso o prazo era checado antes. Agora
+  // `cancelledAt` só existe quando o Leitor desistiu (RF-L8), e essa é a
+  // informação mais útil no balcão: o Leitor está na frente dele perguntando pelo
+  // livro que ele mesmo liberou.
+  if (reservation.cancelledAt !== null) {
+    throw new AppError(
+      'CONFLICT',
+      'Esta reserva foi cancelada pelo leitor e não pode ser convertida em empréstimo.',
+    );
+  }
+
+  // `expiresAt <= now` cobre a janela de até 60 s antes de o job marcar
+  // `expiredAt`: a resposta não depende de o job ter passado.
   if (reservation.expiresAt <= now) {
     throw new AppError(
       'RESERVATION_EXPIRED',
       'A reserva expirou e não pode ser convertida em empréstimo.',
-    );
-  }
-
-  if (reservation.cancelledAt !== null) {
-    throw new AppError(
-      'CONFLICT',
-      'Esta reserva foi cancelada e não pode ser convertida em empréstimo.',
     );
   }
 
@@ -134,13 +138,15 @@ export async function createLoan(
   });
 
   // RN-6: a leitura da Reserva e a escrita do Empréstimo não são o mesmo instante.
-  // Duas requisições sobre a mesma Reserva passam juntas pela checagem acima e só
-  // uma converte — a outra recebe a mesma resposta de quem tentou converter uma
-  // Reserva já convertida, porque é exatamente isso que aconteceu.
+  // Três escritas disputam esta linha — outra efetivação, o cancelamento pelo
+  // Leitor (RF-L8) e o job de expiração — e o UPDATE condicional de
+  // `createLoanTx` deixa passar uma só. A mensagem não nomeia qual delas chegou
+  // primeiro de propósito: para o Bibliotecário com o Leitor na frente dele, o
+  // que importa é que esta Reserva não serve mais e a lista precisa ser relida.
   if (!created) {
     throw new AppError(
       'CONFLICT',
-      'Esta reserva já foi convertida em empréstimo.',
+      'Esta reserva já foi encerrada e não pode ser convertida em empréstimo. Atualize a lista.',
     );
   }
 

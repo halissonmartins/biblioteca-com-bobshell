@@ -59,11 +59,15 @@ components:
       enum: [active, expired, converted, cancelled]
       description: |
         Estado da Reserva, **derivado a cada leitura** — nunca persiste como coluna.
-        `active` → dentro das 12h, não convertida nem cancelada (RN-1).
-        `expired` → prazo vencido.
+        `active` → dentro das 12h, sem nenhum desfecho (RN-1).
+        `expired` → prazo vencido (RN-1), com ou sem o job já processado.
         `converted` → virou Empréstimo (RN-6). É um sucesso, não uma falha.
-        `cancelled` → ver a observação em `Reservation.cancelledAt`: hoje este
-        valor indica expiração registrada pelo job, não cancelamento pelo Leitor.
+        `cancelled` → o **Leitor** desistiu antes do prazo (RF-L8, RN-11).
+
+        `expired` e `cancelled` são desfechos distintos e não se confundem: um é
+        esquecimento, o outro é desistência, e para o balcão a diferença explica
+        por que a Cópia voltou antes da hora. Até a issue #20 os dois
+        compartilhavam a coluna `cancelledAt` e este valor significava expiração.
 
     Author:
       type: object
@@ -201,18 +205,28 @@ components:
             - type: string
               format: date-time
             - type: 'null'
+        expiredAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: |
+            Quando o job de expiração (`expireReservationsTx`) registrou que o
+            prazo de 12h venceu e devolveu a Cópia ao acervo (RN-1, RN-5). Fica
+            `null` na janela de até 60 s entre o vencimento e a passagem do job —
+            por isso `status` deriva de `expiresAt` também, e não só daqui.
         cancelledAt:
           oneOf:
             - type: string
               format: date-time
             - type: 'null'
           description: |
-            **Atenção — o nome engana.** Este campo NÃO significa apenas
-            "o Leitor cancelou". O job de expiração (`expireReservationsTx`)
-            grava `cancelledAt` para registrar que a Reserva expirou e que a
-            Cópia voltou ao acervo (RN-1, RN-5). Como o produto ainda não tem
-            cancelamento pelo Leitor, hoje **todo `cancelledAt` preenchido é uma
-            expiração**. Não exiba "cancelada" ao usuário a partir deste campo.
+            Quando o **Leitor** cancelou a própria Reserva (RF-L8, RN-11).
+            Exclusivo de desistência: expiração vive em `expiredAt`.
+
+            Até a issue #20 este campo era também onde o job gravava a expiração,
+            e a orientação era justamente **não** exibir "cancelada" a partir
+            dele. Com os campos separados, exibir é o certo.
         copyId:      { type: string }
         userId:      { type: string }
         createdAt:   { type: string, format: date-time }
@@ -559,7 +573,11 @@ paths:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: '#/components/schemas/ReservationDetail' }
+                  data:
+                    type: object
+                    required: [reservation]
+                    properties:
+                      reservation: { $ref: '#/components/schemas/ReservationDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404':
@@ -656,6 +674,97 @@ paths:
                     $ref: '#/components/schemas/Pagination'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reservations/{id}/cancel:
+    patch:
+      summary: Cancelar a própria reserva (RF-L8, RN-11)
+      description: |
+        O Leitor desiste de uma Reserva ativa **dele** e a Cópia volta ao acervo
+        na mesma transação (RN-5) — sem esperar as 12h de RN-1. A vaga volta ao
+        teto de RN-10 e o Livro volta a ser reservável por ele (RN-9 não conta
+        Reserva cancelada). Requer papel `leitor`.
+
+        Propriedade é regra, não filtro de conveniência: o Leitor sai do `sub` do
+        token, nunca do corpo (ADR-0009), e a Reserva de outro responde **404**,
+        não 403 — um 403 confirmaria a existência do id a quem não é dono.
+
+        `PATCH`, e não `DELETE`, pelo mesmo motivo de `PATCH /loans/{id}/return`:
+        a Reserva não é removida, ela recebe um desfecho e continua no registro.
+      operationId: cancelReservation
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: |
+            Reserva cancelada. Devolve a Reserva já encerrada (`status:
+            cancelled`, `cancelledAt` preenchido) e não 204: a tela troca o
+            rótulo da linha sem esperar o refetch da lista.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [reservation]
+                    properties:
+                      reservation: { $ref: '#/components/schemas/ReservationDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            Papel `bibliotecario` (RN-2, RN-7). Cancelar é ato de quem reservou:
+            o balcão desfaz Reserva convertendo ou esperando o prazo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: |
+            Reserva inexistente **ou de outro Leitor** — as duas respondem igual,
+            de propósito (RN-11).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Reserva não encontrada.
+        '409':
+          description: |
+            A Reserva já tem desfecho; o `code` separa o que fazer a seguir:
+
+            - `CONFLICT` — já convertida em Empréstimo (o livro está com o
+              Leitor: o caminho agora é Devolução no balcão), já cancelada
+              (idempotência — dois cliques não são dois cancelamentos), ou
+              corrida perdida para a efetivação no balcão.
+            - `RESERVATION_EXPIRED` — o prazo de RN-1 chegou primeiro. É o caso
+              comum: a aba ficou aberta e o botão continuou à mostra.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+              examples:
+                jaConvertida:
+                  summary: Já virou Empréstimo
+                  value:
+                    error:
+                      code: CONFLICT
+                      message: >-
+                        Esta reserva já virou empréstimo e não pode ser cancelada.
+                        Procure o balcão para devolver o livro.
+                jaExpirada:
+                  summary: RN-1 chegou primeiro
+                  value:
+                    error:
+                      code: RESERVATION_EXPIRED
+                      message: >-
+                        Esta reserva expirou e a cópia já voltou ao acervo — não há
+                        o que cancelar.
 
   /me/reservations:
     get:

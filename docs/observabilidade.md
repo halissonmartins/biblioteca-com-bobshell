@@ -175,6 +175,7 @@ Declaradas em um único módulo: `packages/api/src/infra/telemetry/metrics.ts`.
 |---|---|---|---|---|
 | `biblioteca.reservas.criadas` | Counter | `resultado`: `criada` / `sem_copia` (RN-3) / `duplicada` (RN-9) / `limite` (RN-10) / `erro` | `routes/reservations.ts` | volume de Reservas, e **por que** as recusadas não saíram — as três recusas são 409 na borda, mas `sem_copia` é sinal de acervo insuficiente (compra) enquanto `duplicada` e `limite` são regra barrando o Leitor (uso) |
 | `biblioteca.reservas.expiradas` | Counter | — | `jobs/expireReservations.ts` | RN-1 / RN-5 |
+| `biblioteca.reservas.canceladas` | Counter | `resultado`: `cancelada` / `nao_encontrada` / `encerrada` / `expirada` / `erro` | `routes/reservations.ts` | desistência do Leitor (RF-L8, RN-11) — Cópia que voltou **cedo**, o oposto do que `reservas.expiradas` conta. Somadas num contador só, a conversão do PRD §11 não distingue desistência de esquecimento. `expirada` é o Leitor tentando cancelar o que o prazo já encerrou: se subir, é a tela deixando o botão à mostra depois da hora |
 | `biblioteca.emprestimos.efetivados` | Counter | — | `routes/loans.ts` | numerador da conversão |
 | `biblioteca.devolucoes` | Counter | `situacao`: `em_dia` / `atrasado` | `routes/loans.ts` | pontualidade (RN-8) |
 | `biblioteca.reserva.conversao.duracao` | Histogram (s) | — | `repositories/loanRepository.ts` | quanto o Leitor demora entre reservar e retirar |

@@ -19,6 +19,8 @@ vi.mock('../../infra/repositories/reservationRepository.js', () => ({
   reservationRepoDeps: {
     findAvailableCopy: vi.fn(),
     createReservationTx: vi.fn(),
+    findReservationForCancel: vi.fn(),
+    cancelReservationTx: vi.fn(),
     findActiveReservationsByUser: vi.fn().mockResolvedValue([]),
     findReservationsByBook: vi.fn().mockResolvedValue([]),
   },
@@ -31,6 +33,7 @@ vi.mock('../../domain/reservation/reservationService.js', async (importOriginal)
   return {
     ...original,
     createReservation: vi.fn(),
+    cancelReservation: vi.fn(),
     listBookReservations: vi.fn().mockResolvedValue([]),
   };
 });
@@ -62,6 +65,7 @@ const RESERVATION_DETAIL = {
   expiresAt: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
   createdAt: new Date().toISOString(),
   convertedAt: null,
+  expiredAt: null,
   cancelledAt: null,
   status: 'active' as const,
   copy: { id: 'copy-1', code: 'LIV-001', book: { id: 'book-1', title: 'Dom Casmurro', coverUrl: null, author: { id: 'author-1', name: 'Machado de Assis' } } },
@@ -113,6 +117,49 @@ describe('POST /reservations', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({});
     expect(res.status).toBe(422);
+  });
+});
+
+// ── PATCH /reservations/:id/cancel ─────────────────────────────────────────
+
+describe('PATCH /reservations/:id/cancel', () => {
+  it('401 quando não autenticado', async () => {
+    const res = await request(app).patch('/reservations/res-1/cancel');
+    expect(res.status).toBe(401);
+  });
+
+  it('403 quando autenticado como bibliotecario (RN-7, RN-11)', async () => {
+    // Cancelar é ato do Leitor sobre a própria Reserva. O balcão desfaz Reserva
+    // convertendo ou esperando o prazo, não cancelando pelo Leitor.
+    const token = await makeToken('bibliotecario');
+    const res = await request(app)
+      .patch('/reservations/res-1/cancel')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('200 quando o próprio Leitor cancela, e o Leitor vem do TOKEN (ADR-0009)', async () => {
+    vi.mocked(reservationService.cancelReservation).mockResolvedValue(undefined);
+    vi.mocked(reservationRepo.findReservationDetail).mockResolvedValue({
+      ...RESERVATION_DETAIL,
+      status: 'cancelled',
+      cancelledAt: new Date().toISOString(),
+    });
+
+    const token = await makeToken('leitor', 'user-1');
+    const res = await request(app)
+      .patch('/reservations/res-1/cancel')
+      .set('Authorization', `Bearer ${token}`)
+      // Um `userId` no corpo não pode virar o Leitor da operação: o papel e a
+      // identidade saem do token, sempre (ADR-0009).
+      .send({ userId: 'outro-leitor' });
+
+    expect(res.status).toBe(200);
+    expect(reservationService.cancelReservation).toHaveBeenCalledWith(
+      { reservationId: 'res-1', userId: 'user-1' },
+      expect.anything(),
+    );
+    expect(res.body).toMatchObject({ data: { reservation: { status: 'cancelled' } } });
   });
 });
 

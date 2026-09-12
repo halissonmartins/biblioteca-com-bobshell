@@ -112,6 +112,8 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
 - **Uma Reserva ativa por Leitor por Livro** (RN-9) — Empréstimo em aberto do mesmo Livro também bloqueia; expirada ou cancelada não conta
 - **Teto de Reservas ativas por Leitor** (RN-10) — o número vive em `MAX_ACTIVE_RESERVATIONS_PER_READER` (`packages/api/src/domain/reservation/reservationService.ts`); é regra que a API impõe, não a tela
+- **Só o próprio Leitor cancela a própria Reserva, e só enquanto ativa** (RN-11) — Reserva de outro responde 404, não 403; convertida em Empréstimo se desfaz por Devolução no balcão. Cancelar libera a Cópia na hora (RN-5), devolve a vaga de RN-10 e não conta para RN-9
+- **Expiração e cancelamento são campos separados** — o job grava `expiredAt` (RN-1), o Leitor grava `cancelledAt` (RF-L8). Um campo só não distingue esquecimento de desistência, e a tela dizia "Expirada" para quem acabara de cancelar
 - Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
 - Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
 - Empréstimo vence em **7 dias corridos**, ajustável pelo Bibliotecário no balcão (RN-8) — o padrão vive em `LOAN_PERIOD_DAYS` (`packages/web/src/utils/loan.ts`); a API ainda aceita qualquer `dueAt`

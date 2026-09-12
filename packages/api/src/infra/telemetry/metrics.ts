@@ -37,6 +37,22 @@ export const reservasExpiradas: Counter = meter.createCounter('biblioteca.reserv
 });
 
 /**
+ * Atributo `resultado`: 'cancelada' | 'nao_encontrada' | 'encerrada' | 'expirada'.
+ *
+ * Separada de `reservas.expiradas` porque as duas contam coisas opostas sobre o
+ * acervo: expiração é Cópia bloqueada o prazo inteiro por nada, cancelamento é
+ * Cópia devolvida cedo por quem desistiu. Somadas num contador só, a métrica de
+ * produto "conversão > 70%" (PRD §11) não distingue desistência de esquecimento.
+ */
+export const reservasCanceladas: Counter = meter.createCounter(
+  'biblioteca.reservas.canceladas',
+  {
+    description: 'Cancelamentos de Reserva pedidos pelo Leitor (RF-L8, RN-11)',
+    unit: '{reserva}',
+  },
+);
+
+/**
  * Alimenta a métrica de produto "conversão Reserva → Empréstimo > 70%" (PRD §11).
  * Fronteiras cobrem a janela de 12 h da RN-1: 5 min … 12 h.
  */

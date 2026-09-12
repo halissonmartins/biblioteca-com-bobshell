@@ -5,12 +5,14 @@
  *
  * Casos de uso implementados:
  *   - createReservation       — cria Reserva se houver Cópia disponível (RF-L3, RN-1, RN-3, RN-4, RN-9, RN-10)
+ *   - cancelReservation       — Leitor desiste da própria Reserva ativa (RF-L8, RN-11)
  *   - listReaderReservations  — lista Reservas ativas do Leitor (RF-L4)
  *   - listBookReservations    — lista todas as Reservas de um Livro (RF-B1)
  */
 
 import { AppError } from '../../shared/errors.js';
 import type {
+  CancelReservationInput,
   CreateReservationInput,
   CreateReservationResult,
   ListBookReservationsFilter,
@@ -50,6 +52,17 @@ export interface AvailableCopy {
   code: string;
 }
 
+/** Dados mínimos de uma Reserva para decidir se ela pode ser cancelada (RN-11). */
+export interface ReservationForCancel {
+  id: string;
+  userId: string;
+  copyId: string;
+  expiresAt: Date;
+  convertedAt: Date | null;
+  expiredAt: Date | null;
+  cancelledAt: Date | null;
+}
+
 /** Resultado da transação de criação — ver `createReservationTx`. */
 export type CreateReservationTxResult =
   | { ok: true; reservationId: string }
@@ -82,6 +95,24 @@ export interface ReservationServiceDeps {
     now: Date;
     maxActiveReservations: number;
   }) => Promise<CreateReservationTxResult>;
+
+  /** Busca uma Reserva pelo id para decidir o cancelamento (RN-11); null se não existe */
+  findReservationForCancel: (reservationId: string) => Promise<ReservationForCancel | null>;
+
+  /**
+   * Marca a Reserva como cancelada pelo Leitor e devolve a Cópia ao acervo em
+   * uma única transação (RN-11, RN-5).
+   *
+   * O UPDATE é condicionado aos três desfechos ainda nulos, e é ele que decide o
+   * vencedor: duas requisições concorrentes — o duplo clique da tela, ou o
+   * cancelamento e o job de expiração no mesmo segundo — passam juntas pelas
+   * checagens do serviço. Retorna false para quem não afetou linha nenhuma.
+   */
+  cancelReservationTx: (params: {
+    reservationId: string;
+    copyId: string;
+    now: Date;
+  }) => Promise<boolean>;
 
   /** Lista as Reservas ativas (não expiradas) do Leitor (RF-L4) */
   findActiveReservationsByUser: (
@@ -169,6 +200,75 @@ export async function createReservation(
     copyId: availableCopy.id,
     expiresAt: expiresAt.toISOString(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// cancelReservation — RF-L8, RN-11, RN-5
+// ---------------------------------------------------------------------------
+
+/**
+ * O Leitor desiste da própria Reserva antes do prazo, e a Cópia volta ao acervo
+ * na hora.
+ *
+ * Sem isto a Reserva tinha duas saídas — conversão e as 12h de RN-1 — e nenhuma
+ * delas nas mãos de quem reservou: a Cópia ficava bloqueada o prazo inteiro
+ * mesmo quando o Leitor já sabia que não ia buscar. Quem pagava eram os outros
+ * Leitores, que veem Disponibilidade zero num Livro que ninguém vai retirar
+ * (issue #20).
+ *
+ * A ordem das recusas segue o que é mais informativo para quem clicou:
+ * convertida (o Empréstimo já existe, o assunto agora é Devolução), cancelada
+ * (idempotência — dois cliques não são dois cancelamentos) e só então o prazo.
+ */
+export async function cancelReservation(
+  input: CancelReservationInput,
+  deps: ReservationServiceDeps,
+  now: Date = new Date(),
+): Promise<void> {
+  const reservation = await deps.findReservationForCancel(input.reservationId);
+
+  // Reserva de outro Leitor responde como Reserva inexistente, de propósito: um
+  // 403 aqui confirmaria a existência do id a quem não é dono, e a lista de
+  // Reservas não é pública (P-01, ADR-0009). RN-11 — só o dono cancela.
+  if (!reservation || reservation.userId !== input.userId) {
+    throw new AppError('NOT_FOUND', 'Reserva não encontrada.');
+  }
+
+  if (reservation.convertedAt !== null) {
+    throw new AppError(
+      'CONFLICT',
+      'Esta reserva já virou empréstimo e não pode ser cancelada. Procure o balcão para devolver o livro.',
+    );
+  }
+
+  if (reservation.cancelledAt !== null) {
+    throw new AppError('CONFLICT', 'Esta reserva já foi cancelada.');
+  }
+
+  // Prazo vencido é o caso comum de erro aqui: a aba ficou aberta, o prazo correu
+  // e o botão continuou na tela. `expiredAt` preenchido é o job já tendo passado;
+  // a comparação de prazo cobre a janela de até 60 s antes disso, para que a
+  // resposta não dependa de o job ter rodado (RN-1).
+  if (reservation.expiredAt !== null || reservation.expiresAt <= now) {
+    throw new AppError(
+      'RESERVATION_EXPIRED',
+      'Esta reserva expirou e a cópia já voltou ao acervo — não há o que cancelar.',
+    );
+  }
+
+  // RN-5: a Cópia volta ao acervo na mesma transação que encerra a Reserva.
+  const cancelled = await deps.cancelReservationTx({
+    reservationId: reservation.id,
+    copyId: reservation.copyId,
+    now,
+  });
+
+  // Corrida perdida: entre as checagens acima e a escrita, outra requisição (ou o
+  // job de expiração) deu o desfecho. Para quem clicou é a mesma situação de uma
+  // Reserva já encerrada, e é o que a mensagem diz.
+  if (!cancelled) {
+    throw new AppError('CONFLICT', 'Esta reserva já foi encerrada.');
+  }
 }
 
 // ---------------------------------------------------------------------------

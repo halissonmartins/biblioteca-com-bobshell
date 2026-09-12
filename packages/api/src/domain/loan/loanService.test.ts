@@ -135,7 +135,7 @@ describe('createLoan()', () => {
     ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
-  it('lança CONFLICT quando a Reserva é convertida por outra requisição durante a escrita (RN-6)', async () => {
+  it('lança CONFLICT quando a Reserva ganha outro desfecho durante a escrita (RN-6, RF-L8)', async () => {
     // A Reserva estava ativa na checagem e deixou de estar antes do commit: a
     // transação devolve null em vez de estourar o índice único de
     // loans.reservationId, que chegaria à borda como 500.
@@ -147,11 +147,13 @@ describe('createLoan()', () => {
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
 
-    // Quem perdeu a corrida recebe a mesma mensagem de quem tentou converter uma
-    // Reserva já convertida — para o Bibliotecário é a mesma situação.
+    // Três escritas disputam esta linha — outra efetivação, o cancelamento pelo
+    // Leitor e o job de expiração — e a mensagem não nomeia qual chegou primeiro:
+    // com o Leitor na frente do balcão, o que importa é que esta Reserva não
+    // serve mais e a lista precisa ser relida.
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toThrow('Esta reserva já foi convertida em empréstimo.');
+    ).rejects.toThrow('Esta reserva já foi encerrada e não pode ser convertida em empréstimo.');
   });
 
   it('lança CONFLICT quando a Reserva foi cancelada (RN-6)', async () => {
@@ -182,18 +184,37 @@ describe('createLoan()', () => {
     ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
   });
 
-  it('lança RESERVATION_EXPIRED, não CONFLICT, quando a Reserva foi cancelada por ter vencido (RN-1, RN-6)', async () => {
-    // É o estado em que o job de expiração deixa toda Reserva vencida: prazo no
-    // passado e cancelledAt preenchido. O Bibliotecário precisa ler "expirou".
+  it('lança RESERVATION_EXPIRED quando o job já processou o vencimento (RN-1, RN-6)', async () => {
+    // Estado em que o job de expiração deixa toda Reserva vencida. Desde a issue
+    // #20 ele grava em `expiredAt`, não em `cancelledAt`, e a checagem de prazo do
+    // serviço cobre os dois lados da janela de 60 s — o Bibliotecário lê "expirou"
+    // tanto no minuto seguinte ao vencimento quanto no dia seguinte.
     const deps = makeDeps({
       findReservationById: vi.fn().mockResolvedValue(
-        makeReservation({ expiresAt: PAST_DATE, cancelledAt: PAST_DATE }),
+        makeReservation({ expiresAt: PAST_DATE, cancelledAt: null }),
       ),
     });
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
     ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+  });
+
+  it('lança CONFLICT quando o Leitor cancelou a Reserva antes do prazo (RF-L8, RN-6)', async () => {
+    // `cancelledAt` com prazo ainda de pé só acontece por desistência do Leitor —
+    // e aí "foi cancelada pelo leitor" é a informação que o balcão precisa, com o
+    // Leitor na frente dele perguntando pelo livro que ele mesmo liberou. Antes de
+    // a issue #20 separar os campos, este caso era indistinguível de expiração.
+    const deps = makeDeps({
+      findReservationById: vi.fn().mockResolvedValue(
+        makeReservation({ cancelledAt: FIXED_NOW }),
+      ),
+    });
+
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(deps.createLoanTx).not.toHaveBeenCalled();
   });
 
   it('lança RESERVATION_EXPIRED quando expiresAt === now (fronteira inclusiva)', async () => {

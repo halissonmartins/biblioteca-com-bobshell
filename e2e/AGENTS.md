@@ -34,7 +34,7 @@ abaixo são consumidos pelos dois lados.
 | `autenticacao.spec.ts` | Entrada, saída, guarda de rota e **auto-cadastro** (a tela é a do Keycloak) |
 | `autorizacao-api.spec.ts` | 401, 403 e isolamento entre Leitores |
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
-| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6) e os dois limites por Leitor (RN-9, RN-10) |
+| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6), os dois limites por Leitor (RN-9, RN-10) e o cancelamento (RN-11), inclusive disputando a linha com o balcão |
 | `helpers.ts` | Login, arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
 
@@ -119,20 +119,28 @@ Reserva usa um Livro dedicado para não mexer na Disponibilidade que outro teste
 |---|---|
 | Ensaio sobre a Cegueira | seed — 0 disponíveis, só leitura |
 | O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia (devolve as duas Cópias no fim) |
-| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta e Reserva disputada no balcão (os dois devolvem a Cópia no fim) |
-| Dom Casmurro | `contrato-api` (POST /reservations) e `regras-negocio-api` (teto de RN-10, devolve) |
+| A Paixão Segundo G.H. | `regras-negocio-api` (expiração ponta a ponta e Reserva disputada no balcão, os dois devolvem) e `bibliotecario` (Reserva cancelada no balcão — o cancelamento devolve a Cópia sozinho) |
+| Dom Casmurro | `contrato-api` — POST /reservations, cancelamento (RF-L8) e Reserva vencida que não se cancela. **Não serve de pré-condição para ninguém depois**: a última Cópia fica estacionada numa Reserva vencida até o job passar |
 | Memórias Póstumas de Brás Cubas | `contrato-api` — POST /loans e RN-6 |
-| A Hora da Estrela | `contrato-api` (devolução), `regras-negocio-api` (Reserva duplicada de RN-9, devolve) e `reservas-leitor` (expira em breve) |
-| A Metamorfose | `autorizacao-api` (isolamento) e `bibliotecario` (modal) |
-| Cem Anos de Solidão | `bibliotecario` (US-10) e `regras-negocio-api` (teto de RN-10, devolve) |
-| O Amor nos Tempos do Cólera | `bibliotecario` (US-11) e `regras-negocio-api` (teto de RN-10, devolve) |
-| O Processo | `reservas-leitor` (US-03) e `regras-negocio-api` (teto de RN-10, devolve) |
+| A Hora da Estrela | `contrato-api` (devolução), `regras-negocio-api` (RN-9, teto de RN-10/RN-11 e a corrida cancelar × efetivar — todos devolvem) e `reservas-leitor` (expira em breve) |
+| A Metamorfose | `autorizacao-api` (isolamento e RN-11, que cancela no fim) e `bibliotecario` (modal) |
+| Cem Anos de Solidão | `bibliotecario` (US-10) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
+| O Amor nos Tempos do Cólera | `bibliotecario` (US-11) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
+| O Processo | `reservas-leitor` (US-03 e US-14) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
 
 Ao adicionar cenário que reserve, escolha um Livro livre ou devolva a Cópia no fim.
+**Livro cuja Disponibilidade depende do relógio não serve de pré-condição**: uma
+Reserva vencida só devolve a Cópia quando o job passa, em até 60 s. Foi por isso
+que Dom Casmurro saiu do conjunto dos cenários de teto.
 Cenário que só precisa da Cópia durante a asserção devolve com `releaseReservation`
-(`db.ts`) — cancela e libera a Cópia na mesma transação, como o job faria, sem
-esperar o tique de um minuto. Quem converte em Empréstimo devolve pelo caminho de
-produção (`PATCH /loans/:id/return`).
+(`db.ts`) — grava `cancelledAt` e libera a Cópia na mesma transação, sem gastar uma
+requisição de negócio. Quem quer exercitar o caminho de produção usa
+`apiCancelReservation` (RF-L8) ou, se já converteu, `PATCH /loans/:id/return`.
+
+**Expiração e cancelamento têm campos separados** desde a issue #20: `expiredAt` é
+do job (RN-1), `cancelledAt` é do Leitor (RF-L8). `expireReservationAsJobWould`
+grava o primeiro; afirmar sobre o campo errado faz um teste de "cancelou" passar
+sobre uma expiração.
 
 **Um Leitor por cenário que cria Reserva.** É o outro lado da tabela acima, e
 existe desde RN-9 e RN-10 (issues #28, #29, #30): a Reserva passou a ser um recurso
@@ -166,10 +174,16 @@ contêiner para reimportar (`keycloak/README.md`), nunca clicar no admin console
 | `e2e-balcao-duplo@` | `regras-negocio-api` RN-6 — seis efetivações da mesma Reserva |
 | `e2e-duplicada@` | `regras-negocio-api` RN-9 |
 | `e2e-teto@` | `regras-negocio-api` RN-10 |
+| `e2e-cancela@` | `contrato-api` RF-L8 — contrato do cancelamento e da Reserva vencida |
+| `e2e-cancela-alheia@` | `autorizacao-api` RN-11 — dono da Reserva que outro tenta cancelar |
+| `e2e-cancela-teto@` | `regras-negocio-api` RN-11 — cancelar devolve a vaga e libera o Livro |
+| `e2e-cancela-corrida@` | `regras-negocio-api` RF-L8 — cancelar × efetivar na mesma Reserva |
 | `e2e-balcao-efetiva@` | `bibliotecario` US-10 |
 | `e2e-balcao-expira@` | `bibliotecario` US-10 — Reserva que vence com o modal aberto |
 | `e2e-balcao-devolve@` | `bibliotecario` US-11 |
+| `e2e-balcao-cancelada@` | `bibliotecario` RN-11 — "Cancelada" não é "Expirada" no balcão |
 | `e2e-tela-reserva@` | `reservas-leitor` US-03 |
+| `e2e-tela-cancela@` | `reservas-leitor` US-14 — cancela pela tela |
 
 **A fila de US-03 são oito contas distintas, não duas alternadas.** Com RN-9 um Leitor
 não disputa consigo mesmo: alternando contas, sete perdedores recebem

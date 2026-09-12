@@ -4,16 +4,19 @@
  *
  * Cobre:
  *   - createReservation: sucesso, sem cópia disponível (RN-3), expiração em 12h (RN-1)
+ *   - cancelReservation: dono, terceiros, desfechos já dados e corrida (RF-L8, RN-11)
  *   - listReaderReservations: delega ao repositório corretamente (RF-L4)
  *   - listBookReservations: delega ao repositório corretamente (RF-B1)
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import {
+  cancelReservation,
   createReservation,
   listReaderReservations,
   listBookReservations,
   MAX_ACTIVE_RESERVATIONS_PER_READER,
+  type ReservationForCancel,
   type ReservationServiceDeps,
 } from './reservationService.js';
 import { AppError } from '../../shared/errors.js';
@@ -56,6 +59,23 @@ function makeReservationDetail(overrides?: Partial<ReservationDetail>): Reservat
     user: { id: 'user-1', name: 'João Leitor', email: 'joao@example.com' },
     status: 'active',
     convertedAt: null,
+    expiredAt: null,
+    cancelledAt: null,
+    ...overrides,
+  };
+}
+
+/** Reserva ativa do `user-1`, na forma que o cancelamento consulta (RN-11). */
+function makeReservationForCancel(
+  overrides?: Partial<ReservationForCancel>,
+): ReservationForCancel {
+  return {
+    id: 'res-1',
+    userId: 'user-1',
+    copyId: 'copy-1',
+    expiresAt: EXPECTED_EXPIRES_AT,
+    convertedAt: null,
+    expiredAt: null,
     cancelledAt: null,
     ...overrides,
   };
@@ -66,6 +86,8 @@ function makeDeps(overrides?: Partial<ReservationServiceDeps>): ReservationServi
     findAvailableCopy: vi.fn().mockResolvedValue(AVAILABLE_COPY),
     bookExists: vi.fn().mockResolvedValue(true),
     createReservationTx: vi.fn().mockResolvedValue({ ok: true, reservationId: 'res-1' }),
+    findReservationForCancel: vi.fn().mockResolvedValue(makeReservationForCancel()),
+    cancelReservationTx: vi.fn().mockResolvedValue(true),
     findActiveReservationsByUser: vi.fn().mockResolvedValue([]),
     findReservationsByBook: vi.fn().mockResolvedValue([]),
     ...overrides,
@@ -248,6 +270,121 @@ describe('createReservation()', () => {
     );
 
     expect(deps.createReservationTx).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cancelReservation() — RF-L8, RN-11
+// ---------------------------------------------------------------------------
+
+describe('cancelReservation()', () => {
+  it('cancela a Reserva do próprio Leitor e libera a Cópia junto (RN-5, RN-11)', async () => {
+    const deps = makeDeps();
+
+    await cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW);
+
+    // A Cópia entra na chamada porque é a mesma transação que a devolve ao acervo:
+    // encerrar a Reserva e deixar a Cópia 'reserved' é o pior desfecho possível.
+    expect(deps.cancelReservationTx).toHaveBeenCalledWith({
+      reservationId: 'res-1',
+      copyId: 'copy-1',
+      now: FIXED_NOW,
+    });
+  });
+
+  it('Reserva inexistente é NOT_FOUND', async () => {
+    const deps = makeDeps({ findReservationForCancel: vi.fn().mockResolvedValue(null) });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-404', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('Reserva de OUTRO Leitor responde NOT_FOUND, não FORBIDDEN (RN-11, P-01)', async () => {
+    // 403 confirmaria a existência do id a quem não é dono. A lista de Reservas
+    // não é pública, e o cancelamento não pode ser o oráculo que a vaza.
+    const deps = makeDeps({
+      findReservationForCancel: vi
+        .fn()
+        .mockResolvedValue(makeReservationForCancel({ userId: 'outro-leitor' })),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('Reserva já convertida em Empréstimo é CONFLICT e manda ao balcão', async () => {
+    const deps = makeDeps({
+      findReservationForCancel: vi
+        .fn()
+        .mockResolvedValue(makeReservationForCancel({ convertedAt: FIXED_NOW })),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('cancelar duas vezes é CONFLICT, não um segundo cancelamento', async () => {
+    const deps = makeDeps({
+      findReservationForCancel: vi
+        .fn()
+        .mockResolvedValue(makeReservationForCancel({ cancelledAt: FIXED_NOW })),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('Reserva com prazo vencido é RESERVATION_EXPIRED mesmo antes do job passar (RN-1)', async () => {
+    // Janela de até 60 s entre o vencimento e o job: `expiredAt` ainda é null e a
+    // resposta não pode depender disso. É o caso comum — a aba ficou aberta.
+    const deps = makeDeps({
+      findReservationForCancel: vi.fn().mockResolvedValue(
+        makeReservationForCancel({ expiresAt: new Date(FIXED_NOW.getTime() - 1_000) }),
+      ),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('Reserva já expirada pelo job é RESERVATION_EXPIRED, não CONFLICT', async () => {
+    const deps = makeDeps({
+      findReservationForCancel: vi.fn().mockResolvedValue(
+        makeReservationForCancel({
+          expiresAt: new Date(FIXED_NOW.getTime() - 60_000),
+          expiredAt: FIXED_NOW,
+        }),
+      ),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+  });
+
+  it('corrida perdida na transação é CONFLICT, não sucesso silencioso', async () => {
+    // Todas as checagens passaram, e entre elas e a escrita alguém deu o desfecho:
+    // o balcão efetivou, ou o job expirou. O UPDATE condicional não afeta linha.
+    const deps = makeDeps({ cancelReservationTx: vi.fn().mockResolvedValue(false) });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 });
 

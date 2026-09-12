@@ -55,6 +55,11 @@ export interface CreateReservationRequest {
   bookId: string;
 }
 
+/** Resposta de PATCH /reservations/:id/cancel — a Reserva já encerrada (RF-L8) */
+export interface CancelReservationResponse {
+  reservation: import('./domain.js').ReservationDetail;
+}
+
 export interface CreateReservationResponse {
   reservation: import('./domain.js').ReservationDetail;
 }

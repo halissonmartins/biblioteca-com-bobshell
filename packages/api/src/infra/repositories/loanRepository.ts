@@ -52,16 +52,27 @@ export async function findReservationById(
 /**
  * Persiste o Empréstimo, marca a Cópia como 'loaned' e a Reserva como convertida
  * em uma única transação (RN-6).
- * Retorna null se a Reserva já tinha sido convertida entre a validação do serviço
- * e a escrita — outro Bibliotecário, ou o mesmo com dois cliques, chegou primeiro.
+ * Retorna null se a Reserva ganhou outro desfecho entre a validação do serviço e
+ * a escrita — outro Bibliotecário (ou o mesmo com dois cliques) converteu
+ * primeiro, ou o Leitor cancelou no mesmo instante.
  *
- * O UPDATE da Reserva é condicionado a `convertedAt: null` e vem ANTES da criação
- * do Empréstimo: é ele que decide quem converte. Duas requisições concorrentes
- * passam juntas pela checagem de `convertedAt` no serviço; a segunda espera o lock
- * da linha da Reserva, reavalia o WHERE depois do commit da primeira e não afeta
- * nenhuma linha — daí `count === 0`. Sem essa condição a corrida ia parar no índice
- * único de `loans.reservationId`, e a violação crua do Prisma virava 500 na borda,
- * no lugar do 409 que a regra já previa. Mesmo desenho de `createReservationTx`.
+ * O UPDATE da Reserva vem ANTES da criação do Empréstimo: é ele que decide quem
+ * converte. Duas requisições concorrentes passam juntas pelas checagens do
+ * serviço; a segunda espera o lock da linha da Reserva, reavalia o WHERE depois
+ * do commit da primeira e não afeta nenhuma linha — daí `count === 0`. Sem essa
+ * condição a corrida ia parar no índice único de `loans.reservationId`, e a
+ * violação crua do Prisma virava 500 na borda, no lugar do 409 que a regra já
+ * previa. Mesmo desenho de `createReservationTx`.
+ *
+ * **O WHERE cobre os três desfechos, não só `convertedAt`.** Com `convertedAt:
+ * null` sozinho, o cancelamento pelo Leitor (RF-L8) não era visto por esta
+ * escrita: o cancelamento commitava primeiro, gravava `cancelledAt`, devolvia a
+ * Cópia ao acervo — e este UPDATE ainda casava, criando um Empréstimo sobre uma
+ * Reserva cancelada e deixando a Cópia 'loaned' com o registro dizendo que o
+ * Leitor desistiu. Pior: na ordem inversa, a Cópia terminava 'available' com o
+ * livro fisicamente fora da biblioteca, e a Disponibilidade passava a mentir
+ * para todos os Leitores. As duas escritas disputam a mesma linha e agora se
+ * excluem de verdade. Coberto por `regras-negocio-api.spec.ts`.
  */
 export async function createLoanTx(params: {
   reservationId: string;
@@ -75,7 +86,15 @@ export async function createLoanTx(params: {
 
   const criado = await prisma.$transaction(async (tx) => {
     const { count } = await tx.reservation.updateMany({
-      where: { id: reservationId, convertedAt: null },
+      where: {
+        id: reservationId,
+        convertedAt: null,
+        expiredAt: null,
+        cancelledAt: null,
+        // O prazo entra no WHERE pela mesma razão: o job de expiração é a
+        // terceira escrita que disputa esta linha.
+        expiresAt: { gt: now },
+      },
       data: { convertedAt: now },
     });
     if (count === 0) return null;

@@ -73,6 +73,10 @@ export function ReservationStatusBadge({
     ativa:      { variant: 'success' as const, label: 'Ativa' },
     convertida: { variant: 'success' as const, label: 'Convertida' },
     expirada:   { variant: 'neutral' as const, label: 'Expirada' },
+    // Desistência do Leitor (RF-L8) — neutro como "expirada" porque o desfecho
+    // do acervo é o mesmo (a Cópia voltou), mas com rótulo próprio: para o
+    // balcão, "cancelada" explica por que a Cópia voltou antes da hora.
+    cancelada:  { variant: 'neutral' as const, label: 'Cancelada' },
   }
   const entry = map[state]
   if (!entry) return null

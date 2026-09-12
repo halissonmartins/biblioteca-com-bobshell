@@ -56,7 +56,7 @@ export async function expireAllReservationsOf(userId: string): Promise<number> {
 
 /**
  * Deixa a Reserva no estado em que o job de expiração a deixa: prazo vencido e
- * `cancelledAt` preenchido (RN-1). Serve para verificar a resposta da API *depois*
+ * `expiredAt` preenchido (RN-1). Serve para verificar a resposta da API *depois*
  * de o job passar, sem esperar o próximo tique — a liberação da Cópia, que é o outro
  * efeito do job, é observada de verdade em `regras-negocio-api.spec.ts`.
  */
@@ -65,15 +65,19 @@ export async function expireReservationAsJobWould(reservationId: string): Promis
   await withDb((db) =>
     db.reservation.update({
       where: { id: reservationId },
-      data: { expiresAt: new Date(agora.getTime() - 60_000), cancelledAt: agora },
+      // `expiredAt`, não `cancelledAt`: desde a issue #20 os dois desfechos têm
+      // campo próprio, e `cancelledAt` é exclusivo da desistência do Leitor
+      // (RF-L8). Gravar no campo errado aqui faria a API responder "foi
+      // cancelada" a um teste que afirma sobre expiração.
+      data: { expiresAt: new Date(agora.getTime() - 60_000), expiredAt: agora },
     }),
   )
 }
 
 /**
- * Libera uma Reserva ativa agora: cancela e devolve a Cópia ao acervo na mesma
- * transação — exatamente o que `expireReservationsTx` faz quando o job passa,
- * sem esperar o próximo tique de um minuto.
+ * Libera uma Reserva ativa agora: grava `cancelledAt` e devolve a Cópia ao acervo
+ * na mesma transação — o mesmo efeito do `PATCH /reservations/:id/cancel` (RF-L8),
+ * sem gastar uma requisição de negócio só para limpar o cenário.
  *
  * Existe por causa de RN-9 e RN-10, que fizeram da Reserva um recurso do Leitor:
  * um cenário que termina segurando Reserva gasta uma das três vagas do seu

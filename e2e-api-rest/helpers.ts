@@ -92,6 +92,14 @@ export const LEITOR_BALCAO_DUPLO = leitorDeCenario('balcao-duplo')
 export const LEITOR_DUPLICADA = leitorDeCenario('duplicada')
 /** `regras-negocio-api` RN-10 — bate o teto de Reservas ativas de uma vez. */
 export const LEITOR_TETO = leitorDeCenario('teto')
+/** `contrato-api` RF-L8 — cancela a própria Reserva e a Cópia volta na hora. */
+export const LEITOR_CANCELA = leitorDeCenario('cancela')
+/** `regras-negocio-api` RN-11 — cancelar devolve a vaga de RN-10 e libera o Livro. */
+export const LEITOR_CANCELA_TETO = leitorDeCenario('cancela-teto')
+/** `regras-negocio-api` RF-L8 — cancelamento e balcão disputam a mesma Reserva. */
+export const LEITOR_CANCELA_CORRIDA = leitorDeCenario('cancela-corrida')
+/** `autorizacao-api` RN-11 — dono da Reserva que outro Leitor tenta cancelar. */
+export const LEITOR_CANCELA_ALHEIA = leitorDeCenario('cancela-alheia')
 
 // Os Leitores dos cenários de navegador (`bibliotecario`, `reservas-leitor`)
 // vivem só em `e2e/helpers.ts` — esta suíte não os usa.
@@ -166,6 +174,14 @@ export interface ReservationDto {
   id: string
   expiresAt: string
   createdAt: string
+  /**
+   * Os três desfechos têm campo próprio desde RF-L8: `expiredAt` é do job
+   * (RN-1) e `cancelledAt` é da desistência do Leitor (RN-11). Afirmar sobre o
+   * campo certo é o que impede um teste de "cancelou" passar sobre uma expiração.
+   */
+  convertedAt: string | null
+  expiredAt: string | null
+  cancelledAt: string | null
   status: 'active' | 'expired' | 'converted' | 'cancelled'
   copy: { id: string; code: string; book: { id: string; title: string } }
   user: { id: string; name: string; email: string }
@@ -203,6 +219,22 @@ export async function apiCreateLoan(
   })
   expect(res.status(), 'criar empréstimo').toBe(201)
   return (await res.json()).data.loan as LoanDto
+}
+
+/**
+ * O Leitor cancela a própria Reserva (RF-L8, RN-11) — arrange de cenário.
+ * Devolve a Reserva já encerrada, como a rota faz.
+ */
+export async function apiCancelReservation(
+  request: APIRequestContext,
+  leitorToken: string,
+  reservationId: string,
+): Promise<ReservationDto> {
+  const res = await request.patch(`${API}/reservations/${reservationId}/cancel`, {
+    headers: bearer(leitorToken),
+  })
+  expect(res.status(), 'cancelar reserva').toBe(200)
+  return (await res.json()).data.reservation as ReservationDto
 }
 
 /** Data ISO 8601 N dias no futuro (para dueAt). */

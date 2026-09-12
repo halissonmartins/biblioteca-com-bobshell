@@ -126,6 +126,11 @@ E vejo um aviso de retirada urgente nomeando o Livro, o tempo restante
 Dado que todas as minhas Reservas expiraram
 Quando acesso "Minhas reservas"
 Então vejo a lista vazia com mensagem informativa
+
+Dado que tenho uma Reserva ativa
+Quando acesso "Minhas reservas"
+Então a linha dela oferece cancelar a Reserva (US-14)
+E uma Reserva já encerrada não oferece ação nenhuma
 ```
 
 ---
@@ -338,4 +343,57 @@ Dado que estou autenticado
 Quando escolho "Sair"
 Então a sessão termina também no Keycloak
 E abrir de novo uma rota protegida pede autenticação outra vez
+```
+
+---
+
+## US-14 — Cancelar minha reserva (RF-L8, RN-11, RN-5)
+
+**Como** Leitor autenticado
+**Quero** cancelar uma Reserva minha que ainda está ativa
+**Para** liberar a Cópia quando já sei que não vou buscar o livro
+
+> Sem isto a Reserva só saía por conversão ou pelas 12 horas de RN-1, e nenhuma
+> das duas está nas mãos de quem reservou: a Cópia ficava bloqueada o prazo
+> inteiro por um livro que ninguém ia retirar. Quem pagava eram os outros
+> Leitores, que veem Disponibilidade zero num Livro parado na prateleira.
+
+### Critérios de aceite
+
+```gherkin
+Dado que tenho uma Reserva ativa
+Quando escolho cancelá-la e confirmo
+Então a Reserva passa a cancelada e sai da minha lista
+E a Cópia volta ao acervo imediatamente, sem esperar o prazo
+E a Disponibilidade do Livro é incrementada na hora
+E volto a poder reservar aquele Livro (RN-9 não conta Reserva cancelada)
+E a vaga volta para o meu teto de Reservas ativas (RN-10)
+
+Dado que tenho uma Reserva ativa
+Quando abro a confirmação de cancelamento
+Então ela me avisa que a Cópia volta ao acervo e outro Leitor pode levá-la
+E consigo desistir do cancelamento sem efeito nenhum
+
+Dado que minha Reserva já virou Empréstimo
+Quando tento cancelá-la
+Então recebo 409 dizendo que o livro já está comigo
+E a mensagem me manda ao balcão para devolver, não para cancelar
+
+Dado que minha Reserva expirou enquanto a aba estava aberta
+Quando clico em cancelar
+Então recebo 409 dizendo que ela já expirou e a Cópia já voltou
+E nada é alterado
+
+Dado que a Reserva é de OUTRO Leitor
+Quando tento cancelá-la pela API
+Então recebo 404, não 403 — a existência do id não é confirmada a quem não é dono
+
+Dado que sou Bibliotecário
+Quando tento cancelar a Reserva de um Leitor
+Então recebo 403: cancelar é ato de quem reservou (RN-2, RN-7, RN-11)
+
+Dado que cancelei uma Reserva
+Quando o Bibliotecário olha a lista de Reservas
+Então ela aparece como "Cancelada", não como "Expirada"
+E ele sabe que a Cópia voltou por desistência, não por esquecimento
 ```

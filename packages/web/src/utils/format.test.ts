@@ -59,9 +59,21 @@ describe('reservationState', () => {
     expect(reservationState(r, agora)).toBe('convertida')
   })
 
-  it('cancelled é exibida como expirada (hoje todo cancelled é RN-1)', () => {
+  it('cancelled tem rótulo próprio: desistir não é deixar vencer (RF-L8)', () => {
+    // Antes da issue #20 este caso caía em 'expirada', e com razão: o job de
+    // expiração gravava em `cancelledAt` e todo cancelled era uma expiração. Com
+    // o cancelamento pelo Leitor existindo, colapsar os dois diria "Expirada"
+    // para a Reserva que ele acabou de cancelar.
     const r = { status: 'cancelled' as const, expiresAt: '2026-08-01T00:00:00Z' }
-    expect(reservationState(r, agora)).toBe('expirada')
+    expect(reservationState(r, agora)).toBe('cancelada')
+  })
+
+  it('cancelled com prazo ainda no futuro continua cancelada, não ativa', () => {
+    // É o caso normal do cancelamento: o Leitor desistiu ANTES das 12h. O
+    // envelhecimento cliente-side só vale para 'ativa' — um desfecho do servidor
+    // não pode ser rejuvenescido pelo relógio do navegador.
+    const r = { status: 'cancelled' as const, expiresAt: '2026-08-15T23:00:00Z' }
+    expect(reservationState(r, agora)).toBe('cancelada')
   })
 
   it('expired vem direto do servidor', () => {

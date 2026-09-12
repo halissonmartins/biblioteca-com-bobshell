@@ -22,7 +22,7 @@ Vite e capas — o job `e2e-api-rest-ci` roda em paralelo ao `e2e-ci` no gate.
 |---|---|
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, identidade |
 | `autorizacao-api.spec.ts` | 401, 403, papéis e isolamento entre Leitores |
-| `regras-negocio-api.spec.ts` | Prazo (RN-1/RN-5/RN-6) e concorrência: a última Cópia (RN-3), a Reserva duplicada (RN-9) e o teto por Leitor (RN-10) |
+| `regras-negocio-api.spec.ts` | Prazo (RN-1/RN-5/RN-6) e concorrência: a última Cópia (RN-3), a Reserva duplicada (RN-9), o teto por Leitor (RN-10) e o cancelamento (RN-11), que disputa a mesma linha com a efetivação no balcão |
 | `contrato-extensoes.spec.ts` | Cenários que só esta suíte tem: `/health`, filtros `search`/`genre`, filtro `?userId=` de `/loans`, `/me` do Bibliotecário, envelope de erro fora das rotas (404 JSON, corpo malformado → 422) |
 | `helpers.ts` | Login por token (`apiLogin`, client `biblioteca-e2e`), arrange via API, atores isolados |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
@@ -44,9 +44,15 @@ espelho local dela, e dois logins simultâneos disputariam o mesmo INSERT.
 roda a cada minuto e processa todo dado que o teste deixar vencido — conte com
 isso ao afirmar sobre estado posterior.
 
-**Cenário devolve o que consumiu.** `releaseReservation` (`db.ts`) cancela a Reserva
-e libera a Cópia na mesma transação — o que o job faria, sem esperar o tique. Quem
-converteu em Empréstimo devolve pelo caminho de produção (`PATCH /loans/:id/return`).
+**Cenário devolve o que consumiu.** `releaseReservation` (`db.ts`) grava
+`cancelledAt` e libera a Cópia na mesma transação, sem gastar uma requisição de
+negócio. Para exercitar o caminho de produção há `apiCancelReservation` (RF-L8) e,
+para o que já virou Empréstimo, `PATCH /loans/:id/return`.
+
+**Expiração e cancelamento têm campos separados** desde a issue #20: `expiredAt` é
+do job (RN-1) e `cancelledAt` é do Leitor (RF-L8). `expireReservationAsJobWould`
+grava o primeiro — afirmar sobre o campo errado faz um teste de "cancelou" passar
+sobre uma expiração.
 
 **O Keycloak não é opcional.** Sem ele a suíte inteira falha com 401; o
 `global-setup` confere o discovery antes do primeiro teste e falha dizendo o que fazer.

@@ -6,7 +6,9 @@ import {
   apiCreateLoan,
   apiBookByTitle,
   inDaysISO,
+  apiCancelReservation,
   LEITOR,
+  LEITOR_BALCAO_CANCELADA,
   LEITOR_BALCAO_DEVOLVE,
   LEITOR_BALCAO_EFETIVA,
   LEITOR_BALCAO_EXPIRA,
@@ -185,5 +187,35 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
 
     await leitorCtx.dispose()
     await bibCtx.dispose()
+  })
+  test('RN-11 — Reserva cancelada pelo Leitor aparece como Cancelada, não Expirada', async ({ page, request }) => {
+    // Para o balcão a diferença é operacional: a Cópia voltou porque o Leitor
+    // desistiu, não porque o prazo estourou. Enquanto os dois desfechos
+    // compartilhavam a coluna `cancelledAt`, a tela dizia "Expirada" nos dois
+    // casos — e o Bibliotecário não tinha como saber (issue #20).
+    const { token } = await apiLogin(request, LEITOR_BALCAO_CANCELADA.email)
+    const reserva = await apiReserveByTitle(request, token, 'A Paixão Segundo G.H.')
+    await apiCancelReservation(request, token, reserva.id)
+
+    await loginUI(page, BIBLIOTECARIO.email)
+    await page.getByRole('link', { name: 'Reservas', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Reservas' })).toBeVisible()
+
+    // A Reserva cancelada não está em "Ativas" — é em "Todas" que ela aparece
+    await page.getByRole('button', { name: /^Todas/ }).click()
+
+    const linha = page
+      .getByRole('row')
+      .filter({ hasText: 'A Paixão Segundo G.H.' })
+      .filter({ hasText: LEITOR_BALCAO_CANCELADA.email })
+    await expect(linha).toBeVisible()
+    await expect(linha).toContainText('Cancelada')
+    await expect(linha).not.toContainText('Expirada')
+
+    // Sem prazo a mostrar: uma Reserva encerrada não tem contagem regressiva
+    await expect(linha).not.toContainText(/\d+ h \d+ min/)
+
+    // E sem ação: não há empréstimo a efetivar sobre Reserva que o Leitor desfez
+    await expect(linha.getByRole('button', { name: 'Efetivar empréstimo' })).toHaveCount(0)
   })
 })

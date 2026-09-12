@@ -11,6 +11,7 @@ import { prisma } from '../prisma.js';
 import { bookExists } from './bookRepository.js';
 import type {
   CreateReservationTxResult,
+  ReservationForCancel,
   ReservationServiceDeps,
 } from '../../domain/reservation/reservationService.js';
 import type { ReservationSummary, ReservationDetail } from '../../domain/reservation/reservationTypes.js';
@@ -79,7 +80,12 @@ export async function createReservationTx(params: {
     // antes de qualquer contagem, senão a contagem já nasce desatualizada.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
 
-    /** Reserva ativa: não vencida, não convertida, não cancelada. */
+    /**
+     * Reserva ativa: prazo de pé e nenhum dos três desfechos. `expiredAt` não
+     * entra porque `expiresAt > now` já o exclui — o job só marca o que venceu —,
+     * mas `cancelledAt` entra e é o que faz o cancelamento (RF-L8) devolver a
+     * vaga de RN-10 e liberar o Livro para RN-9 na hora.
+     */
     const ativa = { expiresAt: { gt: now }, convertedAt: null, cancelledAt: null } as const;
 
     // RN-9 — já tem este Livro reservado?
@@ -112,6 +118,33 @@ export async function createReservationTx(params: {
 
     return { ok: true, reservationId: reservation.id };
   });
+}
+
+// ---------------------------------------------------------------------------
+// statusDe — status derivado, usado por toda leitura de ReservationDetail
+// ---------------------------------------------------------------------------
+
+/**
+ * Deriva o status a cada leitura; nada disso persiste como enum.
+ *
+ * Os três desfechos são mutuamente exclusivos e cada um tem sua coluna, e é por
+ * isso que a ordem aqui não esconde nada. Antes de `expiredAt` existir, o job de
+ * expiração gravava em `cancelledAt`: a mesma Reserva vencida aparecia como
+ * `expired` no primeiro minuto e virava `cancelled` quando o job passava — um
+ * estado que mudava de nome sozinho, sem nada ter acontecido (issue #20).
+ *
+ * `expiresAt <= now` continua valendo como último caso porque cobre a janela de
+ * até 60 s entre o vencimento e o job: a leitura não espera o job para dizer a
+ * verdade.
+ */
+function statusDe(
+  row: { convertedAt: Date | null; expiredAt: Date | null; cancelledAt: Date | null; expiresAt: Date },
+  now: Date,
+): ReservationDetail['status'] {
+  if (row.convertedAt !== null) return 'converted';
+  if (row.cancelledAt !== null) return 'cancelled';
+  if (row.expiredAt !== null) return 'expired';
+  return row.expiresAt <= now ? 'expired' : 'active';
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +220,7 @@ export async function findReservationsByBook(filter: {
       expiresAt: true,
       createdAt: true,
       convertedAt: true,
+      expiredAt: true,
       cancelledAt: true,
       copy: {
         select: {
@@ -204,22 +238,14 @@ export async function findReservationsByBook(filter: {
   });
 
   return rows.map((row) => {
-    let status: ReservationDetail['status'];
-    if (row.convertedAt !== null) {
-      status = 'converted';
-    } else if (row.cancelledAt !== null) {
-      status = 'cancelled';
-    } else if (row.expiresAt <= now) {
-      status = 'expired';
-    } else {
-      status = 'active';
-    }
+    const status = statusDe(row, now);
 
     return {
       id: row.id,
       expiresAt: row.expiresAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
       convertedAt: row.convertedAt?.toISOString() ?? null,
+      expiredAt: row.expiredAt?.toISOString() ?? null,
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
       copy: {
         id: row.copy.id,
@@ -242,13 +268,90 @@ export async function findReservationsByBook(filter: {
 }
 
 // ---------------------------------------------------------------------------
+// findReservationForCancel / cancelReservationTx — RF-L8, RN-11, RN-5
+// ---------------------------------------------------------------------------
+
+/**
+ * Busca a Reserva com o mínimo que o serviço precisa para decidir o
+ * cancelamento. Traz `userId` porque RN-11 é sobre propriedade: quem decide se o
+ * Leitor é dono é o serviço, não uma cláusula WHERE que devolveria "não
+ * encontrada" sem o serviço saber por quê.
+ */
+export async function findReservationForCancel(
+  reservationId: string,
+): Promise<ReservationForCancel | null> {
+  const row = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+    select: {
+      id: true,
+      userId: true,
+      copyId: true,
+      expiresAt: true,
+      convertedAt: true,
+      expiredAt: true,
+      cancelledAt: true,
+    },
+  });
+  return row ?? null;
+}
+
+/**
+ * Marca a Reserva como cancelada pelo Leitor e devolve a Cópia ao acervo na mesma
+ * transação (RN-11, RN-5).
+ *
+ * O UPDATE da Reserva é condicionado aos três desfechos nulos e vem ANTES da
+ * liberação da Cópia: é ele que decide o vencedor, mesmo desenho de
+ * `createLoanTx` e `createReservationTx`. Duas requisições concorrentes — o duplo
+ * clique da tela, ou o cancelamento e a efetivação no balcão no mesmo segundo —
+ * passam juntas pelas checagens do serviço; a segunda espera o lock da linha,
+ * reavalia o WHERE depois do commit da primeira e não afeta nenhuma linha.
+ *
+ * Sem essa condição, a Cópia de uma Reserva já convertida em Empréstimo voltaria
+ * para 'available' com o Livro fisicamente fora da biblioteca — o pior desfecho
+ * possível, porque a Disponibilidade passaria a mentir para todos os Leitores.
+ * Por isso a liberação da Cópia também é condicionada a `status: 'reserved'`.
+ */
+export async function cancelReservationTx(params: {
+  reservationId: string;
+  copyId: string;
+  now: Date;
+}): Promise<boolean> {
+  const { reservationId, copyId, now } = params;
+
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.reservation.updateMany({
+      where: {
+        id: reservationId,
+        convertedAt: null,
+        expiredAt: null,
+        cancelledAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { cancelledAt: now },
+    });
+    if (count === 0) return false;
+
+    await tx.copy.updateMany({
+      where: { id: copyId, status: 'reserved' },
+      data: { status: 'available' },
+    });
+
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // expireReservationsTx — RN-1, RN-5 (usado pelo job de expiração)
 // ---------------------------------------------------------------------------
 
 /**
- * Expira em lote todas as Reservas cujo expiresAt <= now e que ainda não foram
- * convertidas nem canceladas. Para cada Reserva expirada, libera a Cópia de volta
- * ao status 'available' (RN-5). Tudo em uma única transação.
+ * Expira em lote todas as Reservas cujo expiresAt <= now e que ainda não tiveram
+ * desfecho. Para cada uma, libera a Cópia de volta ao status 'available' (RN-5).
+ * Tudo em uma única transação.
+ *
+ * O filtro exclui os três desfechos, e `cancelledAt: null` é o que mantém fora do
+ * lote a Reserva que o Leitor cancelou antes do prazo (RF-L8): a Cópia dela já
+ * voltou ao acervo, e reprocessá-la marcaria como expirada uma desistência.
  *
  * Retorna o número de Reservas expiradas.
  */
@@ -257,6 +360,7 @@ export async function expireReservationsTx(now: Date): Promise<number> {
     where: {
       expiresAt: { lte: now },
       convertedAt: null,
+      expiredAt: null,
       cancelledAt: null,
     },
     select: { id: true, copyId: true },
@@ -268,10 +372,11 @@ export async function expireReservationsTx(now: Date): Promise<number> {
   const reservationIds = expired.map((r) => r.id);
 
   await prisma.$transaction([
-    // Marca Reservas como canceladas (campo cancelledAt registra expiração — RN-1)
+    // Marca as Reservas como expiradas (RN-1). Até a issue #20 isto gravava em
+    // `cancelledAt`, que hoje é exclusivo da desistência do Leitor (RF-L8).
     prisma.reservation.updateMany({
       where: { id: { in: reservationIds } },
-      data: { cancelledAt: now },
+      data: { expiredAt: now },
     }),
     // Libera as Cópias de volta ao acervo disponível (RN-5)
     prisma.copy.updateMany({
@@ -300,6 +405,7 @@ export async function findReservationDetail(reservationId: string): Promise<Rese
       expiresAt: true,
       createdAt: true,
       convertedAt: true,
+      expiredAt: true,
       cancelledAt: true,
       copy: {
         select: {
@@ -313,22 +419,14 @@ export async function findReservationDetail(reservationId: string): Promise<Rese
   });
   if (!row) return null;
 
-  let status: ReservationDetail['status'];
-  if (row.convertedAt !== null) {
-    status = 'converted';
-  } else if (row.cancelledAt !== null) {
-    status = 'cancelled';
-  } else if (row.expiresAt <= now) {
-    status = 'expired';
-  } else {
-    status = 'active';
-  }
+  const status = statusDe(row, now);
 
   return {
     id: row.id,
     expiresAt: row.expiresAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
     convertedAt: row.convertedAt?.toISOString() ?? null,
+    expiredAt: row.expiredAt?.toISOString() ?? null,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     copy: {
       id: row.copy.id,
@@ -367,6 +465,7 @@ export async function findAllReservations(userId?: string): Promise<ReservationD
       expiresAt: true,
       createdAt: true,
       convertedAt: true,
+      expiredAt: true,
       cancelledAt: true,
       copy: {
         select: {
@@ -380,22 +479,14 @@ export async function findAllReservations(userId?: string): Promise<ReservationD
   });
 
   return rows.map((row) => {
-    let status: ReservationDetail['status'];
-    if (row.convertedAt !== null) {
-      status = 'converted';
-    } else if (row.cancelledAt !== null) {
-      status = 'cancelled';
-    } else if (row.expiresAt <= now) {
-      status = 'expired';
-    } else {
-      status = 'active';
-    }
+    const status = statusDe(row, now);
 
     return {
       id: row.id,
       expiresAt: row.expiresAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
       convertedAt: row.convertedAt?.toISOString() ?? null,
+      expiredAt: row.expiredAt?.toISOString() ?? null,
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
       copy: {
         id: row.copy.id,
@@ -427,6 +518,8 @@ export const reservationRepoDeps: ReservationServiceDeps = {
   // `copies`. Aqui a função só é composta nas dependências do serviço, não redefinida.
   bookExists,
   createReservationTx,
+  findReservationForCancel,
+  cancelReservationTx,
   findActiveReservationsByUser,
   findReservationsByBook,
 };
