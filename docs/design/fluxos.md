@@ -113,5 +113,6 @@
 | Usuário não autenticado tenta reservar | Encaminha ao Keycloak (com opção de auto-cadastro); depois de autenticar, **retorna à rota de origem**, não ao Catálogo (ADR-0009) |
 | Conta autenticada no Keycloak sem papel desta biblioteca | HTTP 403 com orientação de procurar a biblioteca |
 | Leitor tenta acessar rota de Bibliotecário | HTTP 403 com mensagem clara |
+| Serviço de identidade (Keycloak) inacessível | A tela de acesso **nomeia a falha** e libera o botão Entrar para nova tentativa — nunca fica parada em "Encaminhando…". Vale para conexão recusada, certificado não confiável e host que não responde (este último só falha porque há timeout de 10 s configurado; sem ele o `fetch` penduraria para sempre). O texto técnico do erro acompanha a mensagem, em fonte menor |
 | Indisponibilidade momentânea do sistema | Mensagem de erro amigável; não perder o estado do formulário |
 | Race condition na reserva (duas reservas simultâneas da última cópia) | Apenas uma é aceita; a outra recebe erro com orientação |

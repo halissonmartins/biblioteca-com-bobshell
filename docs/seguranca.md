@@ -272,6 +272,21 @@ rm packages/api/.env packages/web/.env && make env
 | http://localhost:9002/metrics | Métricas do Keycloak (o Prometheus raspa por dentro da rede) |
 | http://localhost:9002/health/ready | Healthcheck do compose |
 
+**A tela de acesso é o primeiro diagnóstico.** Quando a SPA não consegue falar
+com o Keycloak, `/login` nomeia a falha e mostra o texto técnico do erro
+(`Failed to fetch`, `net::ERR_CERT_AUTHORITY_INVALID`, `Network timed out`) em
+vez de ficar encaminhando para sempre — ler a tela costuma ser mais rápido que
+abrir o console. Duas armadilhas justificam a implementação, e ambas custaram
+diagnóstico antes de existirem (issue #27):
+
+- o `react-oidc-context` **não rejeita** `signinRedirect()`: no erro ele guarda a
+  falha em `oidc.error` e resolve com `null`. Quem espera uma rejeição não
+  descobre nada;
+- `requestTimeoutInSeconds` **não tem valor padrão** no `oidc-client-ts`. Sem o
+  valor definido em `main.tsx`, um Keycloak que descarta o pacote em vez de
+  recusar a conexão deixa a descoberta pendurada indefinidamente e nem erro
+  chega a existir.
+
 **Diagnóstico de "tudo dá 401":** confira, nesta ordem, se o container está
 `healthy`, se o discovery responde (`curl -k` por causa do certificado local), se
 `KEYCLOAK_ISSUER_URL` bate **exatamente** com o `issuer` do discovery — ele tem de
@@ -302,6 +317,8 @@ curl -sk -d 'grant_type=password&client_id=biblioteca-e2e' \
 | `packages/api/src/api/routes/me.ts` | `GET /me` — o perfil local |
 | `packages/api/src/test/keycloak.ts` | Kit de teste: emite RS256 de verdade, sem rede |
 | `packages/web/src/hooks/useAuth.tsx` | Adapta o OIDC ao contexto que o app já usava |
+| `packages/web/src/utils/authError.ts` | Traduz a falha do fluxo OIDC para a frase que a tela de acesso mostra |
+| `packages/web/src/main.tsx` | Configuração do cliente OIDC — inclui `requestTimeoutInSeconds` |
 | `e2e/helpers.ts` | `loginUI`, `registrarUI`, `definirSenhaInicial`, `registrarEEntrar`, `linkDeAcaoDoEmail` |
 | `packages/theme/` | Tema de login (Keycloakify) — o JAR versionado em `jar/` é montado no compose |
 | `scripts/gerar-certificados.sh` | CA local + certificado do https do Keycloak (`make certs`) |

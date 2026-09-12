@@ -4,6 +4,7 @@
 |---|---|
 | Status | **Aceito** |
 | Data | 14/08/2026 |
+| Atualizado | 12/09/2026 — camada unitária do `packages/web` e exceção do teste de componente (issue #27) |
 
 ## Contexto
 
@@ -17,6 +18,7 @@ Com agentes de codificação, testes são o contrato que impede o agente de queb
 |---|---|---|---|
 | **Unitário** | Regras de negócio em `domain/` | **Vitest** | Ao lado do arquivo: `*.test.ts` |
 | **Integração** | Rotas HTTP com banco real | **Vitest + supertest** | `src/api/**/*.test.ts` |
+| **Unitário (SPA)** | Camada lógica do `packages/web`: `utils/` e clientes HTTP de `api/` | **Vitest + jsdom** | Ao lado do arquivo: `src/utils/*.test.ts`, `src/api/*.test.ts` |
 | **E2E** | Fluxos críticos ponta a ponta (UI) e contrato HTTP | **Playwright** | `e2e/` (dirige o navegador) e `e2e-api-rest/` (request-only, sem navegador) na raiz do monorepo |
 
 ### Regras
@@ -25,6 +27,17 @@ Com agentes de codificação, testes são o contrato que impede o agente de queb
 - Testes de integração: banco de teste dedicado (`DATABASE_URL_TEST`), limpo antes de cada teste
 - Testes E2E: apenas os 3 fluxos críticos (reserva, empréstimo, devolução) — não cobrir tudo com E2E
 - **Teste de autorização** é item obrigatório para toda rota nova
+- **Teste de componente é exceção, não camada.** `pages/` e `components/` se
+  provam na suíte E2E, que dirige a interface real. A exceção vale quando o
+  cenário **não é alcançável** em `e2e/` — a `e2e/AGENTS.md` proíbe mock, stub e
+  interceptação de rede naquela suíte, então toda falha de infraestrutura
+  externa (serviço de identidade fora do ar, por exemplo) fica fora do alcance
+  dela. Nesses casos o teste mora em `packages/web/src/**/*.test.tsx`, dubla
+  **só** a fronteira externa, e o cabeçalho do arquivo registra por que não foi
+  para `e2e/`. Precedente: `pages/LoginPage.test.tsx` (issue #27)
+- Teste de componente **não entra no alvo de cobertura** do `packages/web`
+  (`vitest.config.ts` inclui só `utils/` e `api/`): ele existe para travar um
+  comportamento específico, não para engordar a cobertura
 
 ### Rodar um único teste
 

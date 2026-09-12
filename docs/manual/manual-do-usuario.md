@@ -56,6 +56,11 @@ Cada Usuário tem exatamente um papel (`leitor` ou `bibliotecario`). Toda conta 
 
 > Em ambiente local, o Keycloak roda em `https://localhost:8443`. Para o navegador confiar no certificado, importe `keycloak/certs/ca.crt`.
 
+> **Se a tela de acesso não abrir**, a tela da biblioteca mostra o motivo e
+> libera o botão **Entrar** para nova tentativa — ela não fica parada em
+> "Encaminhando para o acesso seguro…". A linha menor abaixo da mensagem traz o
+> texto técnico do erro; é o que vale copiar ao pedir ajuda.
+
 ### 2.2 Criar conta (auto-cadastro)
 
 1. Na tela de login do Keycloak, clique em **Cadastre-se**.
@@ -225,6 +230,13 @@ Sua sessão pode ter expirado. Clique em **Entrar** e autentique-se novamente.
 
 **Todo pedido falha com erro (401) ou a aplicação não autentica ninguém.**
 Provavelmente o Keycloak não está no ar. Em desenvolvimento, suba os serviços (`docker compose up -d`); o Keycloak leva cerca de 40 s na primeira subida.
+
+**A tela de acesso diz "Não foi possível falar com o serviço de acesso".**
+A aplicação não conseguiu falar com o Keycloak. Três causas, da mais comum para a menos comum:
+o serviço não está no ar (`docker compose up -d`, e ele leva ~40 s na primeira subida);
+o navegador não confia no certificado local (importe `keycloak/certs/ca.crt`); ou a rede
+está bloqueando a conexão. Clique em **Entrar** para tentar de novo — o botão fica
+liberado. Se o erro persistir, o texto menor abaixo da mensagem é o que a equipe precisa.
 
 **As capas dos Livros não carregam.**
 O servidor de capas (serviço `capas` do compose) pode estar fora do ar. Livro sem arquivo de capa exibe a placa tipográfica gerada com título, autor e gênero — isso é o comportamento esperado, não defeito.
