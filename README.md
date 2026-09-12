@@ -1,6 +1,10 @@
 # Sistema de Biblioteca
 
-[![CI](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml/badge.svg)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/halissonmartins/biblioteca-com-bobshell/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+![Node 24](https://img.shields.io/badge/Node-24-5FA04E?logo=nodedotjs&logoColor=white)
+![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
+![Keycloak 26.7](https://img.shields.io/badge/Keycloak-26.7-4D4D4D?logo=keycloak&logoColor=white)
 
 Sistema web híbrido de catálogo, reservas e empréstimos de biblioteca.
 
