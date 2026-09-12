@@ -9,7 +9,10 @@
 
 import { prisma } from '../prisma.js';
 import { bookExists } from './bookRepository.js';
-import type { ReservationServiceDeps } from '../../domain/reservation/reservationService.js';
+import type {
+  CreateReservationTxResult,
+  ReservationServiceDeps,
+} from '../../domain/reservation/reservationService.js';
 import type { ReservationSummary, ReservationDetail } from '../../domain/reservation/reservationTypes.js';
 
 // ---------------------------------------------------------------------------
@@ -36,37 +39,78 @@ export async function findAvailableCopy(
 // ---------------------------------------------------------------------------
 
 /**
- * Persiste a nova Reserva e marca a Cópia como 'reserved' em uma única transação.
- * Retorna null se a Cópia já não estava disponível.
+ * Persiste a nova Reserva e marca a Cópia como 'reserved' em uma única transação,
+ * decidindo ali dentro as três recusas possíveis (RN-3, RN-9, RN-10).
  *
- * O UPDATE é condicionado a `status: 'available'`: é ele que decide quem leva a
- * última Cópia. Duas requisições concorrentes enxergam a mesma Cópia livre em
- * findAvailableCopy; a segunda espera o lock da linha, reavalia o WHERE depois do
- * commit da primeira e não afeta nenhuma linha — daí `count === 0`. Sem essa
- * condição a transação existia mas não protegia nada: oito pedidos simultâneos
- * pela última Cópia criavam oito Reservas (RN-3, RN-4). Coberto por
+ * **RN-3 — a Cópia.** O UPDATE é condicionado a `status: 'available'`: é ele que
+ * decide quem leva a última Cópia. Duas requisições concorrentes enxergam a mesma
+ * Cópia livre em findAvailableCopy; a segunda espera o lock da linha, reavalia o
+ * WHERE depois do commit da primeira e não afeta nenhuma linha — daí `count === 0`.
+ * Sem essa condição a transação existia mas não protegia nada: oito pedidos
+ * simultâneos pela última Cópia criavam oito Reservas (RN-3, RN-4). Coberto por
  * `e2e/regras-negocio-api.spec.ts`.
+ *
+ * **RN-9 e RN-10 — o Leitor.** Aqui o UPDATE condicional não serve: duas Reservas
+ * do mesmo Livro pegam Cópias **diferentes**, então não há linha em disputa, e um
+ * teto de contagem não é uma unicidade que o banco saiba impor. Sem serializar, as
+ * duas transações leem o mesmo total sob READ COMMITTED e passam juntas. O
+ * `SELECT ... FOR UPDATE` na linha do Leitor resolve os dois: enfileira as
+ * tentativas **daquele** Leitor sem tocar nas dos demais.
+ *
+ * **Por que não um índice parcial único** em `(user_id, book_id)`, como a issue #28
+ * sugeria: "ativa" inclui `expires_at > now()`, que não entra em predicado de
+ * índice por não ser imutável. Restaria indexar por `cancelled_at IS NULL` — e
+ * como o job de expiração roda a cada 60 s, uma Reserva vencida mas ainda não
+ * processada continuaria casando com o predicado, transformando um pedido legítimo
+ * em violação de índice (500) por até um minuto. O lock não tem essa janela.
  */
 export async function createReservationTx(params: {
   userId: string;
+  bookId: string;
   copyId: string;
   expiresAt: Date;
-}): Promise<{ reservationId: string } | null> {
-  const { userId, copyId, expiresAt } = params;
+  now: Date;
+  maxActiveReservations: number;
+}): Promise<CreateReservationTxResult> {
+  const { userId, bookId, copyId, expiresAt, now, maxActiveReservations } = params;
 
   return prisma.$transaction(async (tx) => {
+    // Serializa as tentativas deste Leitor até o fim da transação. Precisa vir
+    // antes de qualquer contagem, senão a contagem já nasce desatualizada.
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+
+    /** Reserva ativa: não vencida, não convertida, não cancelada. */
+    const ativa = { expiresAt: { gt: now }, convertedAt: null, cancelledAt: null } as const;
+
+    // RN-9 — já tem este Livro reservado?
+    const reservasDesteLivro = await tx.reservation.count({
+      where: { userId, ...ativa, copy: { bookId } },
+    });
+    if (reservasDesteLivro > 0) return { ok: false, reason: 'duplicate_book' };
+
+    // RN-9 — ou emprestado, o que para o acervo dá no mesmo: a Cópia está com ele.
+    const emprestimosDesteLivro = await tx.loan.count({
+      where: { userId, returnedAt: null, copy: { bookId } },
+    });
+    if (emprestimosDesteLivro > 0) return { ok: false, reason: 'duplicate_book' };
+
+    // RN-10 — teto de Reservas ativas simultâneas.
+    const ativas = await tx.reservation.count({ where: { userId, ...ativa } });
+    if (ativas >= maxActiveReservations) return { ok: false, reason: 'limit_reached' };
+
+    // RN-3/RN-4 — a Cópia, e só então a Reserva.
     const { count } = await tx.copy.updateMany({
       where: { id: copyId, status: 'available' },
       data: { status: 'reserved' },
     });
-    if (count === 0) return null;
+    if (count === 0) return { ok: false, reason: 'copy_taken' };
 
     const reservation = await tx.reservation.create({
       data: { userId, copyId, expiresAt },
       select: { id: true },
     });
 
-    return { reservationId: reservation.id };
+    return { ok: true, reservationId: reservation.id };
   });
 }
 

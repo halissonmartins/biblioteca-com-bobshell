@@ -13,6 +13,7 @@ import {
   createReservation,
   listReaderReservations,
   listBookReservations,
+  MAX_ACTIVE_RESERVATIONS_PER_READER,
   type ReservationServiceDeps,
 } from './reservationService.js';
 import { AppError } from '../../shared/errors.js';
@@ -64,7 +65,7 @@ function makeDeps(overrides?: Partial<ReservationServiceDeps>): ReservationServi
   return {
     findAvailableCopy: vi.fn().mockResolvedValue(AVAILABLE_COPY),
     bookExists: vi.fn().mockResolvedValue(true),
-    createReservationTx: vi.fn().mockResolvedValue({ reservationId: 'res-1' }),
+    createReservationTx: vi.fn().mockResolvedValue({ ok: true, reservationId: 'res-1' }),
     findActiveReservationsByUser: vi.fn().mockResolvedValue([]),
     findReservationsByBook: vi.fn().mockResolvedValue([]),
     ...overrides,
@@ -133,8 +134,11 @@ describe('createReservation()', () => {
 
     expect(deps.createReservationTx).toHaveBeenCalledWith({
       userId: 'user-99',
+      bookId: 'book-1',
       copyId: 'copy-1',
       expiresAt: EXPECTED_EXPIRES_AT,
+      now: FIXED_NOW,
+      maxActiveReservations: MAX_ACTIVE_RESERVATIONS_PER_READER,
     });
   });
 
@@ -158,15 +162,80 @@ describe('createReservation()', () => {
   });
 
   it('lança NO_COPY_AVAILABLE quando a Cópia é levada por outro Leitor entre a leitura e a escrita (RN-3)', async () => {
-    // createReservationTx devolve null: o UPDATE condicional não achou a Cópia
-    // ainda disponível — perdeu a corrida pela última Cópia.
+    // O UPDATE condicional não achou a Cópia ainda disponível — perdeu a corrida
+    // pela última Cópia.
     const deps = makeDeps({
-      createReservationTx: vi.fn().mockResolvedValue(null),
+      createReservationTx: vi.fn().mockResolvedValue({ ok: false, reason: 'copy_taken' }),
     });
 
     await expect(
       createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
     ).rejects.toMatchObject({ code: 'NO_COPY_AVAILABLE' });
+  });
+
+  // -------------------------------------------------------------------------
+  // RN-9 — uma Reserva ativa por Leitor por Livro (issue #28)
+  // -------------------------------------------------------------------------
+
+  it('lança DUPLICATE_RESERVATION quando o Leitor já tem o Livro reservado (RN-9)', async () => {
+    const deps = makeDeps({
+      createReservationTx: vi.fn().mockResolvedValue({ ok: false, reason: 'duplicate_book' }),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'DUPLICATE_RESERVATION', statusCode: 409 });
+  });
+
+  it('a recusa por Livro duplicado diz ao Leitor o que aconteceu, não "erro"', async () => {
+    const deps = makeDeps({
+      createReservationTx: vi.fn().mockResolvedValue({ ok: false, reason: 'duplicate_book' }),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toThrow(/já tem uma reserva ativa ou um empréstimo em aberto deste livro/i);
+  });
+
+  // -------------------------------------------------------------------------
+  // RN-10 — teto de Reservas ativas por Leitor (issue #29)
+  // -------------------------------------------------------------------------
+
+  it('lança RESERVATION_LIMIT_REACHED quando o Leitor bate o teto (RN-10)', async () => {
+    const deps = makeDeps({
+      createReservationTx: vi.fn().mockResolvedValue({ ok: false, reason: 'limit_reached' }),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_LIMIT_REACHED', statusCode: 409 });
+  });
+
+  it('a mensagem do teto cita o número vigente, sem repeti-lo à mão', async () => {
+    const deps = makeDeps({
+      createReservationTx: vi.fn().mockResolvedValue({ ok: false, reason: 'limit_reached' }),
+    });
+
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toThrow(new RegExp(`${String(MAX_ACTIVE_RESERVATIONS_PER_READER)} reservas ativas`));
+  });
+
+  it('o teto é um número só, e a API é quem o impõe (RN-10)', () => {
+    // Guarda contra o valor virar literal espalhado: a tela pode exibir, mas não
+    // é ela que decide. Trocar o teto é trocar esta constante.
+    expect(MAX_ACTIVE_RESERVATIONS_PER_READER).toBeGreaterThan(0);
+    expect(Number.isInteger(MAX_ACTIVE_RESERVATIONS_PER_READER)).toBe(true);
+  });
+
+  it('entrega o teto vigente à transação — a decisão não fica no repositório', async () => {
+    const deps = makeDeps();
+
+    await createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW);
+
+    expect(deps.createReservationTx).toHaveBeenCalledWith(
+      expect.objectContaining({ maxActiveReservations: MAX_ACTIVE_RESERVATIONS_PER_READER }),
+    );
   });
 
   it('não chama createReservationTx se não há Cópia disponível', async () => {

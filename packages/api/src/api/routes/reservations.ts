@@ -42,6 +42,23 @@ const createReservationSchema = z.object({
   bookId: z.string().min(1, 'bookId obrigatório'),
 });
 
+/**
+ * Traduz a recusa em valor do atributo `resultado` da métrica.
+ *
+ * Separar `sem_copia` de `duplicada` e `limite` é o que permite ler no painel se
+ * a Reserva não saiu porque o acervo acabou (sinal de compra) ou porque a regra
+ * barrou o Leitor (sinal de uso) — duas conclusões opostas sob o mesmo 409.
+ */
+function resultadoDaFalha(err: unknown): string {
+  if (!(err instanceof AppError)) return 'erro';
+  switch (err.code) {
+    case 'NO_COPY_AVAILABLE':          return 'sem_copia';           // RN-3
+    case 'DUPLICATE_RESERVATION':      return 'duplicada';           // RN-9
+    case 'RESERVATION_LIMIT_REACHED':  return 'limite';              // RN-10
+    default:                           return 'erro';
+  }
+}
+
 const listReservationsQuerySchema = z.object({
   userId: z.string().optional(),
   bookId: z.string().optional(),
@@ -72,9 +89,7 @@ router.post(
       result = await createReservation({ userId, bookId: parsed.data.bookId }, reservationRepoDeps);
       reservasCriadas.add(1, { resultado: 'criada' });
     } catch (err) {
-      // RN-3: não havia Cópia disponível no momento da tentativa.
-      const semCopia = err instanceof AppError && err.code === 'NO_COPY_AVAILABLE';
-      reservasCriadas.add(1, { resultado: semCopia ? 'sem_copia' : 'erro' });
+      reservasCriadas.add(1, { resultado: resultadoDaFalha(err) });
       throw err;
     }
 

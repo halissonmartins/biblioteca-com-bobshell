@@ -21,7 +21,11 @@ export const meter = metrics.getMeter('biblioteca.api', '0.0.0');
 
 // ── Reservas ────────────────────────────────────────────────────────────────
 
-/** Atributo `resultado`: 'criada' | 'sem_copia' (RN-3 barrando a Reserva). */
+/**
+ * Atributo `resultado`: 'criada' | 'sem_copia' (RN-3) | 'duplicada' (RN-9) |
+ * 'limite' (RN-10) | 'erro'. As três recusas são 409 na borda, mas contam
+ * histórias diferentes: acervo insuficiente contra regra barrando o Leitor.
+ */
 export const reservasCriadas: Counter = meter.createCounter('biblioteca.reservas.criadas', {
   description: 'Tentativas de criação de Reserva (RF-L3, RN-3)',
   unit: '{reserva}',
