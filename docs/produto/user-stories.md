@@ -49,7 +49,7 @@ Então o botão "Reservar" está desabilitado com mensagem "Sem cópias disponí
 
 ---
 
-## US-03 — Reservar um livro (RF-L3, RN-1, RN-3, RN-4)
+## US-03 — Reservar um livro (RF-L3, RN-1, RN-3, RN-4, RN-9, RN-10)
 
 **Como** Leitor autenticado  
 **Quero** reservar um Livro disponível  
@@ -79,6 +79,24 @@ Dado que tenho uma Reserva ativa
 Quando passam 12 horas sem que o Bibliotecário efetive o empréstimo
 Então a Reserva expira automaticamente
 E a Cópia volta ao estado disponível
+
+Dado que já tenho uma Reserva ativa de um Livro
+Quando tento reservar o mesmo Livro outra vez
+Então recebo 409 dizendo que já tenho esse Livro
+E nenhuma segunda Cópia é consumida
+
+Dado que estou com um Empréstimo em aberto de um Livro
+Quando tento reservar o mesmo Livro
+Então recebo a mesma recusa: a Cópia já está comigo
+
+Dado que deixei uma Reserva expirar
+Quando tento reservar aquele Livro de novo
+Então a Reserva é criada normalmente — expirada não conta
+
+Dado que tenho o número máximo de Reservas ativas
+Quando tento reservar mais um Livro
+Então recebo 409 com o limite e o que fazer para liberar vaga
+E um Empréstimo em aberto não ocupa vaga nessa conta
 ```
 
 ---

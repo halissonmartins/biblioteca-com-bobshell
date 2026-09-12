@@ -77,6 +77,8 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 | RN-6 | Só reservas ativas (não expiradas) podem ser convertidas em empréstimo. |
 | RN-7 | Um usuário tem função de **leitor** ou **bibliotecário**; ações de balcão são restritas a bibliotecários. |
 | RN-8 | O empréstimo vence em **7 dias corridos** a partir da efetivação. O bibliotecário pode ajustar a data no balcão. |
+| RN-9 | Um leitor tem **no máximo uma reserva ativa por livro**. Empréstimo em aberto do mesmo livro também impede nova reserva — a cópia já está com ele. Reserva expirada ou cancelada não conta. |
+| RN-10 | Um leitor tem **no máximo 3 reservas ativas** ao mesmo tempo. O limite conta apenas reservas ativas: não há teto de empréstimo. |
 
 ## 7. Requisitos de performance
 
@@ -142,6 +144,8 @@ Hoje o leitor não tem como saber se um livro está disponível antes de ir até
 - [ ] Reserva criada expira e libera a cópia automaticamente após 12h (RN-1, RN-5).
 - [ ] Tentativa de reserva sem cópia disponível é bloqueada com mensagem clara (RN-3).
 - [ ] Leitor não consegue efetivar empréstimo sozinho; apenas bibliotecário (RN-2, RN-7).
+- [ ] Segunda reserva do mesmo livro pelo mesmo leitor é recusada com 409 e motivo claro (RN-9).
+- [ ] Leitor com 3 reservas ativas não cria a quarta; a recusa diz o limite (RN-10).
 - [ ] RNF-1 a RNF-4 verificados em teste de carga com volume equivalente a 10k leitores ativos e 250k livros.
 - [ ] Disponibilidade exibida ao leitor reflete o estado visto pelo bibliotecário.
 - [ ] Visitante cria conta, confirma o e-mail, define a senha, entra como leitor e consegue reservar (RF-L7).

@@ -195,7 +195,11 @@ A Devolução não tem desfazer.
 Para consultar o Catálogo e ver detalhes, não. Para reservar, sim.
 
 **Por que não consigo reservar um Livro?**
-Quando a Disponibilidade é zero, todas as Cópias estão reservadas ou emprestadas — o botão aparece como Indisponível. Aguarde uma Devolução ou a expiração de outra Reserva.
+Três motivos possíveis, e a tela diz qual é:
+
+- **Disponibilidade zero** — todas as Cópias estão reservadas ou emprestadas, e o botão aparece como Indisponível. Aguarde uma Devolução ou a expiração de outra Reserva.
+- **Você já tem este Livro** — cada Leitor pode ter **uma Reserva ativa por Livro**, e um Empréstimo em aberto do mesmo Livro também conta: a Cópia já está com você. Não dá para reservar a segunda Cópia do mesmo título.
+- **Você atingiu o limite de Reservas** — são **3 Reservas ativas** por vez. Retire um dos Livros no balcão, ou aguarde uma Reserva expirar (12 horas), para liberar vaga. Empréstimo em aberto não ocupa vaga.
 
 **Minha Reserva sumiu de "Ativas". E agora?**
 Ela expirou após as 12 horas e a Cópia voltou ao acervo. Reserve novamente — o botão volta a ficar disponível enquanto houver Cópia livre.

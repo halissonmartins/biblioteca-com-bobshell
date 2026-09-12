@@ -533,6 +533,10 @@ paths:
         Leitor cria uma reserva para um livro com disponibilidade.
         Vincula automaticamente a uma Cópia disponível.
         A Reserva expira em 12h (RN-1). Requer papel `leitor`.
+
+        Recusas por regra do Leitor, ambas 409: já ter Reserva ativa ou
+        Empréstimo em aberto deste mesmo Livro (RN-9), e ter atingido o teto de
+        Reservas ativas simultâneas (RN-10). Distinguem-se pelo `code`.
       operationId: createReservation
       tags: [Reservas]
       security:
@@ -569,16 +573,39 @@ paths:
                   message: 'Livro não encontrado: ckv1a2b3c4d5e6f7g8h9'
         '409':
           description: |
-            Livro existe, mas nenhuma Cópia está disponível (RN-3). Também é a
-            resposta de quem perde a disputa pela última Cópia entre dois pedidos
-            simultâneos.
+            Três recusas distintas compartilham o status; o `code` separa:
+
+            - `NO_COPY_AVAILABLE` — o Livro existe, mas nenhuma Cópia está
+              disponível (RN-3). Também é a resposta de quem perde a disputa pela
+              última Cópia entre dois pedidos simultâneos.
+            - `DUPLICATE_RESERVATION` — o Leitor já tem Reserva ativa ou
+              Empréstimo em aberto deste Livro (RN-9).
+            - `RESERVATION_LIMIT_REACHED` — o Leitor atingiu o teto de Reservas
+              ativas simultâneas (RN-10).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
-              example:
-                error:
-                  code: NO_COPY_AVAILABLE
-                  message: Não há cópias disponíveis para este livro no momento.
+              examples:
+                semCopia:
+                  summary: RN-3 — acervo sem Cópia livre
+                  value:
+                    error:
+                      code: NO_COPY_AVAILABLE
+                      message: Não há cópias disponíveis para este livro no momento.
+                livroDuplicado:
+                  summary: RN-9 — o Leitor já tem este Livro
+                  value:
+                    error:
+                      code: DUPLICATE_RESERVATION
+                      message: Você já tem uma reserva ativa ou um empréstimo em aberto deste livro.
+                tetoAtingido:
+                  summary: RN-10 — teto de Reservas ativas
+                  value:
+                    error:
+                      code: RESERVATION_LIMIT_REACHED
+                      message: >-
+                        Você já tem 3 reservas ativas, o máximo permitido. Retire ou
+                        aguarde a expiração de uma delas para reservar outro livro.
         '422':
           description: Corpo inválido (`bookId` ausente ou vazio)
           content:

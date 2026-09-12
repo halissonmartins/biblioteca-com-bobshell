@@ -540,3 +540,6 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[12/09/2026 11:41]** commite
+
+---
+**[12/09/2026 11:43]** sim, siga. Também feche o escopo da API (código + testes de unidade + docs) e abra issue própria para a rework das suítes E2E

@@ -110,6 +110,8 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - Empréstimo só pode ser efetivado por **`bibliotecario`**, nunca pelo `leitor` (RN-2, RN-7)
 - **Papel vem sempre do token do Keycloak** — nunca do corpo da requisição, nunca de coluna consultada por conveniência (ADR-0009)
 - Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
+- **Uma Reserva ativa por Leitor por Livro** (RN-9) — Empréstimo em aberto do mesmo Livro também bloqueia; expirada ou cancelada não conta
+- **Teto de Reservas ativas por Leitor** (RN-10) — o número vive em `MAX_ACTIVE_RESERVATIONS_PER_READER` (`packages/api/src/domain/reservation/reservationService.ts`); é regra que a API impõe, não a tela
 - Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
 - Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
 - Empréstimo vence em **7 dias corridos**, ajustável pelo Bibliotecário no balcão (RN-8) — o padrão vive em `LOAN_PERIOD_DAYS` (`packages/web/src/utils/loan.ts`); a API ainda aceita qualquer `dueAt`

@@ -173,7 +173,7 @@ Declaradas em um único módulo: `packages/api/src/infra/telemetry/metrics.ts`.
 
 | Métrica | Tipo | Atributos | Emitida em | Responde |
 |---|---|---|---|---|
-| `biblioteca.reservas.criadas` | Counter | `resultado`: `criada` / `sem_copia` / `erro` | `routes/reservations.ts` | volume de Reservas e quanto a RN-3 está barrando |
+| `biblioteca.reservas.criadas` | Counter | `resultado`: `criada` / `sem_copia` (RN-3) / `duplicada` (RN-9) / `limite` (RN-10) / `erro` | `routes/reservations.ts` | volume de Reservas, e **por que** as recusadas não saíram — as três recusas são 409 na borda, mas `sem_copia` é sinal de acervo insuficiente (compra) enquanto `duplicada` e `limite` são regra barrando o Leitor (uso) |
 | `biblioteca.reservas.expiradas` | Counter | — | `jobs/expireReservations.ts` | RN-1 / RN-5 |
 | `biblioteca.emprestimos.efetivados` | Counter | — | `routes/loans.ts` | numerador da conversão |
 | `biblioteca.devolucoes` | Counter | `situacao`: `em_dia` / `atrasado` | `routes/loans.ts` | pontualidade (RN-8) |
