@@ -201,8 +201,11 @@ jobs:
         working-directory: e2e
         run: npm test
 
-      - name: Publicar relatório em caso de falha
-        if: failure()
+      # Sempre, não só na falha: o relatório carrega o anexo `console-navegador`
+      # de cada teste (issue #32), e é numa execução verde que se confere o que o
+      # navegador reclamou sem derrubar nenhuma asserção.
+      - name: Publicar relatório
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
