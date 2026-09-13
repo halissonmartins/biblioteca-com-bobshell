@@ -13,6 +13,7 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
 - Segurança: [`docs/seguranca.md`](docs/seguranca.md) — identidade com Keycloak, papéis e o que a Fase 1 deixa em aberto. **Leia antes de mexer em autenticação, autorização ou no realm.**
 - Observabilidade: [`docs/observabilidade.md`](docs/observabilidade.md) — logs, métricas, traces e dashboards. **Leia antes de adicionar métrica, span ou log.**
+- Runbook: [`docs/operacao/runbook.md`](docs/operacao/runbook.md) — sintoma → verificação → ação → confirmação para os incidentes conhecidos, migrations e Keycloak. **Leia antes de corrigir dado ou reiniciar serviço num incidente.**
 - Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
 - Layout responsivo: [`docs/design/responsivo.md`](docs/design/responsivo.md) — as três larguras de referência, o que muda em cada uma e o spec que guarda o resultado. **Leia antes de mexer em breakpoint, tabela ou trilho de navegação.**
 
