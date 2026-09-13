@@ -586,3 +586,29 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 **[12/09/2026 20:15]** continue
 ---
 **[12/09/2026 20:25]** commite
+---
+**[12/09/2026 20:34]** Leia todas as issues em aberto e selecione uma para resolver
+---
+**[12/09/2026 20:44]** implemente a issue #31
+---
+**[12/09/2026 21:05]** reinicie todos os containers docker e remova o código morto
+---
+**[12/09/2026 21:18]** rode make test; se passar, a issue #17 pode ser fechada.
+---
+**[12/09/2026 21:22]** Finalizei todos os containers, reinciei o docker desktop. rode make test; se passar, as issues #17 e #31 podem ser fechadas.
+---
+**[12/09/2026 21:27]** dois tsx watch da API, um aberto às 09:46 e outro às 16:33; encerre todos
+---
+**[12/09/2026 21:28]** encerre também os processos 18784 e 1480, na porta 5173
+---
+**[13/09/2026 10:54]** Finalizei todos os containers, reinciei o docker desktop. rode make test; se passar, as issues #17 e #31 podem ser fechadas.
+---
+**[13/09/2026 10:59]** Analise e melhore o texto da issue #32
+---
+**[13/09/2026 11:01]** Implemente a issue #32
+---
+**[13/09/2026 11:56]** explique melhor a sua proposta de correção.
+---
+**[13/09/2026 13:06]** opção (a) e o passo 4
+---
+**[13/09/2026 13:09]** sim e faça o push
