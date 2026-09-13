@@ -651,3 +651,9 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[13/09/2026 15:31]** faça o commit do runbook
+
+---
+**[13/09/2026 15:32]** implemente a issue #36
+
+---
+**[13/09/2026 15:45]** sim, faça commit, push e monitore o CI
