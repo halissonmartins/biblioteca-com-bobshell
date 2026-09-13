@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 import { loginUI, LEITOR } from './helpers'
 
 test.describe('Empréstimos do Leitor (US-05)', () => {

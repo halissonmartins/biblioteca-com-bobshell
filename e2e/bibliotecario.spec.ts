@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 import {
   loginUI,
   apiLogin,
@@ -109,10 +109,14 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     await expect(emprestimo).toContainText('Em curso')
   })
 
-  test('US-10 — Reserva que vence com o modal aberto falha sem perder a seleção (RN-6)', async ({ page, request }) => {
+  test('US-10 — Reserva que vence com o modal aberto falha sem perder a seleção (RN-6)', async ({ page, request, erroEsperado }) => {
     // O Leitor está no balcão: a Reserva era válida quando o Bibliotecário abriu o
     // modal e venceu antes de ele confirmar. É o caminho de erro de RF-B4 — e o
     // critério diz que a Reserva escolhida não pode sumir junto com o erro.
+    erroEsperado(
+      /\/api\/loans/,
+      'POST /loans responde 409 para a Reserva vencida, e o Chromium loga toda resposta 4xx de fetch',
+    )
     const { token: leitorToken } = await apiLogin(request, LEITOR_BALCAO_EXPIRA.email)
     const reserva = await apiReserveByTitle(request, leitorToken, 'A Metamorfose')
 

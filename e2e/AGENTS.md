@@ -37,6 +37,7 @@ abaixo são consumidos pelos dois lados.
 | `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6), os dois limites por Leitor (RN-9, RN-10) e o cancelamento (RN-11), inclusive disputando a linha com o balcão |
 | `responsivo.spec.ts` | Layout das sete telas em 390, 768 e 1024px — rolagem horizontal, overflow escondido e alvo de toque de 44×44 |
 | `helpers.ts` | Login, arrange via API, atores isolados |
+| `fixtures.ts` | O `test` dos specs de UI — captura o console do navegador (issue #32) |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
 
 `screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele mexe no
@@ -69,6 +70,32 @@ a troca de 12h por 24h — a suíte inteira continua verde. Afirme sobre `expire
 de cookies de sessão do Keycloak; compartilhar contexto mistura as duas sessões no
 mesmo jar — e um teste de isolamento passa por acidente. Use
 `newActor(playwright, email)` e chame `dispose()` no fim.
+
+**Spec que abre navegador importa `test` de `./fixtures`, não de `@playwright/test`.**
+A fixture sobrescreve `context` e registra, por teste, o que o navegador reclamou:
+`console` de nível `error` e `warning`, exceção não tratada (`weberror`) e
+requisição que falhou (`requestfailed`). Sobrescreve `context`, não `page`, para
+cobrir toda página que o contexto abre — o redirecionamento para o Keycloak
+inclusive. O que foi capturado vira o anexo `console-navegador` do teste, visível
+no relatório HTML (no CI, o artefato `playwright-report`, publicado mesmo com a
+suíte verde). Sem isso um erro de console passa em silêncio sempre que a tela ainda
+mostra o esperado — foi assim em #27. Specs só de API (`*-api.spec.ts`) não abrem
+navegador e continuam importando de `@playwright/test`.
+
+**Reclamação do navegador reprova o teste, salvo a declarada.** Cenário que provoca
+erro de propósito declara no começo do teste, com o motivo:
+
+```ts
+test('…', async ({ page, erroEsperado }) => {
+  erroEsperado(/\/api\/loans/, 'POST /loans responde 409 para a Reserva vencida')
+```
+
+O padrão casa com o texto ou com a origem da ocorrência — a mensagem do Chromium
+para uma resposta 4xx não traz a URL, a origem traz. A conferência falha nos dois
+sentidos: ocorrência não declarada (o defeito que se quer pegar) e declaração que
+não aconteceu (exceção velha, que um dia esconderia erro de verdade). Hoje só
+`bibliotecario` US-10 declara. Não declare por arquivo nem por padrão largo como
+`/409/`: a exceção vale para o cenário que a provoca, e só para ele.
 
 **`loginUI` espera o botão "Sair", não o Catálogo.** O Catálogo é rota pública e
 aparece igual sem sessão. Quem esperasse só por ele voltaria enquanto o `GET /me`

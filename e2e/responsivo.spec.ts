@@ -24,7 +24,7 @@
  * ponto da suíte sem mexer na Disponibilidade que os outros specs afirmam.
  */
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 
 import { BIBLIOTECARIO, LEITOR, loginUI } from './helpers'
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 import { loginUI, LEITOR } from './helpers'
 
 test.describe('Catálogo, detalhes e autor (US-01, US-02, US-06)', () => {
