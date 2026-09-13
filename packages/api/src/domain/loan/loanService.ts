@@ -68,12 +68,14 @@ export interface LoanServiceDeps {
 
   /**
    * Persiste a Devolução: seta returnedAt e libera a Cópia para 'available'
-   * em uma única transação (RN-5).
+   * em uma única transação (RN-5), decidindo o vencedor por UPDATE condicional.
+   * Retorna false se a Devolução já tinha sido registrada entre a validação do
+   * serviço e a escrita — outra requisição (ou o duplo clique) chegou primeiro.
    */
   returnLoanTx: (params: {
     loanId: string;
     returnedAt: Date;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
 
   /** Lista Empréstimos, opcionalmente filtrados por Leitor e/ou status aberto (RF-L5, RF-B2, RF-B3) */
   findLoans: (filter: ListLoansFilter) => Promise<LoanSummary[]>;
@@ -174,7 +176,8 @@ export async function returnLoan(
     );
   }
 
-  // Idempotência: não permite devolver duas vezes
+  // Idempotência: não permite devolver duas vezes. Este é o caminho comum (a
+  // lista já mostrava a Devolução); a corrida real é decidida na transação.
   if (loan.returnedAt !== null) {
     throw new AppError(
       'CONFLICT',
@@ -182,11 +185,21 @@ export async function returnLoan(
     );
   }
 
-  // RN-5: libera a Cópia atomicamente ao registrar a Devolução
-  await deps.returnLoanTx({
+  // RN-5: libera a Cópia atomicamente ao registrar a Devolução. O UPDATE
+  // condicional de `returnLoanTx` decide o vencedor entre Devoluções
+  // concorrentes; quem perde a corrida não afeta linha e recebe o mesmo 409 do
+  // caminho acima — sem reescrever `returnedAt` nem liberar Cópia de outrem.
+  const returned = await deps.returnLoanTx({
     loanId: input.loanId,
     returnedAt: now,
   });
+
+  if (!returned) {
+    throw new AppError(
+      'CONFLICT',
+      'Este empréstimo já foi devolvido.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ function makeDeps(overrides?: Partial<LoanServiceDeps>): LoanServiceDeps {
     findReservationById: vi.fn().mockResolvedValue(makeReservation()),
     createLoanTx: vi.fn().mockResolvedValue({ loanId: 'loan-1' }),
     findLoanById: vi.fn().mockResolvedValue(makeLoan()),
-    returnLoanTx: vi.fn().mockResolvedValue(undefined),
+    returnLoanTx: vi.fn().mockResolvedValue(true),
     findLoans: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -320,6 +320,18 @@ describe('returnLoan()', () => {
       loanId: 'loan-1',
       returnedAt: FIXED_NOW,
     });
+  });
+
+  it('responde 409 quando returnLoanTx perde a corrida (RN-5, Devolução concorrente)', async () => {
+    // A checagem `returnedAt !== null` passa (leitura fora da transação), mas o
+    // UPDATE condicional não afeta linha: outra Devolução chegou primeiro.
+    const deps = makeDeps({
+      returnLoanTx: vi.fn().mockResolvedValue(false),
+    });
+
+    await expect(
+      returnLoan({ loanId: 'loan-1', librarianId: 'lib-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
   it('não chama returnLoanTx se o Empréstimo não existe', async () => {
