@@ -712,3 +712,13 @@ Quero instalar somente para esse projeto.
 
 ---
 **[13/09/2026 17:26]** commite o que ficou de fora
+---
+**[13/09/2026 17:29]** leia a issue #39 e melhore a sua descrição
+---
+**[13/09/2026 17:36]** is it #37, continue
+---
+**[13/09/2026 17:48]** implemente a issue #37
+---
+**[13/09/2026 18:32]** Ajustes as permissões antes
+---
+**[13/09/2026 18:32]** continue
