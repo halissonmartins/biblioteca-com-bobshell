@@ -632,3 +632,22 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 **[13/09/2026 14:49]** Implemente a issue #34
 ---
 **[13/09/2026 14:56]** Sim. Faça o commit, feche a issue e faça o push
+
+---
+**[13/09/2026 15:04]** crie uma issue descrevendo a criação do run book do projeto.
+
+---
+**[13/09/2026 15:08]** Sobre os itens abaixo, coloque eles como fora de escopo:
+- Não há Dockerfile e o CI não tem job de deploy. O deploy e o rollback descritos no ADR-0004 não foram implementados.
+- Não há rotina de backup, nem do Postgres do produto nem do keycloak-db.
+- Não há regras de alerta no Prometheus (o prometheus.yml não tem rule_files).
+- Não há contato de escalonamento registrado.
+
+---
+**[13/09/2026 15:10]** implemente a issue #35
+
+---
+**[13/09/2026 15:29]** O healthcheck do Keycloak dá falso positivo. Ele procura "status": "UP" em qualquer ponto da resposta. Por isso o container aparece healthy enquanto /health/ready ainda responde DOWN por alguns segundos, o que vi acontecer. O runbook avisa; o docker-compose.yml continua igual. abrir uma issue para isso.
+
+---
+**[13/09/2026 15:31]** faça o commit do runbook
