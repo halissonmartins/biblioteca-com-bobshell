@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 
 /**
@@ -10,6 +11,14 @@ import { defineConfig, devices } from '@playwright/test'
  * webServer sobe API e Web automaticamente; globalSetup espera o Keycloak,
  * aplica migrations e roda o seed.
  */
+
+/**
+ * Confiança do Node no Keycloak, declarada aqui (issue #34). Os workers herdam a
+ * variável no boot — o único momento em que o Node a lê — e o caminho é absoluto
+ * porque eles rodam com cwd nesta pasta. O processo principal subiu antes desta
+ * linha: o global-setup passa a CA na própria requisição do discovery.
+ */
+process.env['NODE_EXTRA_CA_CERTS'] = path.resolve(__dirname, '../keycloak/certs/ca.crt')
 
 const API_PORT = 3000
 const WEB_PORT = 5173
@@ -44,8 +53,8 @@ export default defineConfig({
     baseURL: `http://localhost:${WEB_PORT}`,
     headless: true,
     // O Keycloak responde em https://localhost:8443 com certificado da CA local
-    // de `make certs`. Fora do navegador (fetch do global-setup) a confiança vem
-    // de NODE_EXTRA_CA_CERTS; aqui, dentro do Chromium, isto basta.
+    // de `make certs`. O Chromium não usa a trust store do Node, então a
+    // NODE_EXTRA_CA_CERTS acima não chega a ele: para as telas, é isto.
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

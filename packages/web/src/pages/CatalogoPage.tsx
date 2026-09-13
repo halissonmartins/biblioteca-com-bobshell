@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listBooks } from '@/api/books'
@@ -57,6 +57,26 @@ export function CatalogoPage() {
     if (generos.length > 0 || !data || search || genre) return
     setGeneros([...new Set(data.data.map((b) => b.genre))].sort((a, b) => a.localeCompare(b, 'pt-BR')))
   }, [data, generos.length, search, genre])
+
+  // Chegar ao extremo desabilita o botão que acabou de ser acionado, e o
+  // navegador solta o foco de botão desabilitado no body: o Tab seguinte
+  // recomeçava do topo, trilho inclusive. O foco passa para o outro botão.
+  const anteriorRef = useRef<HTMLButtonElement>(null)
+  const proximaRef  = useRef<HTMLButtonElement>(null)
+  const focoPendente = useRef<'anterior' | 'proxima' | null>(null)
+
+  function irParaPagina(destino: number, totalPages: number) {
+    if (destino === 1) focoPendente.current = 'proxima'
+    else if (destino === totalPages) focoPendente.current = 'anterior'
+    setPage(destino)
+  }
+
+  useEffect(() => {
+    const alvo = focoPendente.current
+    focoPendente.current = null
+    if (alvo === 'anterior') anteriorRef.current?.focus()
+    else if (alvo === 'proxima') proximaRef.current?.focus()
+  }, [page])
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -141,7 +161,7 @@ export function CatalogoPage() {
               <p className="legenda mb-4">
                 {data.pagination.total} livro{data.pagination.total !== 1 ? 's' : ''} encontrado{data.pagination.total !== 1 ? 's' : ''}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                 {data.data.map((book) => (
                   <BookCard key={book.id} book={book} />
                 ))}
@@ -151,22 +171,26 @@ export function CatalogoPage() {
               {data.pagination.totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4 mt-10 pt-6 border-t border-surface-200">
                   <Button
+                    ref={anteriorRef}
                     variant="secondary"
                     size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => irParaPagina(Math.max(1, page - 1), data.pagination.totalPages)}
                     disabled={page === 1}
                     aria-label="Página anterior"
                   >
                     Anterior
                   </Button>
-                  <span className="legenda whitespace-nowrap">
+                  {/* aria-live: a troca de página não move o foco, então quem usa
+                      leitor de tela só saberia que a grade mudou por aqui. */}
+                  <span className="legenda whitespace-nowrap" aria-live="polite">
                     Página <span className="font-mono text-surface-900">{page}</span> de{' '}
                     <span className="font-mono text-surface-900">{data.pagination.totalPages}</span>
                   </span>
                   <Button
+                    ref={proximaRef}
                     variant="secondary"
                     size="sm"
-                    onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
+                    onClick={() => irParaPagina(Math.min(data.pagination.totalPages, page + 1), data.pagination.totalPages)}
                     disabled={page === data.pagination.totalPages}
                     aria-label="Próxima página"
                   >

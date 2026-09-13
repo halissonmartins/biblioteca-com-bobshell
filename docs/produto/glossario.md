@@ -19,8 +19,9 @@
 | **Usuário** | Qualquer pessoa com conta no sistema. Tem exatamente um papel: `leitor` ou `bibliotecario`. |
 | **Disponibilidade** | Número de Cópias de um Livro que não estão nem reservadas nem emprestadas no momento. |
 | **Reserva** | Intenção de retirada registrada on-line por um Leitor. Vincula um Leitor a uma Cópia por até 12 horas. |
-| **Reserva ativa** | Reserva criada há menos de 12 horas e ainda não convertida em Empréstimo nem cancelada. |
-| **Reserva expirada** | Reserva que atingiu o prazo de 12 horas sem ser convertida. Libera a Cópia de volta ao acervo. No banco a expiração é registrada em `cancelledAt` — o produto não tem cancelamento pelo Leitor, então hoje esse campo preenchido sempre significa expiração, nunca "cancelada". |
+| **Reserva ativa** | Reserva criada há menos de 12 horas e ainda não convertida em Empréstimo, expirada nem cancelada. |
+| **Reserva expirada** | Reserva que atingiu o prazo de 12 horas sem ser convertida. Libera a Cópia de volta ao acervo. Registrada em `expiredAt` pelo job de expiração. |
+| **Reserva cancelada** | Reserva que o **Leitor** desistiu antes do prazo (RF-L8). Libera a Cópia na hora, como a expiração — mas é ato de quem reservou, não decurso de prazo. Registrada em `cancelledAt`. Expiração e cancelamento têm campos separados desde a issue #20: enquanto o produto não tinha cancelamento, `cancelledAt` era onde o job gravava a expiração, e as duas coisas eram indistinguíveis. |
 | **Empréstimo** | Registro da retirada física de uma Cópia por um Leitor, efetivado por um Bibliotecário no balcão. Vence em 7 dias corridos por padrão (RN-8), ajustável no balcão. |
 | **Devolução** | Ato de um Bibliotecário marcar uma Cópia emprestada como devolvida. Libera a Cópia para reserva. |
 | **Avaliação** | Texto e nota (1–5) deixados por um Leitor sobre um Livro após leitura. |
@@ -34,10 +35,15 @@
 ```
 disponível  ──[reservar]──►  reservada  ──[emprestar]──►  emprestada
      ▲                            │                            │
-     │                     [expirar 12h]                [devolver]
+     │              [expirar 12h] │ [cancelar]          [devolver]
      │                            │                            │
      └────────────────────────────┴────────────────────────────┘
 ```
+
+A Cópia reservada volta a `disponível` por dois caminhos, e o estado da Cópia é o
+mesmo nos dois: o prazo de 12 horas decorreu (RN-1, job de fundo) ou o Leitor
+cancelou (RF-L8). A diferença fica na Reserva, não na Cópia — e é ela que o
+Bibliotecário lê para saber se a Cópia voltou por desistência ou por esquecimento.
 
 - `disponível`: pode ser reservada por qualquer Leitor
 - `reservada`: bloqueada para o Leitor que reservou; não pode ser reservada por outro
@@ -51,6 +57,7 @@ Evitar estes termos para não criar ambiguidade com os termos canônicos acima:
 
 | Termo proibido | Use em vez disso |
 |---|---|
+| "reserva cancelada" para o que venceu | Reserva expirada (o cancelamento é ato do Leitor — RF-L8) |
 | "livro disponível" | Livro com Disponibilidade > 0 |
 | "exemplar" | Cópia |
 | "aluguel" | Empréstimo |

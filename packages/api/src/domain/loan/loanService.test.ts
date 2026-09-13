@@ -72,7 +72,7 @@ function makeDeps(overrides?: Partial<LoanServiceDeps>): LoanServiceDeps {
     findReservationById: vi.fn().mockResolvedValue(makeReservation()),
     createLoanTx: vi.fn().mockResolvedValue({ loanId: 'loan-1' }),
     findLoanById: vi.fn().mockResolvedValue(makeLoan()),
-    returnLoanTx: vi.fn().mockResolvedValue(undefined),
+    returnLoanTx: vi.fn().mockResolvedValue(true),
     findLoans: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -120,7 +120,7 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-x', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Reserva não encontrada.' });
   });
 
   it('lança CONFLICT quando a Reserva já foi convertida (RN-6)', async () => {
@@ -132,7 +132,28 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Esta reserva já foi convertida em empréstimo.' });
+  });
+
+  it('lança CONFLICT quando a Reserva ganha outro desfecho durante a escrita (RN-6, RF-L8)', async () => {
+    // A Reserva estava ativa na checagem e deixou de estar antes do commit: a
+    // transação devolve null em vez de estourar o índice único de
+    // loans.reservationId, que chegaria à borda como 500.
+    const deps = makeDeps({
+      createLoanTx: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    // Três escritas disputam esta linha — outra efetivação, o cancelamento pelo
+    // Leitor e o job de expiração — e a mensagem não nomeia qual chegou primeiro:
+    // com o Leitor na frente do balcão, o que importa é que esta Reserva não
+    // serve mais e a lista precisa ser relida.
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toThrow('Esta reserva já foi encerrada e não pode ser convertida em empréstimo.');
   });
 
   it('lança CONFLICT quando a Reserva foi cancelada (RN-6)', async () => {
@@ -163,18 +184,40 @@ describe('createLoan()', () => {
     ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
   });
 
-  it('lança RESERVATION_EXPIRED, não CONFLICT, quando a Reserva foi cancelada por ter vencido (RN-1, RN-6)', async () => {
-    // É o estado em que o job de expiração deixa toda Reserva vencida: prazo no
-    // passado e cancelledAt preenchido. O Bibliotecário precisa ler "expirou".
+  it('lança RESERVATION_EXPIRED quando o job já processou o vencimento (RN-1, RN-6)', async () => {
+    // Estado em que o job de expiração deixa toda Reserva vencida. Desde a issue
+    // #20 ele grava em `expiredAt`, não em `cancelledAt`, e a checagem de prazo do
+    // serviço cobre os dois lados da janela de 60 s — o Bibliotecário lê "expirou"
+    // tanto no minuto seguinte ao vencimento quanto no dia seguinte.
     const deps = makeDeps({
       findReservationById: vi.fn().mockResolvedValue(
-        makeReservation({ expiresAt: PAST_DATE, cancelledAt: PAST_DATE }),
+        makeReservation({ expiresAt: PAST_DATE, cancelledAt: null }),
       ),
     });
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
     ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+  });
+
+  it('lança CONFLICT quando o Leitor cancelou a Reserva antes do prazo (RF-L8, RN-6)', async () => {
+    // `cancelledAt` com prazo ainda de pé só acontece por desistência do Leitor —
+    // e aí "foi cancelada pelo leitor" é a informação que o balcão precisa, com o
+    // Leitor na frente dele perguntando pelo livro que ele mesmo liberou. Antes de
+    // a issue #20 separar os campos, este caso era indistinguível de expiração.
+    const deps = makeDeps({
+      findReservationById: vi.fn().mockResolvedValue(
+        makeReservation({ cancelledAt: FIXED_NOW }),
+      ),
+    });
+
+    await expect(
+      createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Esta reserva foi cancelada pelo leitor e não pode ser convertida em empréstimo.',
+    });
+    expect(deps.createLoanTx).not.toHaveBeenCalled();
   });
 
   it('lança RESERVATION_EXPIRED quando expiresAt === now (fronteira inclusiva)', async () => {
@@ -186,7 +229,10 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+    ).rejects.toMatchObject({
+      code: 'RESERVATION_EXPIRED',
+      message: 'A reserva expirou e não pode ser convertida em empréstimo.',
+    });
   });
 
   it('passa todos os campos corretos para createLoanTx', async () => {
@@ -256,7 +302,7 @@ describe('returnLoan()', () => {
 
     await expect(
       returnLoan({ loanId: 'loan-x', librarianId: 'lib-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Empréstimo não encontrado.' });
   });
 
   it('lança CONFLICT quando o Empréstimo já foi devolvido (idempotência)', async () => {
@@ -268,7 +314,7 @@ describe('returnLoan()', () => {
 
     await expect(
       returnLoan({ loanId: 'loan-1', librarianId: 'lib-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Este empréstimo já foi devolvido.' });
   });
 
   it('passa loanId e returnedAt = now para returnLoanTx (RN-5)', async () => {
@@ -280,6 +326,19 @@ describe('returnLoan()', () => {
       loanId: 'loan-1',
       returnedAt: FIXED_NOW,
     });
+  });
+
+  it('responde 409 quando returnLoanTx perde a corrida (RN-5, Devolução concorrente)', async () => {
+    // A checagem `returnedAt !== null` passa (leitura fora da transação), mas o
+    // UPDATE condicional não afeta linha: outra Devolução chegou primeiro.
+    const deps = makeDeps({
+      returnLoanTx: vi.fn().mockResolvedValue(false),
+    });
+
+    // Quem perde a corrida lê o mesmo texto de quem clicou numa lista velha.
+    await expect(
+      returnLoan({ loanId: 'loan-1', librarianId: 'lib-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Este empréstimo já foi devolvido.' });
   });
 
   it('não chama returnLoanTx se o Empréstimo não existe', async () => {

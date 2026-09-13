@@ -13,6 +13,7 @@ export function formatDateTime(iso: string): string {
 
 /** Formata data ISO 8601 para dd/MM/yyyy */
 export function formatDate(iso: string): string {
+  // Stryker disable next-line ObjectLiteral: equivalente — sem opções, o pt-BR do ICU já formata dd/MM/yyyy
   return new Date(iso).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -30,7 +31,7 @@ export function formatAvailableCopies(count: number): string {
 }
 
 /** Estados de Reserva que a interface sabe exibir (glossario.md) */
-export type ReservationState = 'ativa' | 'convertida' | 'expirada'
+export type ReservationState = 'ativa' | 'convertida' | 'expirada' | 'cancelada'
 
 /** Campos que determinam o estado exibido de uma Reserva */
 export interface ReservationLike {
@@ -42,16 +43,17 @@ export interface ReservationLike {
 /**
  * Tradução do status da API para o rótulo exibido.
  *
- * `cancelled` cai em 'expirada' de propósito: `expireReservationsTx` grava
- * `cancelledAt` para registrar a expiração (RN-1) e o produto ainda não tem
- * cancelamento pelo Leitor — hoje todo `cancelled` É uma expiração. Quando o
- * cancelamento existir, este mapa ganha o quarto rótulo.
+ * `cancelled` ganhou rótulo próprio na issue #20. Antes dela ele caía em
+ * 'expirada', e com razão: o job de expiração gravava em `cancelledAt`, então
+ * todo `cancelled` ERA uma expiração. Com o cancelamento pelo Leitor existindo
+ * (RF-L8) e `expiredAt` separado, colapsar os dois diria "Expirada" para a
+ * Reserva que o Leitor acabou de cancelar — negando a ação que ele viu dar certo.
  */
 const STATE_BY_STATUS: Record<ReservationStatus, ReservationState> = {
   active:    'ativa',
   converted: 'convertida',
   expired:   'expirada',
-  cancelled: 'expirada',
+  cancelled: 'cancelada',
 }
 
 /** RN-1: limiar a partir do qual uma Reserva ativa entra em contagem regressiva visível */

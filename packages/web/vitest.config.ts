@@ -20,9 +20,14 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      // Camada lógica do SPA: utils e clientes HTTP. pages/ e components/ são
-      // comportamento de UI — cobertos pelas suítes E2E Playwright que dirigem
-      // a interface real (e2e/), não por teste unitário.
+      // Camada lógica do SPA: utils e clientes HTTP. pages/ e components/ ficam
+      // fora do alvo de cobertura — comportamento de UI se prova na suíte E2E
+      // Playwright, que dirige a interface real (e2e/).
+      //
+      // Isso não proíbe teste de componente: existe um carve-out para o cenário
+      // que a E2E não alcança (ver ADR-0006). `pages/LoginPage.test.tsx` é o
+      // caso — reproduzir o Keycloak fora do ar exige interceptar a rede, que a
+      // e2e/AGENTS.md proíbe naquela suíte. Ele roda, mas não entra na conta.
       include: ['src/utils/**/*.ts', 'src/api/**/*.ts'],
       exclude: ['src/**/*.test.*'],
       reporter: ['text', 'lcov'],

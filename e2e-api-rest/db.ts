@@ -44,7 +44,7 @@ export async function expireReservation(reservationId: string): Promise<void> {
 
 /**
  * Deixa a Reserva no estado em que o job de expiração a deixa: prazo vencido e
- * `cancelledAt` preenchido (RN-1). Serve para verificar a resposta da API *depois*
+ * `expiredAt` preenchido (RN-1). Serve para verificar a resposta da API *depois*
  * de o job passar, sem esperar o próximo tique — a liberação da Cópia, que é o
  * outro efeito do job, é observada de verdade em `regras-negocio-api.spec.ts`.
  */
@@ -53,7 +53,41 @@ export async function expireReservationAsJobWould(reservationId: string): Promis
   await withDb((db) =>
     db.reservation.update({
       where: { id: reservationId },
-      data: { expiresAt: new Date(agora.getTime() - 60_000), cancelledAt: agora },
+      // `expiredAt`, não `cancelledAt`: desde a issue #20 os dois desfechos têm
+      // campo próprio, e `cancelledAt` é exclusivo da desistência do Leitor
+      // (RF-L8). Gravar no campo errado aqui faria a API responder "foi
+      // cancelada" a um teste que afirma sobre expiração.
+      data: { expiresAt: new Date(agora.getTime() - 60_000), expiredAt: agora },
+    }),
+  )
+}
+
+/**
+ * Libera uma Reserva ativa agora: grava `cancelledAt` e devolve a Cópia ao acervo
+ * na mesma transação — o mesmo efeito do `PATCH /reservations/:id/cancel` (RF-L8),
+ * sem gastar uma requisição de negócio só para limpar o cenário.
+ *
+ * Existe por causa de RN-9 e RN-10, que fizeram da Reserva um recurso do Leitor:
+ * um cenário que termina segurando Reserva gasta uma das três vagas do seu
+ * Leitor e bloqueia aquele Livro para ele — inclusive na repetição do próprio
+ * cenário, quando o Playwright repete um teste que falhou. Cenário que consome
+ * Cópia e não precisa do estado depois desfaz o que fez aqui.
+ *
+ * Só para Reserva ainda ativa: uma já convertida em Empréstimo se desfaz pela
+ * Devolução (`PATCH /loans/:id/return`), que é caminho de produção.
+ */
+export async function releaseReservation(reservationId: string): Promise<void> {
+  await withDb((db) =>
+    db.$transaction(async (tx) => {
+      const { copyId } = await tx.reservation.update({
+        where: { id: reservationId },
+        data: { cancelledAt: new Date() },
+        select: { copyId: true },
+      })
+      await tx.copy.updateMany({
+        where: { id: copyId, status: 'reserved' },
+        data: { status: 'available' },
+      })
     }),
   )
 }
@@ -72,4 +106,9 @@ export async function copyStatus(copyId: string): Promise<string> {
 /** Quantas Reservas existem para uma Cópia (ativas ou não) — detecta reserva dupla. */
 export async function countReservationsForCopy(copyId: string): Promise<number> {
   return withDb((db) => db.reservation.count({ where: { copyId } }))
+}
+
+/** Quantos Empréstimos saíram de uma Reserva — detecta conversão dupla (RN-6). */
+export async function countLoansForReservation(reservationId: string): Promise<number> {
+  return withDb((db) => db.loan.count({ where: { reservationId } }))
 }

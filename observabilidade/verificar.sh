@@ -111,7 +111,6 @@ esperadas=(
   biblioteca_catalogo_resultados_count
   biblioteca_autorizacao_negacoes_total
   biblioteca_autenticacao_falhas_total
-  biblioteca_logins_total
   biblioteca_reservas_ativas
   biblioteca_emprestimos_ativos
   biblioteca_emprestimos_vencidos

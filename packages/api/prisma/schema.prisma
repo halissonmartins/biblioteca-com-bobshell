@@ -140,8 +140,17 @@ model Reservation {
   id        String   @id @default(cuid())
   expiresAt DateTime  // createdAt + 12h (RN-1)
 
-  /// null enquanto ativa; preenchido quando convertida ou expirada
+  /// Os três desfechos de uma Reserva, mutuamente exclusivos. Todos null e
+  /// `expiresAt` no futuro = Reserva ativa; nenhum estado é persistido como
+  /// enum, o status sai destes campos a cada leitura (reservationRepository).
+  ///
+  /// `expiredAt` nasceu com o cancelamento pelo Leitor (RF-L8): até então o job
+  /// de expiração gravava em `cancelledAt`, e o campo preenchido sempre
+  /// significava "venceu". Com as duas saídas existindo, um campo só não
+  /// distingue "o Leitor desistiu" de "o prazo passou" — e são conclusões
+  /// opostas para quem opera o balcão.
   convertedAt DateTime?
+  expiredAt   DateTime?
   cancelledAt DateTime?
 
   copyId String
@@ -158,6 +167,7 @@ model Reservation {
   @@index([userId])
   @@index([copyId])
   @@index([expiresAt])           // usado pelo job de expiração
+  @@index([cancelledAt])         // desistência do Leitor (RF-L8)
   @@map("reservations")
 }
 

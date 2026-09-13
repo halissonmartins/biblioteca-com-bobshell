@@ -3,11 +3,15 @@ import {
   API,
   apiLogin,
   apiBookByTitle,
+  apiCancelReservation,
   apiCreateReservation,
+  apiErrorOf,
+  apiGetBook,
   bearer,
   newActor,
   LEITOR,
   LEITOR_2,
+  LEITOR_CANCELA_ALHEIA,
   BIBLIOTECARIO,
 } from './helpers'
 
@@ -52,6 +56,7 @@ test.describe('Autorização e regras via API (RN-2, RN-3, RN-7)', () => {
       ['GET /me/loans', request.get(`${API}/me/loans`)],
       ['GET /reservations', request.get(`${API}/reservations`)],
       ['POST /reservations', request.post(`${API}/reservations`, { data: { bookId: 'x' } })],
+      ['PATCH /reservations/:id/cancel', request.patch(`${API}/reservations/qualquer/cancel`)],
       ['GET /loans', request.get(`${API}/loans`)],
       ['POST /loans', request.post(`${API}/loans`, { data: { reservationId: 'x', dueAt: '2026-12-01T10:00:00Z' } })],
       ['PATCH /loans/:id/return', request.patch(`${API}/loans/qualquer/return`)],
@@ -103,6 +108,64 @@ test.describe('Autorização e regras via API (RN-2, RN-3, RN-7)', () => {
 
     await ana.dispose()
     await bruno.dispose()
+  })
+
+  // RN-11 — cancelar é ato do Leitor sobre a PRÓPRIA Reserva. O papel sozinho não
+  // basta: sem a checagem de propriedade, qualquer Leitor autenticado liberaria a
+  // Cópia de qualquer outro, e a tela do dono só descobriria no refetch.
+  test('RN-11 — Reserva só é cancelada pelo dono: outro Leitor recebe 404, Bibliotecário 403', async ({ playwright }) => {
+    // O dono é um Leitor de cenário, não o Bruno: ele já tem A Metamorfose
+    // reservada no teste de isolamento acima, e RN-9 recusaria uma segunda.
+    const dono = await newActor(playwright, LEITOR_CANCELA_ALHEIA.email)
+    const intrusa = await newActor(playwright, LEITOR.email)
+    const carlos = await newActor(playwright, BIBLIOTECARIO.email)
+
+    const metamorfose = await apiBookByTitle(dono.ctx, 'A Metamorfose')
+    const reservaDoDono = await apiCreateReservation(dono.ctx, dono.token, metamorfose.id)
+    const disponiveisComReserva = (await apiGetBook(dono.ctx, metamorfose.id)).availableCopies
+
+    // 404, não 403: um 403 confirmaria a existência do id a quem não é dono, e a
+    // lista de Reservas não é pública (P-01). Para a Ana, a Reserva de outro tem
+    // de ser indistinguível de uma que não existe.
+    const daIntrusa = await intrusa.ctx.patch(`${API}/reservations/${reservaDoDono.id}/cancel`, {
+      headers: bearer(intrusa.token),
+    })
+    expect(daIntrusa.status()).toBe(404)
+    const erroAlheia = await apiErrorOf(daIntrusa)
+    expect(erroAlheia.code).toBe('NOT_FOUND')
+
+    const inexistente = await intrusa.ctx.patch(`${API}/reservations/id-que-nao-existe/cancel`, {
+      headers: bearer(intrusa.token),
+    })
+    expect(inexistente.status()).toBe(404)
+    // Mesmo código E mesma mensagem: é isso que torna as duas situações
+    // indistinguíveis de fora. Uma mensagem diferente ("não é sua") vazaria a
+    // existência do id tão bem quanto um 403.
+    expect((await apiErrorOf(inexistente)).message).toBe(erroAlheia.message)
+
+    // O balcão não cancela pelo Leitor (RN-2, RN-7): desfaz Reserva convertendo
+    // ou esperando o prazo
+    const doBalcao = await carlos.ctx.patch(`${API}/reservations/${reservaDoDono.id}/cancel`, {
+      headers: bearer(carlos.token),
+    })
+    expect(doBalcao.status()).toBe(403)
+
+    // Nenhuma das tentativas encostou na Reserva nem na Cópia
+    const aindaAtivas = await dono.ctx.get(`${API}/me/reservations`, { headers: bearer(dono.token) })
+    expect(((await aindaAtivas.json()).data as Array<{ id: string }>).map((r) => r.id)).toContain(
+      reservaDoDono.id,
+    )
+    expect((await apiGetBook(dono.ctx, metamorfose.id)).availableCopies).toBe(disponiveisComReserva)
+
+    // E o dono cancela: a Cópia volta ao acervo e o cenário termina onde começou
+    await apiCancelReservation(dono.ctx, dono.token, reservaDoDono.id)
+    expect((await apiGetBook(dono.ctx, metamorfose.id)).availableCopies).toBe(
+      disponiveisComReserva + 1,
+    )
+
+    await carlos.dispose()
+    await intrusa.dispose()
+    await dono.dispose()
   })
 
   test('RN-3 — reservar Livro sem Cópia disponível retorna 409', async ({ request }) => {

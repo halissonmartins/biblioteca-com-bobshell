@@ -1,6 +1,10 @@
 # Sistema de Biblioteca
 
-[![CI](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml/badge.svg)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/halissonmartins/biblioteca-com-bobshell/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/halissonmartins/biblioteca-com-bobshell/actions/workflows/ci.yml)
+![Node 24](https://img.shields.io/badge/Node-24-5FA04E?logo=nodedotjs&logoColor=white)
+![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
+![Keycloak 26.7](https://img.shields.io/badge/Keycloak-26.7-4D4D4D?logo=keycloak&logoColor=white)
 
 Sistema web híbrido de catálogo, reservas e empréstimos de biblioteca.
 
@@ -20,7 +24,20 @@ Fluxo híbrido do produto: o **Leitor** navega o catálogo e reserva on-line; o 
 
 ![Reservas do Bibliotecário](assets/images/bibliotecario-reservas.png)
 
-> Capturas geradas com Playwright a partir da UI real (`e2e/`).
+### No celular e no tablet
+
+O trilho de zona vira placa no topo e a tabela do balcão vira ficha — a ação
+continua na tela em vez de sumir num overflow horizontal.
+
+| Catálogo (390px) | Balcão do Bibliotecário (768px) |
+|---|---|
+| ![Catálogo no smartphone](assets/images/catalogo-smartphone.png) | ![Reservas do Bibliotecário no tablet](assets/images/bibliotecario-reservas-tablet.png) |
+
+> As sete telas nas três larguras de referência, com o que muda em cada uma:
+> [Layout responsivo](docs/design/responsivo.md).
+
+> Capturas geradas com Playwright a partir da UI real (`e2e/`) — inclusive as
+> estreitas, pelo mesmo `make screenshots`.
 > O passo a passo de cada tela está no [Manual do Usuário](docs/manual/manual-do-usuario.md).
 
 ## Rodar em 3 comandos
@@ -51,7 +68,7 @@ make keycloak-export # persiste no repositório o realm alterado pelo admin cons
 make certs    # gera a CA local e o certificado https do Keycloak (primeira vez)
 make theme-build # regenera o JAR do tema de login (packages/theme)
 make capas    # baixa as capas ausentes (só ao incluir Livro novo)
-make screenshots # recaptura as telas de assets/images/ usadas neste README
+make screenshots # recaptura as telas de assets/images/ (desktop, smartphone e tablet)
 ```
 
 ### Capas de Livro
@@ -127,6 +144,7 @@ packages/
 | [`docs/produto/user-stories.md`](docs/produto/user-stories.md) | Histórias com critério de aceite testável |
 | [`docs/manual/manual-do-usuario.md`](docs/manual/manual-do-usuario.md) | Passo a passo das telas para Leitor e Bibliotecário, com screenshots |
 | [`docs/design/fluxos.md`](docs/design/fluxos.md) | Fluxos principais com estados de erro |
+| [`docs/design/responsivo.md`](docs/design/responsivo.md) | As sete telas nas larguras de celular e tablet: o que muda e como é verificado |
 | [`docs/seguranca.md`](docs/seguranca.md) | Como a identidade funciona, o que a Fase 1 não protege e o que vem depois |
 | [`docs/observabilidade.md`](docs/observabilidade.md) | Como o backend é observado: logs, métricas, traces e dashboards |
 | [`docs/decisoes/`](docs/decisoes/) | ADRs das decisões estruturantes |

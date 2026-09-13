@@ -53,9 +53,12 @@
   }
 
   /* Foco visível obrigatório — acessibilidade AA.
-     Na chapa o foco é um filete grafite, legível sobre esmalte e sobre porcelana. */
+     Na chapa o foco é um filete grafite, legível sobre porcelana e chapa branca.
+     `outline` (estilo sólido) é explícito: sem ele o estilo ficava no `auto` do
+     navegador, que desenha o anel azul próprio e ignora a cor declarada. Sobre o
+     oxblood o grafite some (1,7:1) — ali o foco é branco (trilho e modal). */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-surface-900;
+    @apply outline outline-2 outline-offset-2 outline-surface-900;
   }
 
   :focus:not(:focus-visible) {
@@ -215,6 +218,22 @@
     }
   }
 
+  /* O link do caminho (breadcrumb) é alvo isolado numa barra de navegação, não
+     link no meio de frase: a exceção "inline" da WCAG 2.5.8 não o cobre e ele
+     media 54×17. Mesmo método do `.link-registro` — o piso segue o método de
+     entrada, não a largura da tela. */
+  .link-caminho {
+    @apply inline-flex items-center min-h-[24px]
+           hover:text-primary-600
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-900;
+  }
+
+  @media (pointer: coarse) {
+    .link-caminho {
+      @apply min-h-[44px];
+    }
+  }
+
   /* --- Tabela: registro de circulação, filete fino, cabeçalho em legenda --- */
   .table-container {
     @apply overflow-x-auto rounded-sm border border-surface-200 bg-surface-0;
@@ -244,10 +263,17 @@
     @apply bg-surface-100;
   }
 
-  /* Abaixo de sm a linha vira ficha: sem isso a coluna de ação do balcão
+  /* Abaixo de lg a linha vira ficha: sem isso a coluna de ação do balcão
      ficava fora do quadro dentro de um overflow silencioso, e a tarefa que o
-     produto existe para cumprir sumia da tela do celular. */
-  @media (max-width: 639px) {
+     produto existe para cumprir sumia da tela.
+
+     O limiar é 1024px, não 640px, porque o que decide não é o telefone e sim a
+     largura que sobra para a tabela: o balcão tem seis colunas e a última é a
+     ação. No tablet em retrato (768px) a tabela de Reservas pedia 740px dentro
+     de um contêiner de 718px — medido — e "Efetivar empréstimo" saía do quadro
+     pelo mesmo overflow silencioso que a ficha existe para eliminar. Em 1024px
+     o trilho já saiu da lateral (ver Navbar) e a tabela volta com 976px. */
+  @media (max-width: 1023px) {
     .table-empilha thead {
       @apply sr-only;
     }
@@ -309,8 +335,18 @@
     @apply px-6 py-5;
   }
 
+  /* Abaixo de sm as ações empilham em largura cheia, a primária em cima
+     (`flex-col-reverse` inverte a ordem do DOM, que termina na primária). Lado a
+     lado, o par mais largo — "Manter reserva" + "Cancelar reserva" — pedia 342px
+     dentro dos 310 do diálogo em 390px: os botões encolhiam e a caixa alta
+     condensada quebrava no meio da palavra. */
   .modal-footer {
-    @apply flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-200;
+    @apply flex flex-col-reverse gap-3 px-6 py-4 border-t border-surface-200
+           sm:flex-row sm:items-center sm:justify-end;
+  }
+
+  .modal-footer > * {
+    @apply w-full sm:w-auto;
   }
 
   /* --- Alertas: chapa de aviso. A cor é filete de contorno e ícone; o campo
@@ -345,7 +381,7 @@
   }
 
   .zona-link {
-    @apply flex items-center gap-3 px-4 py-3 rounded-none whitespace-nowrap
+    @apply flex items-center gap-3 px-3 sm:px-4 py-3 rounded-none whitespace-nowrap
            font-display text-base font-semibold uppercase tracking-placa
            text-surface-0/75
            transition-colors duration-100
@@ -359,5 +395,24 @@
   .zona-link-ativo {
     @apply zona-link bg-surface-50 text-primary-700
            hover:bg-surface-50 hover:text-primary-700;
+  }
+
+  /* O contorno branco do trilho, desenhado para dentro, caía sobre a própria
+     porcelana da zona acesa: 1,1:1, foco invisível justamente no link de onde a
+     navegação por teclado parte. A zona acesa usa a tinta dela. */
+  .zona-link-ativo:focus-visible {
+    @apply outline-primary-700;
+  }
+
+  /* --- Pular para o conteúdo: a primeira parada do Tab em toda tela com
+         trilho. Fora da tela até receber foco; aparece como chapa branca sobre
+         o trilho, com o contorno branco que o oxblood pede. --- */
+  .link-pular {
+    @apply sr-only
+           focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60]
+           focus:inline-flex focus:items-center focus:min-h-[44px] focus:px-4
+           focus:bg-surface-0 focus:text-surface-900 focus:border-2 focus:border-surface-900
+           focus:font-display focus:text-base focus:font-semibold focus:uppercase focus:tracking-placa
+           focus-visible:outline-surface-0;
   }
 }

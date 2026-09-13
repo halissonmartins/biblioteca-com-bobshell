@@ -19,10 +19,6 @@ export async function findUserByExternalId(
   return prisma.user.findUnique({ where: { externalId } });
 }
 
-export async function findUserById(id: string): Promise<UserRecord | null> {
-  return prisma.user.findUnique({ where: { id } });
-}
-
 export async function createUser(data: {
   externalId: string;
   name: string;

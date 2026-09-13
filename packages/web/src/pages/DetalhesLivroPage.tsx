@@ -62,7 +62,7 @@ export function DetalhesLivroPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       {/* Breadcrumb */}
       <nav className="text-sm text-surface-700 mb-6" aria-label="Caminho">
-        <Link to="/" className="hover:text-primary-600">Catálogo</Link>
+        <Link to="/" className="link-caminho">Catálogo</Link>
         <span className="mx-2">/</span>
         <span className="text-surface-900">{book.title}</span>
       </nav>

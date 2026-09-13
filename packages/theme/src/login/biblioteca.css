@@ -83,10 +83,24 @@ input[type="email"] {
     font-family: var(--bib-body);
 }
 
+/* Foco (issue #24): o mesmo do produto — borda grafite com anel de 1px no
+   campo, contorno grafite de 2px com 2px de offset no resto. O contorno anterior
+   era a lavagem oxblood (#faf1f1) sobre a chapa branca: 1,1:1, o campo de senha
+   recebia o foco e nada mudava na tela. Links e "mostrar senha" ficavam no anel
+   automático do navegador, fora do mundo. */
 .pf-v5-c-form-control:focus,
-input:focus {
-    border-color: var(--bib-primary) !important;
-    outline: 2px solid var(--bib-primary-wash);
+input:not([type="submit"]):focus {
+    border-color: var(--bib-ink) !important;
+    box-shadow: 0 0 0 1px var(--bib-ink);
+    outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input[type="submit"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--bib-ink);
+    outline-offset: 2px;
 }
 
 label,

@@ -51,7 +51,28 @@ export async function findReservationById(
 
 /**
  * Persiste o Empréstimo, marca a Cópia como 'loaned' e a Reserva como convertida
- * em uma única transação (protege contra race condition — RN-6).
+ * em uma única transação (RN-6).
+ * Retorna null se a Reserva ganhou outro desfecho entre a validação do serviço e
+ * a escrita — outro Bibliotecário (ou o mesmo com dois cliques) converteu
+ * primeiro, ou o Leitor cancelou no mesmo instante.
+ *
+ * O UPDATE da Reserva vem ANTES da criação do Empréstimo: é ele que decide quem
+ * converte. Duas requisições concorrentes passam juntas pelas checagens do
+ * serviço; a segunda espera o lock da linha da Reserva, reavalia o WHERE depois
+ * do commit da primeira e não afeta nenhuma linha — daí `count === 0`. Sem essa
+ * condição a corrida ia parar no índice único de `loans.reservationId`, e a
+ * violação crua do Prisma virava 500 na borda, no lugar do 409 que a regra já
+ * previa. Mesmo desenho de `createReservationTx`.
+ *
+ * **O WHERE cobre os três desfechos, não só `convertedAt`.** Com `convertedAt:
+ * null` sozinho, o cancelamento pelo Leitor (RF-L8) não era visto por esta
+ * escrita: o cancelamento commitava primeiro, gravava `cancelledAt`, devolvia a
+ * Cópia ao acervo — e este UPDATE ainda casava, criando um Empréstimo sobre uma
+ * Reserva cancelada e deixando a Cópia 'loaned' com o registro dizendo que o
+ * Leitor desistiu. Pior: na ordem inversa, a Cópia terminava 'available' com o
+ * livro fisicamente fora da biblioteca, e a Disponibilidade passava a mentir
+ * para todos os Leitores. As duas escritas disputam a mesma linha e agora se
+ * excluem de verdade. Coberto por `regras-negocio-api.spec.ts`.
  */
 export async function createLoanTx(params: {
   reservationId: string;
@@ -59,32 +80,52 @@ export async function createLoanTx(params: {
   userId: string;
   librarianId: string;
   dueAt: Date;
-}): Promise<{ loanId: string }> {
+}): Promise<{ loanId: string } | null> {
   const { reservationId, copyId, userId, librarianId, dueAt } = params;
   const now = new Date();
 
-  const [loan, , reservation] = await prisma.$transaction([
-    prisma.loan.create({
+  const criado = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.reservation.updateMany({
+      where: {
+        id: reservationId,
+        convertedAt: null,
+        expiredAt: null,
+        cancelledAt: null,
+        // O prazo entra no WHERE pela mesma razão: o job de expiração é a
+        // terceira escrita que disputa esta linha.
+        expiresAt: { gt: now },
+      },
+      data: { convertedAt: now },
+    });
+    if (count === 0) return null;
+
+    const loan = await tx.loan.create({
       data: { reservationId, copyId, userId, librarianId, dueAt },
       select: { id: true },
-    }),
-    prisma.copy.update({
+    });
+
+    await tx.copy.update({
       where: { id: copyId },
       data: { status: 'loaned' },
-    }),
-    prisma.reservation.update({
+    });
+
+    // createdAt sai da mesma transação: mede o tempo entre a Reserva e a
+    // retirada. Alimenta a taxa de conversão Reserva→Empréstimo do PRD §11.
+    // `updateMany` não devolve a linha, então a leitura é explícita — e só o
+    // caminho vencedor paga por ela.
+    const reservation = await tx.reservation.findUniqueOrThrow({
       where: { id: reservationId },
-      data: { convertedAt: now },
-      // createdAt sai da mesma transação: mede o tempo entre a Reserva e a
-      // retirada sem custar uma query extra. Alimenta a taxa de conversão
-      // Reserva→Empréstimo do PRD §11.
       select: { createdAt: true },
-    }),
-  ]);
+    });
 
-  conversaoDuracao.record((now.getTime() - reservation.createdAt.getTime()) / 1000);
+    return { loanId: loan.id, reservaCriadaEm: reservation.createdAt };
+  });
 
-  return { loanId: loan.id };
+  if (criado === null) return null;
+
+  conversaoDuracao.record((now.getTime() - criado.reservaCriadaEm.getTime()) / 1000);
+
+  return { loanId: criado.loanId };
 }
 
 // ---------------------------------------------------------------------------
@@ -111,29 +152,48 @@ export async function findLoanById(loanId: string): Promise<LoanForReturn | null
 /**
  * Persiste a Devolução (seta returnedAt) e libera a Cópia para 'available'
  * em uma única transação (RN-5).
+ *
+ * O UPDATE da Devolução é condicionado a `returnedAt: null` e vem ANTES da
+ * liberação da Cópia: é ele que decide o vencedor, mesmo desenho de
+ * `createLoanTx` e `cancelReservationTx`. Duas Devoluções concorrentes — o
+ * duplo clique do balcão, ou dois Bibliotecários na mesma linha — passam juntas
+ * pela checagem do serviço; a segunda espera o lock da linha, reavalia o WHERE
+ * depois do commit da primeira e não afeta nenhuma linha (retorna false).
+ *
+ * Sem essa condição, a segunda Devolução reescrevia `returnedAt` e forçava a
+ * Cópia para 'available' de forma incondicional — inclusive quando outro Leitor
+ * já a tinha reservado no intervalo, deixando uma Reserva ativa sobre uma Cópia
+ * 'available' e fazendo a Disponibilidade mentir para todos (RN-4). Por isso a
+ * liberação da Cópia também é condicionada a `status: 'loaned'`.
+ *
+ * Retorna false para quem não afetou linha nenhuma — o serviço traduz em 409.
  */
 export async function returnLoanTx(params: {
   loanId: string;
   returnedAt: Date;
-}): Promise<void> {
+}): Promise<boolean> {
   const { loanId, returnedAt } = params;
 
-  // Busca o copyId antes da transação
-  const loan = await prisma.loan.findUniqueOrThrow({
-    where: { id: loanId },
-    select: { copyId: true },
-  });
-
-  await prisma.$transaction([
-    prisma.loan.update({
-      where: { id: loanId },
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.loan.updateMany({
+      where: { id: loanId, returnedAt: null },
       data: { returnedAt },
-    }),
-    prisma.copy.update({
-      where: { id: loan.copyId },
+    });
+    if (count === 0) return false;
+
+    // Só a Devolução vencedora chega aqui; a Cópia estava 'loaned'.
+    const loan = await tx.loan.findUniqueOrThrow({
+      where: { id: loanId },
+      select: { copyId: true },
+    });
+
+    await tx.copy.updateMany({
+      where: { id: loan.copyId, status: 'loaned' },
       data: { status: 'available' },
-    }),
-  ]);
+    });
+
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------

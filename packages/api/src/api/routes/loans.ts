@@ -54,6 +54,7 @@ router.post(
   asyncHandler(async (req, res, next) => {
     const parsed = createLoanSchema.safeParse(req.body);
     if (!parsed.success) {
+      // Stryker disable next-line OptionalChaining: equivalente — com success=false o zod sempre traz ao menos um issue
       next(new AppError('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Dados inválidos'));
       return;
     }
@@ -91,6 +92,7 @@ router.patch(
     const loan = await findLoanDetail(loanId);
     // RN-8: dueAt e returnedAt vêm como ISO-8601 UTC, cuja ordem lexicográfica
     // é a ordem cronológica.
+    // Stryker disable next-line ConditionalExpression: equivalente — com returnedAt null, `null > dueAt` já é false
     const atrasado = loan !== null && loan.returnedAt !== null && loan.returnedAt > loan.dueAt;
     devolucoes.add(1, { situacao: atrasado ? 'atrasado' : 'em_dia' });
 
@@ -109,6 +111,7 @@ router.get(
   asyncHandler(async (req, res, next) => {
     const parsed = listLoansQuerySchema.safeParse(req.query);
     if (!parsed.success) {
+      // Stryker disable next-line OptionalChaining: equivalente — com success=false o zod sempre traz ao menos um issue
       next(new AppError('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Parâmetros inválidos'));
       return;
     }

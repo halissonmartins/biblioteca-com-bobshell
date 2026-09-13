@@ -1,6 +1,5 @@
 import { type ReactNode } from 'react'
 import type { ReservationState } from '@/utils/format'
-import type { CopyStatus } from '../../../shared/src/types/domain'
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral'
 
@@ -37,19 +36,6 @@ export function Badge({ variant, children }: BadgeProps) {
 // Badges pré-definidos para o domínio da biblioteca
 // ============================================================
 
-export function CopyStatusBadge({ status }: { status: CopyStatus }) {
-  const map = {
-    available: { variant: 'success' as const, label: 'Disponível' },
-    reserved:  { variant: 'warning' as const, label: 'Reservado' },
-    loaned:    { variant: 'danger'  as const, label: 'Emprestado' },
-  }
-  const entry = map[status]
-  // Um status ausente ou desconhecido não derruba a linha inteira: o código da
-  // Cópia continua legível e o Bibliotecário segue atendendo.
-  if (!entry) return null
-  return <Badge variant={entry.variant}>{entry.label}</Badge>
-}
-
 /**
  * Estado da Reserva. Os quatro estados de domínio têm rótulo próprio: colapsar
  * "convertida" em "Expirada" diz ao Bibliotecário que a operação que ele
@@ -73,6 +59,10 @@ export function ReservationStatusBadge({
     ativa:      { variant: 'success' as const, label: 'Ativa' },
     convertida: { variant: 'success' as const, label: 'Convertida' },
     expirada:   { variant: 'neutral' as const, label: 'Expirada' },
+    // Desistência do Leitor (RF-L8) — neutro como "expirada" porque o desfecho
+    // do acervo é o mesmo (a Cópia voltou), mas com rótulo próprio: para o
+    // balcão, "cancelada" explica por que a Cópia voltou antes da hora.
+    cancelada:  { variant: 'neutral' as const, label: 'Cancelada' },
   }
   const entry = map[state]
   if (!entry) return null
@@ -83,8 +73,8 @@ export function ReservationStatusBadge({
  * Disponibilidade de um Livro — não de uma Cópia.
  *
  * A API entrega apenas a contagem (`BookDetail.availableCopies`), sem os
- * estados individuais. Usar CopyStatusBadge aqui obrigava a inventar um: um
- * Livro cujas Cópias estão todas *reservadas* aparecia como "Emprestado".
+ * estados individuais. Um chip de status de Cópia aqui obrigava a inventar um:
+ * um Livro cujas Cópias estão todas *reservadas* aparecia como "Emprestado".
  */
 export function BookAvailabilityBadge({ availableCopies }: { availableCopies: number }) {
   return availableCopies > 0

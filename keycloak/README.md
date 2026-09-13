@@ -68,14 +68,38 @@ Senha `Biblioteca#2026!` para os três (política da Fase 2).
 > `roleFromRealmRoles()` resolve a favor de `bibliotecario` — é para isso que a precedência
 > existe.
 
+## Leitores de cenário do E2E (`e2e-*`)
+
+Além dos três, o realm traz **21 Leitores com prefixo `e2e-`** — um por cenário das
+suítes que **cria** Reserva (`e2e-reserva@`, `e2e-fila1@` … `e2e-fila8@`, `e2e-teto@`…).
+Eles existem porque RN-9 e RN-10 fizeram da Reserva um recurso do Leitor: o mesmo
+Leitor não tem duas Reservas ativas do mesmo Livro e não passa de três ativas, então
+uma conta compartilhada entre cenários acumula até a suíte falhar por acumulação em
+vez de por defeito. A tabela de alocação — qual conta é de qual cenário — fica em
+[`e2e/AGENTS.md`](../e2e/AGENTS.md); os nomes das constantes, em `e2e/helpers.ts`.
+
+Três coisas a lembrar:
+
+- **O prefixo é o território dos testes.** Conta criada à mão para explorar o produto
+  fica livre para usar `leitorN@biblioteca.dev` sem colidir com o que a suíte espera.
+- **Não há linha no seed para elas** — e nem precisa: o espelho local em `users` nasce
+  no primeiro `GET /me` (JIT provisioning, ADR-0009). Só os três do seed têm `id`
+  literal, porque são eles que as Reservas e os Empréstimos do seed referenciam.
+- **Conta nova é mudança de realm**, e mudança de realm é arquivo: editar este JSON e
+  reimportar (comando acima), nunca clicar no admin console e seguir em frente.
+
 ## Console e postura de segurança
 
 Admin console em https://localhost:8443 com as credenciais `KC_BOOTSTRAP_ADMIN_*`
 do `.env` da raiz — nada de `admin/admin` versionado aqui (Fase 2).
 
 Para o navegador confiar no certificado local (`make certs`), importe
-`keycloak/certs/ca.crt` na autoridade confiável do seu SO/navegador. Os testes E2E
-dispensam isso (`ignoreHTTPSErrors`) e a API usa `NODE_EXTRA_CA_CERTS`.
+`keycloak/certs/ca.crt` na autoridade confiável do seu SO/navegador. O Chromium dos
+testes E2E dispensa isso (`ignoreHTTPSErrors`). O Node confia pela
+`NODE_EXTRA_CA_CERTS`, que precisa estar no ambiente antes de o processo subir: a
+API a recebe do script `dev`, e os workers das duas suítes E2E, da
+`playwright.config.ts` de cada uma, com caminho absoluto. Nunca no `.env` —
+dali ela vazava para os processos do E2E com um caminho que não resolvia (issue #34).
 
 ## Tema de login
 

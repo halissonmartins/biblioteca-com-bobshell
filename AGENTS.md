@@ -13,7 +13,9 @@ Sistema web híbrido de biblioteca: Leitor reserva on-line, Bibliotecário efeti
 - Arquitetura: [`ARCHITECTURE.md`](ARCHITECTURE.md) — leia antes de criar arquivo novo
 - Segurança: [`docs/seguranca.md`](docs/seguranca.md) — identidade com Keycloak, papéis e o que a Fase 1 deixa em aberto. **Leia antes de mexer em autenticação, autorização ou no realm.**
 - Observabilidade: [`docs/observabilidade.md`](docs/observabilidade.md) — logs, métricas, traces e dashboards. **Leia antes de adicionar métrica, span ou log.**
+- Runbook: [`docs/operacao/runbook.md`](docs/operacao/runbook.md) — sintoma → verificação → ação → confirmação para os incidentes conhecidos, migrations e Keycloak. **Leia antes de corrigir dado ou reiniciar serviço num incidente.**
 - Design system: [`DESIGN.md`](DESIGN.md) — tokens, componentes e regras do mundo visual. **Leia antes de gerar qualquer UI.** (`docs/design/design-system.md` descreve o mundo anterior e virou um redirecionamento)
+- Layout responsivo: [`docs/design/responsivo.md`](docs/design/responsivo.md) — as três larguras de referência, o que muda em cada uma e o spec que guarda o resultado. **Leia antes de mexer em breakpoint, tabela ou trilho de navegação.**
 
 ## Stack
 
@@ -36,6 +38,7 @@ instala as próprias deps. Não tente `npm install` na raiz. Lint também difere
 make setup    # instala deps + docker compose up + migrate + seed
 make dev      # API (porta 3000) + Web (porta 5173) em watch
 make test     # Vitest — todos os testes unitários e de integração
+make mutation # StrykerJS — teste de mutação (API + Web); lento, incremental, fora do ci-gate (ADR-0006)
 make lint     # API: ESLint + typecheck · Web: oxlint
 make build    # build de produção
 make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
@@ -43,7 +46,7 @@ make certs    # gera CA local + certificado https://localhost:8443 do Keycloak (
 make theme-build # regenera o JAR do tema de login (packages/theme) — commitar depois
 make capas    # baixa as capas ausentes para assets/capas/ — só ao incluir Livro novo (ADR-0008)
 make keycloak-export # persiste no repositório o realm alterado pelo admin console
-make screenshots # recaptura as telas de assets/images/ que o README usa
+make screenshots # recaptura as telas de assets/images/ nas três molduras (desktop, smartphone, tablet)
 ```
 
 **Dois `.env`, não um:** `make env` copia `.env.example` para `packages/api/.env`
@@ -110,6 +113,10 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - Empréstimo só pode ser efetivado por **`bibliotecario`**, nunca pelo `leitor` (RN-2, RN-7)
 - **Papel vem sempre do token do Keycloak** — nunca do corpo da requisição, nunca de coluna consultada por conveniência (ADR-0009)
 - Reserva só pode ser criada se houver **Cópia com `status = 'available'`** (RN-3)
+- **Uma Reserva ativa por Leitor por Livro** (RN-9) — Empréstimo em aberto do mesmo Livro também bloqueia; expirada ou cancelada não conta
+- **Teto de Reservas ativas por Leitor** (RN-10) — o número vive em `MAX_ACTIVE_RESERVATIONS_PER_READER` (`packages/api/src/domain/reservation/reservationService.ts`); é regra que a API impõe, não a tela
+- **Só o próprio Leitor cancela a própria Reserva, e só enquanto ativa** (RN-11) — Reserva de outro responde 404, não 403; convertida em Empréstimo se desfaz por Devolução no balcão. Cancelar libera a Cópia na hora (RN-5), devolve a vaga de RN-10 e não conta para RN-9
+- **Expiração e cancelamento são campos separados** — o job grava `expiredAt` (RN-1), o Leitor grava `cancelledAt` (RF-L8). Um campo só não distingue esquecimento de desistência, e a tela dizia "Expirada" para quem acabara de cancelar
 - Cópia reservada fica **`status = 'reserved'`** — bloqueada para outros leitores (RN-4)
 - Apenas reservas ativas (não expiradas) podem ser convertidas em Empréstimo (RN-6)
 - Empréstimo vence em **7 dias corridos**, ajustável pelo Bibliotecário no balcão (RN-8) — o padrão vive em `LOAN_PERIOD_DAYS` (`packages/web/src/utils/loan.ts`); a API ainda aceita qualquer `dueAt`
@@ -123,6 +130,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **Mudança no realm é arquivo**: editar `keycloak/realm-biblioteca.json` ou rodar `make keycloak-export`. Clicar no admin console sem exportar perde a mudança
 - **Nunca editar migration já aplicada** — criar nova migration que corrige
 - **Nunca desabilitar lint/tipo/teste** para fazer build ou CI passar
+- **Mutante sobrevivente se mata com teste, não com comentário** — `// Stryker disable next-line <mutador>: <motivo>` só para mutante equivalente, e sempre com o motivo. Nunca baixar `thresholds.break` do `stryker.config.mjs` para passar (ADR-0006)
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
 - **Capa de Livro é arquivo em `assets/capas/<isbn>.jpg`**, versionado, servido pelo nginx do compose. `coverUrl` guarda caminho relativo (`/capas/…`), nunca URL externa — nada de imagem sai da rede em runtime (ADR-0008)
 - Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`

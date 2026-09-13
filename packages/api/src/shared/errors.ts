@@ -18,6 +18,8 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'VALIDATION_ERROR'
   | 'NO_COPY_AVAILABLE'   // RN-3
+  | 'DUPLICATE_RESERVATION'      // RN-9
+  | 'RESERVATION_LIMIT_REACHED'  // RN-10
   | 'RESERVATION_EXPIRED' // RN-6
   | 'INTERNAL_ERROR';
 
@@ -52,6 +54,10 @@ export class AppError extends Error {
       case 'VALIDATION_ERROR':
         return 422;
       case 'NO_COPY_AVAILABLE':
+        return 409;
+      case 'DUPLICATE_RESERVATION':
+        return 409;
+      case 'RESERVATION_LIMIT_REACHED':
         return 409;
       case 'RESERVATION_EXPIRED':
         return 409;

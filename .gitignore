@@ -16,8 +16,19 @@ coverage/
 /e2e-api-rest/playwright-report/
 /e2e-api-rest/blob-report/
 
+# Teste de mutação (StrykerJS) — relatórios, estado incremental e sandbox
+/packages/*/reports/
+/packages/*/.stryker-tmp/
+
 # Certificados locais gerados por `make certs` (Fase 2 — TLS)
 /keycloak/certs/
+
+# Google Mantis (revisão de segurança) — estado da campanha e artefatos por diretório
+/workspace/
+/.mantis_snapshots/
+mantis-summary.md
+*.bak-*
+.mantis_snapshot_id
 
 # Build do tema Keycloakify (o JAR final em packages/theme/jar/ é versionado)
 /packages/theme/dist/

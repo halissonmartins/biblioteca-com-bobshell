@@ -143,6 +143,36 @@ describe('listBooks()', () => {
     const calledWith = firstCall?.[0] as ListBooksFilter;
     expect(calledWith).not.toHaveProperty('search');
   });
+
+  it('remove espaços extras do gênero', async () => {
+    const deps = makeDeps();
+
+    await listBooks({ genre: '  Romance  ' }, deps);
+
+    expect(deps.findBooks).toHaveBeenCalledWith(
+      expect.objectContaining({ genre: 'Romance' }),
+    );
+  });
+
+  it('omite genre quando o valor é vazio (somente espaços)', async () => {
+    // `toHaveBeenCalledWith` trata `genre: undefined` como ausente — por isso a
+    // conferência é pela chave, como no search.
+    const deps = makeDeps();
+
+    await listBooks({ genre: '   ' }, deps);
+
+    const calledWith = (deps.findBooks as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as ListBooksFilter;
+    expect(calledWith).not.toHaveProperty('genre');
+  });
+
+  it('não cria a chave genre quando nenhum gênero é pedido', async () => {
+    const deps = makeDeps();
+
+    await listBooks({}, deps);
+
+    const calledWith = (deps.findBooks as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as ListBooksFilter;
+    expect(calledWith).not.toHaveProperty('genre');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -167,6 +197,7 @@ describe('getBook()', () => {
 
     await expect(getBook('nao-existe', deps)).rejects.toMatchObject({
       code: 'NOT_FOUND',
+      message: 'Livro não encontrado: nao-existe',
     });
     await expect(getBook('nao-existe', deps)).rejects.toBeInstanceOf(AppError);
   });
@@ -194,6 +225,7 @@ describe('getAuthor()', () => {
 
     await expect(getAuthor('nao-existe', deps)).rejects.toMatchObject({
       code: 'NOT_FOUND',
+      message: 'Autor não encontrado: nao-existe',
     });
     await expect(getAuthor('nao-existe', deps)).rejects.toBeInstanceOf(AppError);
   });

@@ -21,7 +21,11 @@ export const meter = metrics.getMeter('biblioteca.api', '0.0.0');
 
 // ── Reservas ────────────────────────────────────────────────────────────────
 
-/** Atributo `resultado`: 'criada' | 'sem_copia' (RN-3 barrando a Reserva). */
+/**
+ * Atributo `resultado`: 'criada' | 'sem_copia' (RN-3) | 'duplicada' (RN-9) |
+ * 'limite' (RN-10) | 'erro'. As três recusas são 409 na borda, mas contam
+ * histórias diferentes: acervo insuficiente contra regra barrando o Leitor.
+ */
 export const reservasCriadas: Counter = meter.createCounter('biblioteca.reservas.criadas', {
   description: 'Tentativas de criação de Reserva (RF-L3, RN-3)',
   unit: '{reserva}',
@@ -31,6 +35,22 @@ export const reservasExpiradas: Counter = meter.createCounter('biblioteca.reserv
   description: 'Reservas expiradas pelo job de fundo (RN-1, RN-5)',
   unit: '{reserva}',
 });
+
+/**
+ * Atributo `resultado`: 'cancelada' | 'nao_encontrada' | 'encerrada' | 'expirada'.
+ *
+ * Separada de `reservas.expiradas` porque as duas contam coisas opostas sobre o
+ * acervo: expiração é Cópia bloqueada o prazo inteiro por nada, cancelamento é
+ * Cópia devolvida cedo por quem desistiu. Somadas num contador só, a métrica de
+ * produto "conversão > 70%" (PRD §11) não distingue desistência de esquecimento.
+ */
+export const reservasCanceladas: Counter = meter.createCounter(
+  'biblioteca.reservas.canceladas',
+  {
+    description: 'Cancelamentos de Reserva pedidos pelo Leitor (RF-L8, RN-11)',
+    unit: '{reserva}',
+  },
+);
 
 /**
  * Alimenta a métrica de produto "conversão Reserva → Empréstimo > 70%" (PRD §11).
@@ -95,12 +115,6 @@ export const autorizacaoNegacoes: Counter = meter.createCounter(
 export const autenticacaoFalhas: Counter = meter.createCounter('biblioteca.autenticacao.falhas', {
   description: 'Requisições rejeitadas na autenticação JWT',
   unit: '{falha}',
-});
-
-/** Atributo `resultado`: 'sucesso' | 'falha'. */
-export const logins: Counter = meter.createCounter('biblioteca.logins', {
-  description: 'Tentativas de login',
-  unit: '{login}',
 });
 
 // ── Infraestrutura ──────────────────────────────────────────────────────────

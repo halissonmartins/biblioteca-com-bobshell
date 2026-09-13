@@ -119,7 +119,7 @@ if (!DESLIGADO) {
           (req.url ?? '').startsWith('/health'),
       }),
       new ExpressInstrumentation({
-        // Um span por middleware (cors, json, cookieParser, authenticate…)
+        // Um span por middleware (cors, json, authenticate…)
         // triplica o tamanho do trace sem acrescentar informação.
         ignoreLayersType: [ExpressLayerType.MIDDLEWARE],
       }),

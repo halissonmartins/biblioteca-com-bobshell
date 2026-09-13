@@ -221,7 +221,16 @@ Números são tabulares em toda a interface (tabela, `.font-mono`, `<time>`): c�
 
 ## Layout
 
-O shell é um trilho de zona fixo e um campo de conteúdo. A partir de `lg` (1024px) o trilho é uma coluna fixa de 240px colada à esquerda em altura total, e o conteúdo compensa com 240px de recuo à esquerda; abaixo disso o trilho vira uma placa de duas linhas grudada no topo (identificação e ação em cima, zonas em faixa rolável embaixo). A tela de entrada (login) não tem trilho e não recebe o recuo.
+O shell é um trilho de zona fixo e um campo de conteúdo. A partir de `xl` (1280px) o trilho é uma coluna fixa de 240px colada à esquerda em altura total, e o conteúdo compensa com 240px de recuo à esquerda; abaixo disso o trilho vira uma placa de duas linhas grudada no topo (identificação e ação em cima, zonas em faixa rolável embaixo). A tela de entrada (login) não tem trilho e não recebe o recuo.
+
+**Os três estados do shell.** O limiar do trilho é `xl`, não `lg`, porque os 240px da lateral saem justamente da largura que a tabela do balcão precisa: em 1024px sobravam 734px para uma tabela que pede 740, e a coluna de ação desaparecia num overflow silencioso. Altura é barata, largura é escassa — abaixo de `xl` o trilho cobra altura no topo e devolve a largura ao registro.
+
+| Largura | Trilho de zona | Tabela | Grade do catálogo |
+|---|---|---|---|
+| < 640px (celular) | placa no topo, zonas em faixa rolável | ficha | 2 colunas |
+| 640–1023px (tablet) | placa no topo | ficha | 3 em `sm`, 4 em `md` |
+| 1024–1279px (tablet em paisagem) | placa no topo | tabela, 976px de campo | 5 colunas |
+| ≥ 1280px | coluna fixa de 240px | tabela | 5 colunas |
 
 **O buraco no mundo visual: a tela de credencial.** Desde o [ADR-0009](docs/decisoes/0009-identidade-com-keycloak.md), quem pede e-mail e senha é o Keycloak, e a tela dele usa o **tema padrão do produto dele** — PatternFly escuro, tipografia e botões que não são os daqui. A nossa `/login` virou uma antessala: mantém o campo de esmalte e a chapa "BIBLIOTECA", e encaminha. Quem faz o percurso vê o nosso mundo, sai dele para digitar a senha, e volta.
 
@@ -231,9 +240,11 @@ O conteúdo é centrado com largura máxima por tipo de tela: catálogo em cont�
 
 O ritmo de espaçamento é estritamente múltiplo de 4px (4, 8, 12, 16, 20, 24, 32, 40, 48, 64). Valores arbitrários fora dessa escala não entram.
 
-A grade do catálogo é de placas em proporção 2:3, escalando 2 colunas no celular, 3 em `sm`, 4 em `md`, 5 em `xl`, com 12px de gap no celular e 16px acima. A densidade sobe com a largura porque a placa continua legível reduzida: o título é a forma, não uma legenda sob uma imagem.
+A grade do catálogo é de placas em proporção 2:3, escalando 2 colunas no celular, 3 em `sm`, 4 em `md`, 5 em `lg`, com 12px de gap no celular e 16px acima. A quinta coluna entra em `lg` e não em `xl` porque é ali que o trilho sai da lateral e devolve 240px à grade — a densidade acompanha o campo, não o número do breakpoint. A densidade sobe com a largura porque a placa continua legível reduzida: o título é a forma, não uma legenda sob uma imagem.
 
-**A Regra da Ficha no Celular.** Abaixo de `sm` (640px) toda tabela empilha: o cabeçalho vira leitura de tela apenas, cada linha vira uma ficha com borda inferior, e cada célula imprime seu rótulo à esquerda a partir de `data-coluna`. A célula sem cabeçalho é a das ações e ocupa a linha inteira. Sem isso a coluna de ação do balcão desaparecia num overflow horizontal silencioso.
+**A Regra da Ficha.** Abaixo de `lg` (1024px) toda tabela empilha: o cabeçalho vira leitura de tela apenas, cada linha vira uma ficha com borda inferior, e cada célula imprime seu rótulo à esquerda a partir de `data-coluna`. A célula sem cabeçalho é a das ações e ocupa a linha inteira. Sem isso a coluna de ação do balcão desaparecia num overflow horizontal silencioso.
+
+O limiar é a largura que a tabela precisa, não o tamanho do aparelho: a tabela de Reservas do balcão tem seis colunas e a última é a ação, e no tablet em retrato ela pedia 740px dentro de 718px de contêiner. Em 1024px o trilho já saiu da lateral e a tabela volta inteira. Ver [`docs/design/responsivo.md`](docs/design/responsivo.md).
 
 ## Elevation & Depth
 
@@ -275,9 +286,9 @@ Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Emprésti
 
 | Situação | Componente | Variante | Rótulo |
 |---|---|---|---|
-| Cópia disponível | `<CopyStatusBadge status="available">` | `success` | Disponível |
-| Cópia reservada | `<CopyStatusBadge status="reserved">` | `warning` | Reservado |
-| Cópia emprestada | `<CopyStatusBadge status="loaned">` | `danger` | Emprestado |
+| Cópia disponível | `<Badge variant="success">` | `success` | Disponível |
+| Cópia reservada | `<Badge variant="warning">` | `warning` | Reservado |
+| Cópia emprestada | `<Badge variant="danger">` | `danger` | Emprestado |
 | Reserva ativa | `<ReservationStatusBadge state="ativa">` | `success` | Ativa |
 | Reserva a < 1 h do prazo | `<ReservationStatusBadge state="ativa" expiringSoon>` | `warning` | Expira em breve |
 | Reserva virou Empréstimo | `<ReservationStatusBadge state="convertida">` | `success` | Convertida |
@@ -285,9 +296,14 @@ Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Emprésti
 | Livro com Disponibilidade | `<BookAvailabilityBadge availableCopies={n}>` | `success` / `neutral` | Disponível / Indisponível |
 
 `<BookAvailabilityBadge>` existe porque a API entrega apenas a contagem de Cópias
-de um Livro (`BookDetail.availableCopies`), sem os estados individuais — usar
-`<CopyStatusBadge>` ali obrigava a inventar um status e imprimia "Emprestado"
+de um Livro (`BookDetail.availableCopies`), sem os estados individuais — um chip
+de status de Cópia ali obrigava a inventar um status e imprimia "Emprestado"
 para Cópias que estavam apenas reservadas.
+
+Nenhuma tela mostra hoje o status de uma Cópia individual, por isso não existe
+componente pré-definido para ele: o `CopyStatusBadge` saiu como código morto
+(issue #17). As três linhas de Cópia acima continuam valendo como regra de
+variante e rótulo para quando uma tela precisar desse status.
 
 Não existe rótulo "Cancelada": ver [glossário](docs/produto/glossario.md), verbete
 *Reserva expirada*.
@@ -309,8 +325,9 @@ Não existe rótulo "Cancelada": ver [glossário](docs/produto/glossario.md), ve
 - **Style:** chapa oxblood cheia, links em condensada caixa alta a 75% de opacidade branca, canto vivo, sem ícone.
 - **Hover:** campo oxblood fundo, texto a 100%.
 - **Active:** **inversão pura** — o link imprime porcelana com tinta oxblood prensada, como uma placa acesa. A chapa inteira vira o indicador; não há filete de destaque. `aria-current` acompanha.
-- **Focus:** contorno branco de 2px com offset negativo, para não vazar da chapa.
-- **Mobile:** trilho no topo em duas linhas, zonas em faixa rolável horizontal; nunca espremidas numa linha só (rótulo cortado lê como defeito).
+- **Focus:** contorno branco de 2px com offset negativo, para não vazar da chapa. Na zona acesa o contorno é oxblood prensado (`primary-700`): branco sobre a porcelana media 1,1:1 e o foco sumia justamente no link da tela atual. O botão Sair/Entrar do trilho também leva contorno branco — o grafite padrão cai sobre o oxblood a 1,7:1.
+- **Pular para o conteúdo:** primeira parada do Tab em toda tela com trilho. Fora da tela até receber foco; aí aparece no canto superior esquerdo como chapa branca com borda grafite e contorno branco, e o Enter leva o foco ao `<main>`.
+- **Abaixo de `xl`:** trilho no topo em duas linhas, zonas em faixa rolável horizontal; nunca espremidas numa linha só (rótulo cortado lê como defeito). O padding lateral do link cai de 16px para 12px no celular, o suficiente para as três zonas do Leitor caberem em 390px sem rolar — abaixo disso a faixa rola, que é o escape previsto.
 
 ### Faixas de Gênero
 A codificação de zona virou controle de filtro. Cada faixa é um botão com o campo da sua zona e texto branco a 90% de opacidade; ativo usa **a mesma inversão do trilho** — porcelana com borda grafite de 2px. Piso de 44px de altura. O dispositivo mais novo não inventa um estado próprio.
@@ -321,7 +338,9 @@ A codificação de zona virou controle de filtro. Cada faixa é um botão com o 
 - **Mobile:** empilha em fichas — ver a Regra da Ficha no Celular.
 
 ### Modal
-Overlay grafite a 70%, chapa branca, a única sombra do sistema. O **cabeçalho é uma placa oxblood cheia** com título em condensada branca — a identidade vem do campo de cor, não de um filete no topo. Rodapé separado por filete, ações alinhadas à direita. Fecha por Esc e por overlay (salvo `persistent`), trava o scroll do corpo e move o foco para o diálogo.
+Overlay grafite a 70%, chapa branca, a única sombra do sistema. O **cabeçalho é uma placa oxblood cheia** com título em condensada branca — a identidade vem do campo de cor, não de um filete no topo. Rodapé separado por filete, ações alinhadas à direita. Fecha por Esc e por overlay (salvo `persistent`), trava o scroll do corpo, move o foco para o diálogo, prende o Tab dentro dele e, ao fechar, devolve o foco a quem o abriu. Se a própria operação tira o gatilho da tela (a linha da Reserva efetivada sai da lista, o "Reservar" da última Cópia desabilita), o foco vai ao `<main>` em vez de cair no body. O X da placa oxblood tem contorno de foco branco, pela mesma razão do trilho.
+
+**No celular o rodapé empilha**: abaixo de `sm` as ações ocupam a largura inteira, a primária em cima. Lado a lado, o par mais largo — "Manter reserva" + "Cancelar reserva" — pedia 342px dentro dos 310 disponíveis em 390px, e a caixa alta condensada quebrava no meio da palavra. O botão de fechar carrega piso de 44×44: ele media 28px de largura, porque o ícone de 20px com padding de 4px não alcança o alvo que o `.btn-sm` garante só na altura.
 
 ### Alert
 Chapa branca com filete de contorno na cor do estado e ícone SVG na cor do estado; o texto fica grafite. Título opcional em condensada caixa alta. Sempre `role="alert"`.
@@ -341,6 +360,25 @@ O corpo do título tem três degraus, calculados por **comprimento total e pela 
 `asHeading` existe porque, quando a capa é o título do item numa lista, ela precisa ser um heading de verdade: a placa desenha o título e a imagem não, mas a árvore de acessibilidade não pode ficar sem ele em nenhum dos dois casos — com imagem, o `h3` vai junto em `sr-only`. Quando não é heading, a placa inteira é `aria-hidden` e o título vem do texto adjacente.
 
 A zona é derivada do gênero por **FNV-1a de 32 bits com avalanche final**, entre as seis zonas não-oxblood. Mesmo gênero, mesma zona, sempre — nunca um mapa fixo, que ficaria desatualizado no primeiro gênero novo. O hash anterior (djb2) colidia sistematicamente e jogava todos os gêneros numa cor só; se o algoritmo mudar, a distribuição precisa ser verificada de novo.
+
+### Favicon (marca)
+
+Uma placa em miniatura: chapa oxblood (`primary`) com canto duro e um "B" em
+caixa alta condensada branca. A aba do navegador é a porta de entrada do trilho,
+e oxblood é a cor da navegação — a Regra do Cargo Fixo vale também aqui. O "B"
+é desenhado em segmentos retos com chanfro, e não com a Barlow: um favicon não
+carrega webfont, e a 16px a curva de uma fonte vira borrão onde o chanfro
+continua nítido.
+
+- **Fonte única:** `packages/web/public/favicon.svg`. Nenhum raster é desenhado
+  à mão.
+- **Rasters gerados** por `node scripts/gerar-favicons.mjs` (Chromium do
+  Playwright de `e2e/`): `favicon.ico` (16 e 32px), `apple-touch-icon.png`
+  (180px, sem canto — o iOS aplica a própria máscara) e
+  `packages/theme/public/favicon-32x32.png`, que as páginas de login do
+  Keycloak usam.
+- **Para mudar a marca:** edite o SVG, rode o script, rode `make theme-build` e
+  versione o JAR junto com os rasters.
 
 ## Do's and Don'ts
 
@@ -369,6 +407,6 @@ A zona é derivada do gênero por **FNV-1a de 32 bits com avalanche final**, ent
 Registrado como estado conhecido, **não como orientação**:
 
 - **Contraste não verificado por máquina.** Os tokens foram escolhidos para AA e as zonas foram desenhadas para passar com texto branco, mas o detector empacotado roda DEGRADED neste ambiente (sem módulos de parser HTML). Nenhum par foi confirmado automaticamente.
-- **Alvos de toque não auditados** além do piso de 44px em `.btn-sm` e nas faixas de gênero.
+- **Alvos de toque auditados por máquina nas sete telas** (issue #21): `e2e/responsivo.spec.ts` mede todo controle visível em 390, 768 e 1024px com ponteiro grosso emulado e exige 44×44. Fora da varredura fica o link no meio de frase — o nome do Autor em "por Clarice Lispector" —, coberto pela exceção inline da WCAG 2.5.8. Modal e faixas de gênero entram pela tela que os contém, não por estado próprio.
 - **A lista de gêneros das faixas** é derivada da primeira página não filtrada do catálogo, porque a API não expõe endpoint de gêneros. A lista é, portanto, parcial por construção.
 - **A grade mista foi vista com dez Livros, não com um acervo.** Seis capas reais convivendo com quatro placas foi verificado no navegador e está na captura do README. Em escala maior, o quanto o recorte 2:3 maltrata capas de proporção incomum — e quanto a alternância entre foto e chapa cansa a leitura da grade — continua sem medida.

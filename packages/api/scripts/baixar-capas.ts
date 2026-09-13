@@ -56,17 +56,30 @@ function ampliar(url: string): string {
 const ISBN_INEXISTENTE = '0000000000000';
 
 /**
- * O Google tem duas recusas diferentes, e só uma delas o ISBN inexistente
- * revela: volume desconhecido devolve um PNG de ~9 KB, enquanto volume
- * conhecido **sem capa** devolve uma chapa cinza de 800×1153 e 456 KB, igual
- * para todos. Esta é a assinatura dessa segunda, medida em 16/08/2026; a
- * detecção de duplicatas abaixo cobre o caso de ela mudar.
+ * O Google tem recusas diferentes, e só uma delas o ISBN inexistente revela:
+ * volume desconhecido devolve um PNG de ~9 KB, enquanto volume conhecido **sem
+ * capa** devolve uma imagem que passa por capa — chapa cinza de 800×1153, ou o
+ * letreiro "image not available" de 800×1043. Estas são as assinaturas dessas
+ * segundas, por nível de zoom.
+ *
+ * **A lista precisa crescer quando o Google mudar o letreiro.** A detecção de
+ * duplicatas no fim do script é a rede de segurança, mas ela só dispara quando
+ * DOIS ou mais Livros recebem a mesma imagem: um único Livro recusado passa
+ * direto, e foi assim que "Ensaio sobre a Cegueira" entrou no acervo com o
+ * letreiro no lugar da capa (issue #26). Ao adicionar Livro novo, abra o .jpg
+ * baixado antes de commitar — o olho é a última verificação, e é barata.
  */
 const RECUSAS_CONHECIDAS = new Set([
+  // Chapa cinza — medidas em 16/08/2026
   'ba8cd5043eedf32e39a4f328a4ec22f8a7dbbaba', // zoom=1
   'd42f3acc24f36b7e8a3337460d9545e3a22df51a', // zoom=2 (mesmo PNG do ISBN inexistente)
   '30afe778a50ade976e65764a4d219cae299f31e8', // zoom=3
   'a40e2eb35a62ca7928a84303b012e46ed7a7230f', // zoom=4
+  // Letreiro "image not available" — medidas em 12/09/2026. Passava em tamanho
+  // (46 KB), formato e proporção (800×1043 ≈ 0,77): nenhum filtro geométrico
+  // pega um letreiro, só a assinatura.
+  '1c920868e27111c06f810622362c58d87cbeddaa', // zoom=4
+  '96e9f17656c055b0acdfae552dba02eea80a0fa5', // zoom=1
 ]);
 
 /**

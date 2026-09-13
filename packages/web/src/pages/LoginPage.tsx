@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuthHook'
 import { Button, Alert } from '@/components'
-import { getErrorMessage } from '@/utils/format'
+import { descreverErroDeAcesso, type ErroDeAcesso } from '@/utils/authError'
 
 /**
  * Porta de entrada.
@@ -12,20 +12,28 @@ import { getErrorMessage } from '@/utils/format'
  * mantém a chapa de esmalte para que a passagem não pareça um erro.
  */
 export function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth()
+  // `erroDeAcesso` vem do contexto, não de uma rejeição: o `react-oidc-context`
+  // resolve `signinRedirect()` com `null` quando falha, então o `.catch()` abaixo
+  // nunca roda para a indisponibilidade do Keycloak (issue #27).
+  const { login, isAuthenticated, isLoading, error: erroDeAcesso } = useAuth()
   const location = useLocation()
-  const [error, setError] = useState('')
+  const [erroLocal, setErroLocal] = useState<ErroDeAcesso | null>(null)
   const jaRedirecionou = useRef(false)
+
+  const error = erroLocal ?? erroDeAcesso
 
   // Rota que o guard tentou abrir antes de mandar para cá.
   const from = (location.state as { from?: string } | null)?.from
 
   const encaminhar = useCallback(() => {
-    setError('')
+    setErroLocal(null)
     jaRedirecionou.current = true
+    // Rede de segurança: hoje `login` não rejeita, mas uma versão futura do
+    // `react-oidc-context` pode voltar a rejeitar — e aí o erro tem de aparecer
+    // pelo mesmo caminho.
     login(from).catch((err: unknown) => {
       jaRedirecionou.current = false
-      setError(getErrorMessage(err))
+      setErroLocal(descreverErroDeAcesso(err))
     })
   }, [login, from])
 
@@ -60,7 +68,15 @@ export function LoginPage() {
 
           {error && (
             <Alert variant="error" className="mb-4">
-              {error}
+              {error.mensagem}
+              {/* O detalhe técnico fica à vista de propósito: no caso que originou
+                  isto (CA local ainda não confiável no SO) a única pista estava no
+                  console — quem usava não tinha o que reportar. */}
+              {error.detalhe && (
+                <span className="block mt-1 text-xs text-surface-700 break-words">
+                  {error.detalhe}
+                </span>
+              )}
             </Alert>
           )}
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 import {
   loginUI,
   apiLogin,
@@ -6,11 +6,23 @@ import {
   apiCreateLoan,
   apiBookByTitle,
   inDaysISO,
+  apiCancelReservation,
   LEITOR,
+  LEITOR_BALCAO_CANCELADA,
+  LEITOR_BALCAO_DEVOLVE,
+  LEITOR_BALCAO_EFETIVA,
+  LEITOR_BALCAO_EXPIRA,
   BIBLIOTECARIO,
 } from './helpers'
 import { expireReservation } from './db'
 
+/**
+ * O balcão visto pela tela. Os três cenários que **criam** Reserva para ter o que
+ * efetivar têm cada um o seu Leitor (`helpers.ts`, tabela em `AGENTS.md`): desde
+ * RN-9 e RN-10 a Reserva é um recurso do Leitor, e uma única conta pedindo três
+ * Livros ao longo do arquivo bate no teto. A Ana do seed continua nos cenários de
+ * leitura (US-07 a US-09), que é o estado que o seed dá a ela.
+ */
 test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
   test('US-07 — vê Reservas do sistema com Leitor e expiração (RF-B1)', async ({ page }) => {
     await loginUI(page, BIBLIOTECARIO.email)
@@ -64,7 +76,7 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
 
   test('US-10 — efetiva Empréstimo a partir da linha da Reserva (RF-B4, RN-6)', async ({ page, request }) => {
     // Arrange: Leitor reserva um Livro dedicado (via API)
-    const { token: leitorToken } = await apiLogin(request, LEITOR.email)
+    const { token: leitorToken } = await apiLogin(request, LEITOR_BALCAO_EFETIVA.email)
     await apiReserveByTitle(request, leitorToken, 'Cem Anos de Solidão')
 
     await loginUI(page, BIBLIOTECARIO.email)
@@ -97,11 +109,15 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     await expect(emprestimo).toContainText('Em curso')
   })
 
-  test('US-10 — Reserva que vence com o modal aberto falha sem perder a seleção (RN-6)', async ({ page, request }) => {
+  test('US-10 — Reserva que vence com o modal aberto falha sem perder a seleção (RN-6)', async ({ page, request, erroEsperado }) => {
     // O Leitor está no balcão: a Reserva era válida quando o Bibliotecário abriu o
     // modal e venceu antes de ele confirmar. É o caminho de erro de RF-B4 — e o
     // critério diz que a Reserva escolhida não pode sumir junto com o erro.
-    const { token: leitorToken } = await apiLogin(request, LEITOR.email)
+    erroEsperado(
+      /\/api\/loans/,
+      'POST /loans responde 409 para a Reserva vencida, e o Chromium loga toda resposta 4xx de fetch',
+    )
+    const { token: leitorToken } = await apiLogin(request, LEITOR_BALCAO_EXPIRA.email)
     const reserva = await apiReserveByTitle(request, leitorToken, 'A Metamorfose')
 
     await loginUI(page, BIBLIOTECARIO.email)
@@ -110,7 +126,7 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     const linha = page
       .getByRole('row')
       .filter({ hasText: 'A Metamorfose' })
-      .filter({ hasText: LEITOR.email })
+      .filter({ hasText: LEITOR_BALCAO_EXPIRA.email })
     await expect(linha).toBeVisible()
     await linha.getByRole('button', { name: 'Efetivar empréstimo' }).click()
 
@@ -132,7 +148,7 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
     // esperando na frente
     await expect(modal).toBeVisible()
     await expect(modal).toContainText('A Metamorfose')
-    await expect(modal).toContainText(LEITOR.email)
+    await expect(modal).toContainText(LEITOR_BALCAO_EXPIRA.email)
     await expect(modal.locator('input[type="date"]')).toHaveValue(/\d{4}-\d{2}-\d{2}/)
 
     // E nenhum Empréstimo foi criado
@@ -150,7 +166,7 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
 
     // Arrange: cria Reserva (Leitor) + Empréstimo (Bibliotecário) de um Livro dedicado
     const antes = await apiBookByTitle(bibCtx, 'O Amor nos Tempos do Cólera')
-    const { token: leitorToken } = await apiLogin(leitorCtx, LEITOR.email)
+    const { token: leitorToken } = await apiLogin(leitorCtx, LEITOR_BALCAO_DEVOLVE.email)
     const { token: bibToken } = await apiLogin(bibCtx, BIBLIOTECARIO.email)
     const reserva = await apiReserveByTitle(leitorCtx, leitorToken, 'O Amor nos Tempos do Cólera')
     await apiCreateLoan(bibCtx, bibToken, reserva.id, inDaysISO(7))
@@ -175,5 +191,35 @@ test.describe('Painel do Bibliotecário (US-07 a US-11)', () => {
 
     await leitorCtx.dispose()
     await bibCtx.dispose()
+  })
+  test('RN-11 — Reserva cancelada pelo Leitor aparece como Cancelada, não Expirada', async ({ page, request }) => {
+    // Para o balcão a diferença é operacional: a Cópia voltou porque o Leitor
+    // desistiu, não porque o prazo estourou. Enquanto os dois desfechos
+    // compartilhavam a coluna `cancelledAt`, a tela dizia "Expirada" nos dois
+    // casos — e o Bibliotecário não tinha como saber (issue #20).
+    const { token } = await apiLogin(request, LEITOR_BALCAO_CANCELADA.email)
+    const reserva = await apiReserveByTitle(request, token, 'A Paixão Segundo G.H.')
+    await apiCancelReservation(request, token, reserva.id)
+
+    await loginUI(page, BIBLIOTECARIO.email)
+    await page.getByRole('link', { name: 'Reservas', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Reservas' })).toBeVisible()
+
+    // A Reserva cancelada não está em "Ativas" — é em "Todas" que ela aparece
+    await page.getByRole('button', { name: /^Todas/ }).click()
+
+    const linha = page
+      .getByRole('row')
+      .filter({ hasText: 'A Paixão Segundo G.H.' })
+      .filter({ hasText: LEITOR_BALCAO_CANCELADA.email })
+    await expect(linha).toBeVisible()
+    await expect(linha).toContainText('Cancelada')
+    await expect(linha).not.toContainText('Expirada')
+
+    // Sem prazo a mostrar: uma Reserva encerrada não tem contagem regressiva
+    await expect(linha).not.toContainText(/\d+ h \d+ min/)
+
+    // E sem ação: não há empréstimo a efetivar sobre Reserva que o Leitor desfez
+    await expect(linha.getByRole('button', { name: 'Efetivar empréstimo' })).toHaveCount(0)
   })
 })

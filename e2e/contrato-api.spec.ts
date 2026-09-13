@@ -11,11 +11,16 @@ import {
   newActor,
   BIBLIOTECARIO,
   LEITOR,
+  LEITOR_CANCELA,
+  LEITOR_DEVOLUCAO,
+  LEITOR_EMPRESTIMO,
+  LEITOR_RESERVA,
+  LEITOR_VENCIDA,
   SENHA_SEED,
   TOKEN_ENDPOINT,
   KEYCLOAK_CLIENT_ID,
 } from './helpers'
-import { expireReservation, expireReservationAsJobWould } from './db'
+import { copyStatus, expireReservation, expireReservationAsJobWould } from './db'
 
 /**
  * Contrato HTTP do caminho feliz e das rejeições de entrada.
@@ -24,6 +29,12 @@ import { expireReservation, expireReservationAsJobWould } from './db'
  * pt-BR dentro de uma célula. Isso prova que o produto funciona, não que a API
  * cumpre o contrato — 12h viram "16/08/2026 22:31" e um prazo trocado por 24h
  * continua passando. Aqui os números são conferidos antes de virar texto.
+ *
+ * Cada cenário que **cria** Reserva tem o próprio Leitor (`helpers.ts`, tabela em
+ * `AGENTS.md`): desde RN-9 e RN-10 a Reserva é um recurso do Leitor, e reaproveitar
+ * um Leitor faz o cenário seguinte ser recusado por acumulação. A Ana do seed ficou
+ * com o que **lê** — as listas de `/me/*` e o filtro do balcão, que dependem do
+ * estado que o seed dá a ela.
  */
 test.describe('Contrato HTTP da API', () => {
   // -------------------------------------------------------------------------
@@ -31,12 +42,12 @@ test.describe('Contrato HTTP da API', () => {
   // -------------------------------------------------------------------------
 
   test('RN-1 — POST /reservations devolve 201 com expiração exatamente 12h à frente', async ({ playwright }) => {
-    const ana = await newActor(playwright, LEITOR.email)
-    const livro = await apiBookByTitle(ana.ctx, 'Dom Casmurro')
+    const leitor = await newActor(playwright, LEITOR_RESERVA.email)
+    const livro = await apiBookByTitle(leitor.ctx, 'Dom Casmurro')
 
     const antes = Date.now()
-    const res = await ana.ctx.post(`${API}/reservations`, {
-      headers: bearer(ana.token),
+    const res = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
       data: { bookId: livro.id },
     })
     const depois = Date.now()
@@ -49,7 +60,7 @@ test.describe('Contrato HTTP da API', () => {
       id: expect.any(String),
       status: 'active',
       copy: { id: expect.any(String), code: expect.any(String), book: { id: livro.id, title: 'Dom Casmurro' } },
-      user: { id: ana.user.id, email: LEITOR.email },
+      user: { id: leitor.user.id, email: LEITOR_RESERVA.email },
     })
     expect(reserva.convertedAt).toBeNull()
     expect(reserva.cancelledAt).toBeNull()
@@ -61,19 +72,23 @@ test.describe('Contrato HTTP da API', () => {
     expect(expiresAt).toBeGreaterThanOrEqual(antes + DOZE_HORAS)
     expect(expiresAt).toBeLessThanOrEqual(depois + DOZE_HORAS)
 
-    await ana.dispose()
+    await leitor.dispose()
   })
 
+  // Nenhuma Reserva sai deste cenário, então ele empresta o Leitor do de cima em
+  // vez de gastar uma conta. O que ele não pode usar é a Ana: ela já tem "Ensaio
+  // sobre a Cegueira" reservado e emprestado, e o 409 do Livro esgotado ficaria
+  // indistinguível do 409 de RN-9.
   test('POST /reservations valida a entrada antes de tocar no acervo', async ({ playwright }) => {
-    const ana = await newActor(playwright, LEITOR.email)
+    const leitor = await newActor(playwright, LEITOR_RESERVA.email)
 
     // Corpo sem bookId — barrado pelo Zod
-    const semBookId = await ana.ctx.post(`${API}/reservations`, { headers: bearer(ana.token), data: {} })
+    const semBookId = await leitor.ctx.post(`${API}/reservations`, { headers: bearer(leitor.token), data: {} })
     expect(semBookId.status()).toBe(422)
     expect((await apiErrorOf(semBookId)).code).toBe('VALIDATION_ERROR')
 
-    const vazio = await ana.ctx.post(`${API}/reservations`, {
-      headers: bearer(ana.token),
+    const vazio = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
       data: { bookId: '' },
     })
     expect(vazio.status()).toBe(422)
@@ -81,24 +96,126 @@ test.describe('Contrato HTTP da API', () => {
 
     // Livro inexistente é 404: "esgotado" e "não existe" pedem coisas diferentes de
     // quem chamou — esperar a Cópia voltar ou corrigir o id.
-    const inexistente = await ana.ctx.post(`${API}/reservations`, {
-      headers: bearer(ana.token),
+    const inexistente = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
       data: { bookId: 'livro-que-nao-existe' },
     })
     expect(inexistente.status()).toBe(404)
     expect((await apiErrorOf(inexistente)).code).toBe('NOT_FOUND')
 
     // E o Livro que existe mas está sem Cópia livre continua sendo 409 (RN-3)
-    const esgotado = await apiBookByTitle(ana.ctx, 'Ensaio sobre a Cegueira')
+    const esgotado = await apiBookByTitle(leitor.ctx, 'Ensaio sobre a Cegueira')
     expect(esgotado.availableCopies).toBe(0)
-    const semCopia = await ana.ctx.post(`${API}/reservations`, {
-      headers: bearer(ana.token),
+    const semCopia = await leitor.ctx.post(`${API}/reservations`, {
+      headers: bearer(leitor.token),
       data: { bookId: esgotado.id },
     })
     expect(semCopia.status()).toBe(409)
     expect((await apiErrorOf(semCopia)).code).toBe('NO_COPY_AVAILABLE')
 
-    await ana.dispose()
+    await leitor.dispose()
+  })
+
+  test('RF-L8 — PATCH /reservations/:id/cancel devolve 200, encerra a Reserva e libera a Cópia', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA.email)
+
+    const livro = await apiBookByTitle(leitor.ctx, 'Dom Casmurro')
+    const disponiveisAntes = livro.availableCopies
+    expect(disponiveisAntes, 'o cenário exige uma Cópia livre').toBeGreaterThan(0)
+
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes - 1)
+
+    const antes = Date.now()
+    const res = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    const depois = Date.now()
+
+    expect(res.status()).toBe(200)
+    const cancelada = (await res.json()).data.reservation
+
+    // A resposta é a Reserva encerrada, não vazia: é dela que a tela tira o novo
+    // rótulo da linha sem esperar o refetch da lista.
+    expect(cancelada).toMatchObject({
+      id: reserva.id,
+      status: 'cancelled',
+      user: { id: leitor.user.id, email: LEITOR_CANCELA.email },
+    })
+
+    // O campo importa, não só o status: `cancelledAt` é desistência do Leitor e
+    // `expiredAt` é o job (RN-1). Afirmar apenas sobre `status` deixaria passar a
+    // troca de um pelo outro — que é exatamente o defeito que separou os campos.
+    expect(cancelada.expiredAt).toBeNull()
+    expect(cancelada.convertedAt).toBeNull()
+    const cancelledAt = new Date(cancelada.cancelledAt).getTime()
+    expect(cancelledAt).toBeGreaterThanOrEqual(antes)
+    expect(cancelledAt).toBeLessThanOrEqual(depois)
+
+    // RN-5: a Cópia volta ao acervo na hora, sem esperar as 12h nem o job
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+    expect(await copyStatus(reserva.copy.id)).toBe('available')
+
+    // E sai da lista do Leitor, que só mostra Reservas ativas (RF-L4)
+    const minhas = await leitor.ctx.get(`${API}/me/reservations`, { headers: bearer(leitor.token) })
+    expect(minhas.status()).toBe(200)
+    expect(((await minhas.json()).data as Array<{ id: string }>).map((r) => r.id)).not.toContain(
+      reserva.id,
+    )
+
+    // Cancelar de novo é conflito, não um segundo cancelamento — o duplo clique
+    // da tela não pode liberar Cópia duas vezes
+    const repetida = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(repetida.status()).toBe(409)
+    expect((await apiErrorOf(repetida)).code).toBe('CONFLICT')
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+
+    // Reserva inexistente é 404 (o mesmo que a de outro Leitor — ver autorizacao-api)
+    const inexistente = await leitor.ctx.patch(`${API}/reservations/nao-existe/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(inexistente.status()).toBe(404)
+    expect((await apiErrorOf(inexistente)).code).toBe('NOT_FOUND')
+
+    await leitor.dispose()
+  })
+
+  test('RF-L8 — Reserva vencida não é cancelada: RN-1 chegou primeiro', async ({ playwright }) => {
+    const leitor = await newActor(playwright, LEITOR_CANCELA.email)
+
+    // Mesmo Livro do cenário acima, e de propósito: aquele devolveu a Cópia ao
+    // acervo e RN-9 não conta Reserva cancelada, então este Leitor pode reservar
+    // o mesmo título outra vez. É a consequência da regra, afirmada de graça.
+    const livro = await apiBookByTitle(leitor.ctx, 'Dom Casmurro')
+    const disponiveisAntes = livro.availableCopies
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
+
+    // O caso real: a aba ficou aberta, o prazo correu e o botão continuou na tela
+    await expireReservation(reserva.id)
+
+    const res = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(res.status()).toBe(409)
+    // Não é CONFLICT genérico: "expirou" diz ao Leitor que a Cópia já voltou e
+    // que reservar de novo é o próximo passo
+    expect((await apiErrorOf(res)).code).toBe('RESERVATION_EXPIRED')
+
+    // Mesma resposta depois de o job passar — não depende desse tempo
+    await expireReservationAsJobWould(reserva.id)
+    const depoisDoJob = await leitor.ctx.patch(`${API}/reservations/${reserva.id}/cancel`, {
+      headers: bearer(leitor.token),
+    })
+    expect(depoisDoJob.status()).toBe(409)
+    expect((await apiErrorOf(depoisDoJob)).code).toBe('RESERVATION_EXPIRED')
+
+    // A Cópia desta Reserva vencida volta pelo job; o acervo não ficou devendo
+    // nada por causa do cancelamento recusado
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes - 1)
+
+    await leitor.dispose()
   })
 
   // -------------------------------------------------------------------------
@@ -106,11 +223,11 @@ test.describe('Contrato HTTP da API', () => {
   // -------------------------------------------------------------------------
 
   test('RN-8 — POST /loans devolve 201 com o dueAt pedido e a Reserva convertida', async ({ playwright }) => {
-    const ana = await newActor(playwright, LEITOR.email)
+    const leitor = await newActor(playwright, LEITOR_EMPRESTIMO.email)
     const carlos = await newActor(playwright, BIBLIOTECARIO.email)
 
-    const livro = await apiBookByTitle(ana.ctx, 'Memórias Póstumas de Brás Cubas')
-    const reserva = await apiCreateReservation(ana.ctx, ana.token, livro.id)
+    const livro = await apiBookByTitle(leitor.ctx, 'Memórias Póstumas de Brás Cubas')
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
 
     // 7 dias corridos (RN-8) — o padrão que o balcão aplica sem digitar nada
     const dueAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString()
@@ -126,13 +243,13 @@ test.describe('Contrato HTTP da API', () => {
       id: expect.any(String),
       returnedAt: null,
       copy: { id: reserva.copy.id, book: { id: livro.id } },
-      user: { id: ana.user.id, email: LEITOR.email },
+      user: { id: leitor.user.id, email: LEITOR_EMPRESTIMO.email },
       librarian: { id: carlos.user.id },
     })
     // O vencimento é o que foi pedido — sem arredondamento nem fuso pelo caminho
     expect(new Date(loan.dueAt).toISOString()).toBe(dueAt)
 
-    await ana.dispose()
+    await leitor.dispose()
     await carlos.dispose()
   })
 
@@ -165,12 +282,12 @@ test.describe('Contrato HTTP da API', () => {
   })
 
   test('RN-5 — PATCH /loans/:id/return devolve 200, encerra o Empréstimo e libera a Cópia', async ({ playwright }) => {
-    const ana = await newActor(playwright, LEITOR.email)
+    const leitor = await newActor(playwright, LEITOR_DEVOLUCAO.email)
     const carlos = await newActor(playwright, BIBLIOTECARIO.email)
 
-    const livro = await apiBookByTitle(ana.ctx, 'A Hora da Estrela')
+    const livro = await apiBookByTitle(leitor.ctx, 'A Hora da Estrela')
     const disponiveisAntes = livro.availableCopies
-    const reserva = await apiCreateReservation(ana.ctx, ana.token, livro.id)
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
     const emprestimo = await apiCreateLoan(carlos.ctx, carlos.token, reserva.id, inDaysISO(7))
 
     const antes = Date.now()
@@ -189,7 +306,7 @@ test.describe('Contrato HTTP da API', () => {
     expect(returnedAt).toBeLessThanOrEqual(depois)
 
     // A Cópia voltou ao acervo — Disponibilidade de volta ao valor de partida
-    expect((await apiGetBook(ana.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
+    expect((await apiGetBook(leitor.ctx, livro.id)).availableCopies).toBe(disponiveisAntes)
 
     // Devolver de novo é conflito, não um segundo registro
     const repetida = await carlos.ctx.patch(`${API}/loans/${emprestimo.id}/return`, {
@@ -198,7 +315,7 @@ test.describe('Contrato HTTP da API', () => {
     expect(repetida.status()).toBe(409)
     expect((await apiErrorOf(repetida)).code).toBe('CONFLICT')
 
-    await ana.dispose()
+    await leitor.dispose()
     await carlos.dispose()
   })
 
@@ -242,11 +359,11 @@ test.describe('Contrato HTTP da API', () => {
   })
 
   test('RN-6 — Reserva vencida não vira Empréstimo, e nenhum registro é criado', async ({ playwright }) => {
-    const ana = await newActor(playwright, LEITOR.email)
+    const leitor = await newActor(playwright, LEITOR_VENCIDA.email)
     const carlos = await newActor(playwright, BIBLIOTECARIO.email)
 
-    const livro = await apiBookByTitle(ana.ctx, 'Memórias Póstumas de Brás Cubas')
-    const reserva = await apiCreateReservation(ana.ctx, ana.token, livro.id)
+    const livro = await apiBookByTitle(leitor.ctx, 'Memórias Póstumas de Brás Cubas')
+    const reserva = await apiCreateReservation(leitor.ctx, leitor.token, livro.id)
     await expireReservation(reserva.id)
 
     const res = await carlos.ctx.post(`${API}/loans`, {
@@ -278,7 +395,7 @@ test.describe('Contrato HTTP da API', () => {
     )
     expect(daCopia).toHaveLength(0)
 
-    await ana.dispose()
+    await leitor.dispose()
     await carlos.dispose()
   })
 
@@ -416,7 +533,7 @@ test.describe('Contrato HTTP da API', () => {
 
     // O `id` é o da NOSSA base, não o `sub` do Keycloak. Que ele seja o mesmo
     // que as Reservas referenciam já é afirmado pelos testes de POST
-    // /reservations acima, que comparam contra `ana.user.id` — vindo daqui.
+    // /reservations acima, que comparam contra o `user.id` do ator — vindo daqui.
     expect(perfil.id).not.toBe('b1b11071-0000-4000-8000-000000000001')
 
     // `externalId` é assunto interno da integração e não sai para o cliente.

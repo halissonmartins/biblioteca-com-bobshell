@@ -7,8 +7,10 @@ Complementa o [`AGENTS.md`](../AGENTS.md) da raiz. Vale para tudo dentro de `e2e
 Playwright contra o **stack real**: API em `:3000`, SPA em `:5173`, Postgres em
 `:5432`, o servidor de capas em `:8080` e o **Keycloak em
 `https://localhost:8443`** (Fase 2: TLS com a CA local de `make certs`; o
-`ignoreHTTPSErrors` do Playwright cobre o Chromium, e o fetch do global-setup tem
-fallback próprio). Sem mock, sem stub, sem interceptação de rede — nem no login:
+`ignoreHTTPSErrors` do Playwright cobre o Chromium, o Node dos workers confia pela
+`NODE_EXTRA_CA_CERTS` que o `playwright.config.ts` declara com caminho absoluto, e
+o global-setup passa a CA na própria requisição do discovery — nada de
+`NODE_TLS_REJECT_UNAUTHORIZED`, que vazava para os workers até a issue #34). Sem mock, sem stub, sem interceptação de rede — nem no login:
 os testes preenchem a tela do Keycloak de verdade. O `webServer` do
 `playwright.config.ts` sobe API e Web; o `global-setup.ts` espera o Keycloak,
 aplica migrations e roda o seed uma vez, antes do primeiro teste. Postgres,
@@ -34,13 +36,28 @@ abaixo são consumidos pelos dois lados.
 | `autenticacao.spec.ts` | Entrada, saída, guarda de rota e **auto-cadastro** (a tela é a do Keycloak) |
 | `autorizacao-api.spec.ts` | 401, 403 e isolamento entre Leitores |
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
-| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar |
+| `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6), os dois limites por Leitor (RN-9, RN-10) e o cancelamento (RN-11), inclusive disputando a linha com o balcão |
+| `responsivo.spec.ts` | Layout das sete telas em 390, 768 e 1024px — rolagem horizontal, overflow escondido e alvo de toque de 44×44 |
+| `teclado.spec.ts` | Navegação só por teclado (issue #24) — skip link, ordem do Tab, foco visível **com contraste medido contra o que está atrás do anel**, alcance de todo controle, modal, paginação e circulação no balcão, login e cadastro do Keycloak |
 | `helpers.ts` | Login, arrange via API, atores isolados |
+| `fixtures.ts` | O `test` dos specs de UI — captura o console do navegador (issue #32) |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
 
-`screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele cria
-Reserva só para posar para a foto e estragaria a Disponibilidade que os outros
-specs afirmam. Roda por `make screenshots` e grava em `assets/images/`.
+`screenshots.spec.ts` também fica fora da suíte, atrás de `SHOTS=1`: ele mexe no
+estado da tela só para posar para a foto e estragaria a Disponibilidade que os
+outros specs afirmam. Roda por `make screenshots` e grava em `assets/images/` em
+três molduras — a larga com o nome simples (`catalogo.png`) e as estreitas com o
+sufixo do aparelho (`catalogo-smartphone.png`, `catalogo-tablet.png`). **Tela
+nova entra nas três de uma vez**; captura de celular feita à mão sai do lugar no
+primeiro ajuste de UI (issue #21).
+
+`responsivo.spec.ts` **faz** parte da suíte: só navega e mede, não cria Reserva
+nem Empréstimo, então pode rodar em qualquer ponto sem mexer na Disponibilidade
+alheia. Ele usa "Ensaio sobre a Cegueira" — o Livro sem Cópia disponível do seed,
+que ninguém consome — justamente para não depender do relógio de outro cenário.
+Os perfis emulam toque (`hasTouch`/`isMobile`): sem isso o Chromium reporta
+ponteiro fino, as regras de 44px do `@media (pointer: coarse)` não entram na
+conta e o teste passa medindo a régua errada.
 
 `dashboards.spec.ts` **não faz parte da suíte**: fica atrás de `OBS=1`, roda com
 `playwright.dashboards.config.ts` e é chamado por `make obs-dashboards`.
@@ -56,6 +73,32 @@ a troca de 12h por 24h — a suíte inteira continua verde. Afirme sobre `expire
 de cookies de sessão do Keycloak; compartilhar contexto mistura as duas sessões no
 mesmo jar — e um teste de isolamento passa por acidente. Use
 `newActor(playwright, email)` e chame `dispose()` no fim.
+
+**Spec que abre navegador importa `test` de `./fixtures`, não de `@playwright/test`.**
+A fixture sobrescreve `context` e registra, por teste, o que o navegador reclamou:
+`console` de nível `error` e `warning`, exceção não tratada (`weberror`) e
+requisição que falhou (`requestfailed`). Sobrescreve `context`, não `page`, para
+cobrir toda página que o contexto abre — o redirecionamento para o Keycloak
+inclusive. O que foi capturado vira o anexo `console-navegador` do teste, visível
+no relatório HTML (no CI, o artefato `playwright-report`, publicado mesmo com a
+suíte verde). Sem isso um erro de console passa em silêncio sempre que a tela ainda
+mostra o esperado — foi assim em #27. Specs só de API (`*-api.spec.ts`) não abrem
+navegador e continuam importando de `@playwright/test`.
+
+**Reclamação do navegador reprova o teste, salvo a declarada.** Cenário que provoca
+erro de propósito declara no começo do teste, com o motivo:
+
+```ts
+test('…', async ({ page, erroEsperado }) => {
+  erroEsperado(/\/api\/loans/, 'POST /loans responde 409 para a Reserva vencida')
+```
+
+O padrão casa com o texto ou com a origem da ocorrência — a mensagem do Chromium
+para uma resposta 4xx não traz a URL, a origem traz. A conferência falha nos dois
+sentidos: ocorrência não declarada (o defeito que se quer pegar) e declaração que
+não aconteceu (exceção velha, que um dia esconderia erro de verdade). Hoje só
+`bibliotecario` US-10 declara. Não declare por arquivo nem por padrão largo como
+`/409/`: a exceção vale para o cenário que a provoca, e só para ele.
 
 **`loginUI` espera o botão "Sair", não o Catálogo.** O Catálogo é rota pública e
 aparece igual sem sessão. Quem esperasse só por ele voltaria enquanto o `GET /me`
@@ -80,6 +123,12 @@ que os specs comparam. O `sub` do token é outro identificador; não confunda os
 a conexão e enfileira as requisições: `Promise.all` sobre o mesmo contexto testa
 serialização, não concorrência. O teste da última Cópia cria oito contextos de
 propósito. Sem isso ele passava contra o código que ainda tinha a reserva dupla.
+
+Quando as requisições concorrentes são **do mesmo Leitor** — os cenários de RN-9 e
+RN-10 —, use `newActors(playwright, email, n)`: ele cria os contextos em sequência,
+porque o primeiro `GET /me` de uma conta é o que provisiona o espelho local dela e
+dois logins simultâneos de quem ainda não tem linha em `users` disputariam o mesmo
+INSERT. A concorrência que interessa é a das requisições de negócio, depois.
 
 **Tempo se adianta, não se espera.** Prazo de 12h não é observável esperando, e a API
 não expõe endpoint que envelheça uma Reserva. Use as fixtures de `db.ts`
@@ -112,22 +161,83 @@ Reserva usa um Livro dedicado para não mexer na Disponibilidade que outro teste
 | Livro | Quem usa |
 |---|---|
 | Ensaio sobre a Cegueira | seed — 0 disponíveis, só leitura |
-| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia |
-| A Paixão Segundo G.H. | `regras-negocio-api` — expiração ponta a ponta |
-| Dom Casmurro | `contrato-api` — POST /reservations |
+| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia (devolve as duas Cópias no fim) — e `teclado` (Reserva → Empréstimo → Devolução pela tela, que devolve a Cópia; `desfazerCirculacaoDoLeitor` garante isso se o cenário quebrar no meio) |
+| `Zz Livro Avulso NN` | `teclado` — 25 Livros sem Cópia criados e removidos no próprio cenário (`criarLivrosAvulsos`/`removerLivrosAvulsos` em `db.ts`): o seed tem 10 e o Catálogo pagina de 20 em 20, sem eles a paginação nem aparece |
+| A Paixão Segundo G.H. | `regras-negocio-api` (expiração ponta a ponta e Reserva disputada no balcão, os dois devolvem) e `bibliotecario` (Reserva cancelada no balcão — o cancelamento devolve a Cópia sozinho) |
+| Dom Casmurro | `contrato-api` — POST /reservations, cancelamento (RF-L8) e Reserva vencida que não se cancela. **Não serve de pré-condição para ninguém depois**: a última Cópia fica estacionada numa Reserva vencida até o job passar |
 | Memórias Póstumas de Brás Cubas | `contrato-api` — POST /loans e RN-6 |
-| A Hora da Estrela | `contrato-api` (devolução) e `reservas-leitor` (expira em breve) |
-| A Metamorfose | `autorizacao-api` (isolamento) e `bibliotecario` (modal) |
-| Cem Anos de Solidão | `bibliotecario` — US-10 |
-| O Amor nos Tempos do Cólera | `bibliotecario` — US-11 |
-| O Processo | `reservas-leitor` — US-03 |
+| A Hora da Estrela | `contrato-api` (devolução), `regras-negocio-api` (RN-9, teto de RN-10/RN-11 e a corrida cancelar × efetivar — todos devolvem) e `reservas-leitor` (expira em breve) |
+| A Metamorfose | `autorizacao-api` (isolamento e RN-11, que cancela no fim) e `bibliotecario` (modal) |
+| Cem Anos de Solidão | `bibliotecario` (US-10) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
+| O Amor nos Tempos do Cólera | `bibliotecario` (US-11) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
+| O Processo | `reservas-leitor` (US-03 e US-14) e `regras-negocio-api` (teto de RN-10/RN-11, devolve) |
 
 Ao adicionar cenário que reserve, escolha um Livro livre ou devolva a Cópia no fim.
+**Livro cuja Disponibilidade depende do relógio não serve de pré-condição**: uma
+Reserva vencida só devolve a Cópia quando o job passa, em até 60 s. Foi por isso
+que Dom Casmurro saiu do conjunto dos cenários de teto.
+Cenário que só precisa da Cópia durante a asserção devolve com `releaseReservation`
+(`db.ts`) — grava `cancelledAt` e libera a Cópia na mesma transação, sem gastar uma
+requisição de negócio. Quem quer exercitar o caminho de produção usa
+`apiCancelReservation` (RF-L8) ou, se já converteu, `PATCH /loans/:id/return`.
 
-**Leitores do seed.** `leitor@biblioteca.dev` (Ana Lima) tem Reserva e Empréstimo;
-`leitor2@biblioteca.dev` (Bruno Costa) não tem nada, e é isso que o torna útil —
-isolamento e estado vazio. `bibliotecario@biblioteca.dev` é Carlos Mendes. Senha
-`Biblioteca#2026!` para todos (política da Fase 2 exige 12+ caracteres).
+**Expiração e cancelamento têm campos separados** desde a issue #20: `expiredAt` é
+do job (RN-1), `cancelledAt` é do Leitor (RF-L8). `expireReservationAsJobWould`
+grava o primeiro; afirmar sobre o campo errado faz um teste de "cancelou" passar
+sobre uma expiração.
+
+**Um Leitor por cenário que cria Reserva.** É o outro lado da tabela acima, e
+existe desde RN-9 e RN-10 (issues #28, #29, #30): a Reserva passou a ser um recurso
+**do Leitor**, não só da Cópia. O mesmo Leitor não tem duas Reservas ativas do mesmo
+Livro — Empréstimo em aberto do título conta junto — e não passa de três ativas. Com
+o banco compartilhado do começo ao fim da suíte, um Leitor reaproveitado acumula, e a
+partir de certo ponto os pedidos são recusados por acumulação em vez de por defeito
+do sistema. Foi exatamente assim que as duas suítes ficaram vermelhas quando as
+regras chegaram à API: `DUPLICATE_RESERVATION` e `RESERVATION_LIMIT_REACHED` onde o
+teste esperava 201.
+
+As contas ficam em `keycloak/realm-biblioteca.json` com o prefixo **`e2e-`** e vêm
+nomeadas por cenário em `helpers.ts`. O prefixo delimita o território dos testes:
+conta criada à mão para explorar o produto pode usar `leitorN@biblioteca.dev` sem
+colidir com o que a suíte espera encontrar. Nenhuma delas tem linha no seed — o
+espelho local nasce no primeiro `GET /me` (JIT provisioning, ADR-0009). **Conta nova
+é mudança de realm, e mudança de realm é arquivo:** editar o JSON e recriar o
+contêiner para reimportar (`keycloak/README.md`), nunca clicar no admin console.
+
+| Leitor | Quem usa |
+|---|---|
+| `leitor@biblioteca.dev` (Ana Lima) | seed — Reserva + Empréstimo de "Ensaio sobre a Cegueira". É o estado que `/me/*`, o balcão e `reservas-leitor` **leem**; só `reservas-leitor` US-04 cria Reserva com ela |
+| `leitor2@biblioteca.dev` (Bruno Costa) | `autorizacao-api` — isolamento e estado vazio |
+| `e2e-reserva@` | `contrato-api` RN-1 — POST /reservations |
+| `e2e-emprestimo@` | `contrato-api` RN-8 — POST /loans |
+| `e2e-devolucao@` | `contrato-api` RN-5 — PATCH /loans/:id/return |
+| `e2e-vencida@` | `contrato-api` RN-6 — Reserva vencida não vira Empréstimo |
+| `e2e-ultima-copia@` | `regras-negocio-api` US-03 — dono da primeira Cópia |
+| `e2e-fila1@` … `e2e-fila8@` | `regras-negocio-api` US-03 — a fila pela última Cópia |
+| `e2e-expiracao@` | `regras-negocio-api` RN-1/RN-5 |
+| `e2e-balcao-duplo@` | `regras-negocio-api` RN-6 — seis efetivações da mesma Reserva |
+| `e2e-duplicada@` | `regras-negocio-api` RN-9 |
+| `e2e-teto@` | `regras-negocio-api` RN-10 |
+| `e2e-cancela@` | `contrato-api` RF-L8 — contrato do cancelamento e da Reserva vencida |
+| `e2e-cancela-alheia@` | `autorizacao-api` RN-11 — dono da Reserva que outro tenta cancelar |
+| `e2e-cancela-teto@` | `regras-negocio-api` RN-11 — cancelar devolve a vaga e libera o Livro |
+| `e2e-cancela-corrida@` | `regras-negocio-api` RF-L8 — cancelar × efetivar na mesma Reserva |
+| `e2e-balcao-efetiva@` | `bibliotecario` US-10 |
+| `e2e-balcao-expira@` | `bibliotecario` US-10 — Reserva que vence com o modal aberto |
+| `e2e-balcao-devolve@` | `bibliotecario` US-11 |
+| `e2e-balcao-cancelada@` | `bibliotecario` RN-11 — "Cancelada" não é "Expirada" no balcão |
+| `e2e-tela-reserva@` | `reservas-leitor` US-03 |
+| `e2e-tela-cancela@` | `reservas-leitor` US-14 — cancela pela tela |
+| `e2e-teclado-<carimbo>@dominio-inexistente.invalid` | `teclado` US-10/US-11 — **cadastrada a cada execução** pela tela do Keycloak (`emailNovo` + `registrarEEntrar`), não vive no realm. Leitor novo não acumula RN-9/RN-10 entre execuções e dispensa reimportar o realm |
+
+**A fila de US-03 são oito contas distintas, não duas alternadas.** Com RN-9 um Leitor
+não disputa consigo mesmo: alternando contas, sete perdedores recebem
+`DUPLICATE_RESERVATION`, a contagem `1× 201 + 7× 409` continua batendo e o UPDATE
+condicionado a `status: 'available'` — o que protege a última Cópia — fica sem
+cobertura nenhuma. É a asserção do `code` (`NO_COPY_AVAILABLE`) que denuncia.
+
+`bibliotecario@biblioteca.dev` é Carlos Mendes. Senha `Biblioteca#2026!` para todos
+(política da Fase 2 exige 12+ caracteres).
 
 ## Rodar
 
@@ -153,3 +263,10 @@ sessão inteira de diagnóstico do fluxo de login.
 **`db.ts` importa o Prisma Client de `packages/api/node_modules`** por caminho relativo.
 É de propósito: evita duplicar dependência e schema aqui. Se o import quebrar, rode
 `npm run db:generate` em `packages/api`.
+
+**O Prisma Client é pré-requisito — o `global-setup.ts` não o gera.** O Playwright
+sobe o `webServer` **antes** do global setup, então quando o setup roda a API já
+importou o client: um `generate` ali chegaria tarde e, no Windows, falha com `EPERM`
+porque a DLL do query engine está aberta (issue #33). `make setup` gera; depois de
+mudar o schema, `npm run db:generate` em `packages/api` **com a API parada**. No CI,
+o job tem passo próprio antes do `npm test`.

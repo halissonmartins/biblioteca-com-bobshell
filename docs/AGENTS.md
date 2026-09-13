@@ -46,6 +46,9 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
   ([design/design-system.md](design/design-system.md) descreve o mundo anterior
   e hoje só redireciona para cá.)
 - [Fluxos do Usuário](design/fluxos.md) — jornadas de Leitor e Bibliotecário.
+- [Layout responsivo](design/responsivo.md) — as sete telas em 390, 768 e
+  1024px: o que muda em cada largura e o spec que guarda o resultado. **Leia
+  antes de mexer em breakpoint, tabela ou trilho de navegação.**
 
 ## API
 
@@ -60,6 +63,10 @@ implementar features ou criar arquivos novos. Termos de domínio seguem o
 - [Observabilidade](observabilidade.md) — logs, métricas e traces do backend via
   OpenTelemetry; métricas customizadas e dashboards. **Leia antes de adicionar
   métrica, span ou log novo.**
+- [Runbook de operação](operacao/runbook.md) — o que fazer quando algo para:
+  mapa dos serviços, subida e parada, procedimentos por incidente (API, 401,
+  Keycloak, job de expiração, SLO, Disponibilidade divergente), migrations e
+  Keycloak. **Leia antes de mexer em dado de produção à mão.**
 
 ## Guias
 

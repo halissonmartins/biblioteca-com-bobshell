@@ -1,6 +1,15 @@
-import { test, expect } from '@playwright/test'
-import { apiLogin, apiReserveByTitle, loginUI, LEITOR, LEITOR_2 } from './helpers'
-import { expireAllReservationsOf, setReservationExpiry } from './db'
+import { test, expect } from './fixtures'
+import {
+  apiBookByTitle,
+  apiLogin,
+  apiReserveByTitle,
+  loginUI,
+  LEITOR,
+  LEITOR_2,
+  LEITOR_TELA_CANCELA,
+  LEITOR_TELA_RESERVA,
+} from './helpers'
+import { copyStatus, expireAllReservationsOf, setReservationExpiry } from './db'
 
 /** Extrai o número de cópias disponíveis do texto da tela de detalhes. */
 function parseCount(texto: string): number {
@@ -16,8 +25,12 @@ function parseMinutos(texto: string): number {
 }
 
 test.describe('Reservas do Leitor (US-03, US-04)', () => {
+  // Leitor dedicado: este cenário é o único do arquivo que **cria** Reserva por
+  // conta própria, e com RN-10 somar a Reserva dele às da Ana aproximaria o teto
+  // sem que o teste tivesse nada a dizer sobre isso. A Ana continua nos cenários
+  // que **leem** a lista dela — é o estado do seed que os torna possíveis.
   test('US-03 — reserva Livro disponível, decrementa Disponibilidade e confirma expiração (RN-1, RN-3, RN-4)', async ({ page }) => {
-    await loginUI(page, LEITOR.email)
+    await loginUI(page, LEITOR_TELA_RESERVA.email)
 
     // Livro dedicado para não colidir com asserts de outros testes
     await page.goto('/')
@@ -115,5 +128,50 @@ test.describe('Reservas do Leitor (US-03, US-04)', () => {
     await expect(page.locator('tbody tr')).toHaveCount(1) // a própria mensagem, nenhum registro
     // Sem Reserva viva não há retirada urgente a anunciar
     await expect(page.getByText('Retirada urgente')).toHaveCount(0)
+  })
+  test('US-14 — cancela a Reserva pela tela, a Cópia volta ao acervo e a linha sai da lista', async ({ page, request }) => {
+    // Arrange pela API: o que este teste prova é o caminho de cancelamento na
+    // tela, não a criação — essa já é US-03.
+    const { token } = await apiLogin(request, LEITOR_TELA_CANCELA.email)
+    const reserva = await apiReserveByTitle(request, token, 'O Processo')
+    const comReserva = (await apiBookByTitle(request, 'O Processo')).availableCopies
+
+    await loginUI(page, LEITOR_TELA_CANCELA.email)
+    await page.getByRole('link', { name: 'Minhas Reservas' }).click()
+    await expect(page.getByRole('heading', { name: 'Minhas Reservas' })).toBeVisible()
+
+    const linha = page.getByRole('row', { name: /O Processo/ })
+    await expect(linha).toBeVisible()
+
+    // O botão vive na linha da Reserva ativa — sem etapa de seleção, como o
+    // "Efetivar empréstimo" do balcão
+    await linha.getByRole('button', { name: 'Cancelar' }).click()
+
+    // A confirmação avisa o que é irreversível: a Cópia volta ao acervo e pode
+    // ser levada por outro Leitor
+    const modal = page.getByRole('dialog')
+    await expect(modal.getByRole('heading', { name: 'Cancelar reserva' })).toBeVisible()
+    await expect(modal).toContainText('O Processo')
+    await expect(modal).toContainText(/volta ao acervo/i)
+
+    // "Manter reserva" não cancela nada — a saída do diálogo é trivial e explícita
+    await modal.getByRole('button', { name: 'Manter reserva' }).click()
+    await expect(modal).toBeHidden()
+    await expect(page.getByRole('row', { name: /O Processo/ })).toBeVisible()
+
+    await page.getByRole('row', { name: /O Processo/ }).getByRole('button', { name: 'Cancelar' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancelar reserva' }).click()
+
+    // A confirmação nomeia o Livro e diz o que aconteceu com a Cópia física
+    const aviso = page.getByRole('alert').filter({ hasText: 'cancelada' })
+    await expect(aviso).toContainText('O Processo')
+    await expect(aviso).toContainText(/voltou ao acervo/i)
+
+    // A lista do Leitor mostra só Reservas ativas: a linha sai (RF-L4)
+    await expect(page.getByRole('row', { name: /O Processo/ })).toHaveCount(0)
+
+    // RN-5 no sistema real: a Cópia voltou mesmo, não é só a tela que diz
+    expect(await copyStatus(reserva.copy.id)).toBe('available')
+    expect((await apiBookByTitle(request, 'O Processo')).availableCopies).toBe(comReserva + 1)
   })
 })

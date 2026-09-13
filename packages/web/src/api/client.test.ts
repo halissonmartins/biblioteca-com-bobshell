@@ -139,4 +139,10 @@ describe('helpers de token e tipo', () => {
     expect(isApiRequestError(new Error('x'))).toBe(false)
     expect(isApiRequestError(makeApiRequestError('X', 'x', 400))).toBe(true)
   })
+
+  it('isApiRequestError rejeita função que por acaso se chama ApiRequestError', () => {
+    // `name` de função é o nome declarado: só a checagem de `typeof 'object'` barra.
+    function ApiRequestError(): void {}
+    expect(isApiRequestError(ApiRequestError)).toBe(false)
+  })
 })

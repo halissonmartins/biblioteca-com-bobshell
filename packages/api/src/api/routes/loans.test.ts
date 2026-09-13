@@ -36,6 +36,19 @@ vi.mock('../../domain/loan/loanService.js', async (importOriginal) => {
   };
 });
 
+// Contadores dublados um a um: sem o NodeSDK, o meter no-op devolve a mesma
+// instância para todo contador, e as chamadas de um se misturariam às do outro.
+const contadores = vi.hoisted(() => ({ emprestimosEfetivados: vi.fn(), devolucoes: vi.fn() }));
+
+vi.mock('../../infra/telemetry/metrics.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../infra/telemetry/metrics.js')>();
+  return {
+    ...original,
+    emprestimosEfetivados: { add: contadores.emprestimosEfetivados },
+    devolucoes: { add: contadores.devolucoes },
+  };
+});
+
 import { createApp } from '../app.js';
 import * as loanRepo from '../../infra/repositories/loanRepository.js';
 import * as loanService from '../../domain/loan/loanService.js';
@@ -105,6 +118,14 @@ describe('POST /loans', () => {
       .send({ reservationId: 'res-1', dueAt: FUTURE_ISO });
 
     expect(res.status).toBe(201);
+    // Contrato consumido pela tela do balcão (docs/openapi.yaml).
+    expect(res.body).toMatchObject({ data: { loan: { id: 'loan-1' } } });
+    expect(contadores.emprestimosEfetivados).toHaveBeenCalledWith(1);
+    // O Bibliotecário da operação vem do token, nunca do corpo (RN-7, ADR-0009).
+    expect(loanService.createLoan).toHaveBeenCalledWith(
+      { reservationId: 'res-1', librarianId: 'lib-1', dueAt: new Date(FUTURE_ISO) },
+      expect.anything(),
+    );
   });
 
   it('422 quando reservationId ausente', async () => {
@@ -123,6 +144,17 @@ describe('POST /loans', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ reservationId: 'res-1', dueAt: '21/08/2026' });
     expect(res.status).toBe(422);
+  });
+
+  it('422 devolve a mensagem do schema, não um texto genérico', async () => {
+    const token = await makeToken('bibliotecario');
+    const res = await request(app)
+      .post('/loans')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reservationId: '', dueAt: FUTURE_ISO });
+
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toContain('reservationId obrigatório');
   });
 });
 
@@ -154,6 +186,40 @@ describe('PATCH /loans/:id/return', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ data: { loan: { id: 'loan-1' } } });
+    expect(contadores.devolucoes).toHaveBeenCalledWith(1, { situacao: 'em_dia' });
+    expect(loanService.returnLoan).toHaveBeenCalledWith(
+      { loanId: 'loan-1', librarianId: 'lib-1' },
+      expect.anything(),
+    );
+  });
+
+  // O atributo `situacao` alimenta o painel de Devoluções atrasadas (RN-8).
+  it.each([
+    ['depois do vencimento', '2026-08-21T10:00:00.000Z', '2026-08-22T09:00:00.000Z', 'atrasado'],
+    ['no instante do vencimento', '2026-08-21T10:00:00.000Z', '2026-08-21T10:00:00.000Z', 'em_dia'],
+    ['antes do vencimento', '2026-08-21T10:00:00.000Z', '2026-08-20T10:00:00.000Z', 'em_dia'],
+  ])('Devolução %s conta como %s na métrica', async (_quando, dueAt, returnedAt, situacao) => {
+    vi.mocked(loanRepo.findLoanDetail).mockResolvedValue({ ...LOAN_DETAIL, dueAt, returnedAt });
+
+    const token = await makeToken('bibliotecario', 'lib-1');
+    await request(app)
+      .patch('/loans/loan-1/return')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(contadores.devolucoes).toHaveBeenCalledWith(1, { situacao });
+  });
+
+  it('Empréstimo que some antes da releitura não vira 500', async () => {
+    vi.mocked(loanRepo.findLoanDetail).mockResolvedValue(null);
+
+    const token = await makeToken('bibliotecario', 'lib-1');
+    const res = await request(app)
+      .patch('/loans/loan-1/return')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(contadores.devolucoes).toHaveBeenCalledWith(1, { situacao: 'em_dia' });
   });
 });
 
@@ -192,5 +258,28 @@ describe('GET /loans', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(spy).toHaveBeenCalledWith({ userId: 'user-42' }, expect.anything());
+  });
+
+  it('sem userId na query, o filtro não carrega a chave (RF-B2)', async () => {
+    // `toHaveBeenCalledWith({})` aceitaria `{ userId: undefined }` — a conferência
+    // é pela chave.
+    const token = await makeToken('bibliotecario');
+    await request(app)
+      .get('/loans')
+      .set('Authorization', `Bearer ${token}`);
+
+    const filtro = vi.mocked(loanService.listLoans).mock.calls[0]?.[0];
+    expect(filtro).not.toHaveProperty('userId');
+  });
+
+  it('422 quando userId vem repetido na query', async () => {
+    const token = await makeToken('bibliotecario');
+    const res = await request(app)
+      .get('/loans?userId=a&userId=b')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toContain('Expected string');
+    expect(loanService.listLoans).not.toHaveBeenCalled();
   });
 });

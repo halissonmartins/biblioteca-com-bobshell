@@ -30,6 +30,90 @@ export const LEITOR = { email: 'leitor@biblioteca.dev', senha: SENHA_SEED }
 export const LEITOR_2 = { email: 'leitor2@biblioteca.dev', senha: SENHA_SEED }
 export const BIBLIOTECARIO = { email: 'bibliotecario@biblioteca.dev', senha: SENHA_SEED }
 
+// ---------------------------------------------------------------------------
+// Leitores de cenário
+// ---------------------------------------------------------------------------
+
+/**
+ * Uma conta de Leitor por cenário que **cria** Reserva.
+ *
+ * RN-9 e RN-10 fizeram da Reserva um recurso do Leitor, não só da Cópia: o mesmo
+ * Leitor não tem duas Reservas ativas do mesmo Livro (Empréstimo em aberto do
+ * título conta junto) e não passa de três ativas. Um Leitor compartilhado entre
+ * cenários portanto acumula ao longo da suíte — o banco é o mesmo do começo ao
+ * fim — e a partir de certo ponto os pedidos são recusados por acumulação, não
+ * por defeito do sistema. Foi assim que as duas suítes ficaram vermelhas quando
+ * as regras chegaram à API (issues #28, #29, #30).
+ *
+ * A tabela de alocação — qual Leitor é de qual cenário — fica no `AGENTS.md`
+ * desta pasta, ao lado da dos Livros.
+ *
+ * O prefixo `e2e-` marca o espaço reservado às suítes: contas criadas à mão para
+ * explorar o produto continuam livres para usar `leitorN@biblioteca.dev`, sem
+ * colidir com o que os testes esperam encontrar.
+ *
+ * As contas vivem em `keycloak/realm-biblioteca.json` e **não** têm linha no
+ * seed: o espelho local nasce no primeiro `GET /me` (JIT provisioning, ADR-0009).
+ */
+const leitorDeCenario = (slug: string) => ({
+  email: `e2e-${slug}@biblioteca.dev`,
+  senha: SENHA_SEED,
+})
+
+/** `contrato-api` RN-1 — reserva Dom Casmurro e continua com ela. */
+export const LEITOR_RESERVA = leitorDeCenario('reserva')
+/** `contrato-api` RN-8 — Memórias Póstumas vira Empréstimo em aberto. */
+export const LEITOR_EMPRESTIMO = leitorDeCenario('emprestimo')
+/** `contrato-api` RN-5 — A Hora da Estrela vai e volta (Devolução). */
+export const LEITOR_DEVOLUCAO = leitorDeCenario('devolucao')
+/** `contrato-api` RN-6 — Reserva de Memórias Póstumas que vence sem virar Empréstimo. */
+export const LEITOR_VENCIDA = leitorDeCenario('vencida')
+/** `regras-negocio-api` US-03 — dono da primeira Cópia de O Nome de Deus. */
+export const LEITOR_ULTIMA_COPIA = leitorDeCenario('ultima-copia')
+/**
+ * `regras-negocio-api` US-03 — a fila pela última Cópia.
+ *
+ * Oito Leitores **distintos**, e é aí que está o ponto: com RN-9 um Leitor não
+ * disputa consigo mesmo, então repetir contas faria sete perdedores receberem
+ * `DUPLICATE_RESERVATION` e a disputa pela Cópia — o que o teste existe para
+ * provar — ficaria sem cobertura nenhuma.
+ */
+export const FILA_ULTIMA_COPIA = [1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+  leitorDeCenario(`fila${String(n)}`),
+)
+/** `regras-negocio-api` RN-1/RN-5 — A Paixão Segundo G.H. expira ponta a ponta. */
+export const LEITOR_EXPIRACAO = leitorDeCenario('expiracao')
+/** `regras-negocio-api` RN-6 — A Paixão Segundo G.H. disputada no balcão. */
+export const LEITOR_BALCAO_DUPLO = leitorDeCenario('balcao-duplo')
+/** `regras-negocio-api` RN-9 — pede o mesmo Livro duas vezes no mesmo instante. */
+export const LEITOR_DUPLICADA = leitorDeCenario('duplicada')
+/** `regras-negocio-api` RN-10 — bate o teto de Reservas ativas de uma vez. */
+export const LEITOR_TETO = leitorDeCenario('teto')
+/** `contrato-api` RF-L8 — cancela a própria Reserva e a Cópia volta na hora. */
+export const LEITOR_CANCELA = leitorDeCenario('cancela')
+/** `regras-negocio-api` RN-11 — cancelar devolve a vaga de RN-10 e libera o Livro. */
+export const LEITOR_CANCELA_TETO = leitorDeCenario('cancela-teto')
+/** `regras-negocio-api` RF-L8 — cancelamento e balcão disputam a mesma Reserva. */
+export const LEITOR_CANCELA_CORRIDA = leitorDeCenario('cancela-corrida')
+/** `autorizacao-api` RN-11 — dono da Reserva que outro Leitor tenta cancelar. */
+export const LEITOR_CANCELA_ALHEIA = leitorDeCenario('cancela-alheia')
+
+// Só a suíte de UI (`e2e/`) tem estes cenários — a irmã `e2e-api-rest/` não
+// dirige navegador, e por isso não declara estes Leitores.
+
+/** `bibliotecario` US-10 — Cem Anos de Solidão efetivado no balcão. */
+export const LEITOR_BALCAO_EFETIVA = leitorDeCenario('balcao-efetiva')
+/** `bibliotecario` US-10 — A Metamorfose vence com o modal aberto. */
+export const LEITOR_BALCAO_EXPIRA = leitorDeCenario('balcao-expira')
+/** `bibliotecario` US-11 — O Amor nos Tempos do Cólera devolvido no balcão. */
+export const LEITOR_BALCAO_DEVOLVE = leitorDeCenario('balcao-devolve')
+/** `reservas-leitor` US-03 — reserva O Processo pela tela. */
+export const LEITOR_TELA_RESERVA = leitorDeCenario('tela-reserva')
+/** `reservas-leitor` US-14 — cancela a Reserva pela tela. */
+export const LEITOR_TELA_CANCELA = leitorDeCenario('tela-cancela')
+/** `bibliotecario` — Reserva cancelada aparece como Cancelada no balcão (RN-11). */
+export const LEITOR_BALCAO_CANCELADA = leitorDeCenario('balcao-cancelada')
+
 /** Regex que casa a origem do Keycloak — para waitForURL/toHaveURL. */
 export const keycloakOrigem = (): RegExp =>
   new RegExp(KEYCLOAK.replace(/^https?:\/\//, ''))
@@ -231,6 +315,14 @@ export interface ReservationDto {
   id: string
   expiresAt: string
   createdAt: string
+  /**
+   * Os três desfechos têm campo próprio desde RF-L8: `expiredAt` é do job
+   * (RN-1) e `cancelledAt` é da desistência do Leitor (RN-11). Afirmar sobre o
+   * campo certo é o que impede um teste de "cancelou" passar sobre uma expiração.
+   */
+  convertedAt: string | null
+  expiredAt: string | null
+  cancelledAt: string | null
   status: 'active' | 'expired' | 'converted' | 'cancelled'
   copy: { id: string; code: string; book: { id: string; title: string } }
   user: { id: string; name: string; email: string }
@@ -280,6 +372,22 @@ export async function apiCreateLoan(
   return (await res.json()).data.loan as LoanDto
 }
 
+/**
+ * O Leitor cancela a própria Reserva (RF-L8, RN-11) — arrange de cenário.
+ * Devolve a Reserva já encerrada, como a rota faz.
+ */
+export async function apiCancelReservation(
+  request: APIRequestContext,
+  leitorToken: string,
+  reservationId: string,
+): Promise<ReservationDto> {
+  const res = await request.patch(`${API}/reservations/${reservationId}/cancel`, {
+    headers: bearer(leitorToken),
+  })
+  expect(res.status(), 'cancelar reserva').toBe(200)
+  return (await res.json()).data.reservation as ReservationDto
+}
+
 /** Data ISO 8601 N dias no futuro (para dueAt). */
 export function inDaysISO(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
@@ -311,6 +419,28 @@ export async function newActor(
   const ctx = await playwright.request.newContext()
   const { token, user } = await apiLogin(ctx, email, senha)
   return { ctx, token, user, dispose: () => ctx.dispose() }
+}
+
+/**
+ * Vários contextos HTTP para a MESMA pessoa — um por requisição, que é o que um
+ * teste de concorrência exige (um `APIRequestContext` enfileira as chamadas).
+ *
+ * Criados em sequência de propósito: o primeiro `GET /me` de uma conta é o que
+ * provisiona o espelho local dela (ADR-0009), e dois logins simultâneos de quem
+ * ainda não tem linha em `users` disputariam o mesmo INSERT — 500 no lugar do
+ * cenário. A concorrência que interessa é a das requisições de negócio, depois.
+ */
+export async function newActors(
+  playwright: { request: { newContext: () => Promise<APIRequestContext> } },
+  email: string,
+  quantidade: number,
+  senha = SENHA_SEED,
+): Promise<Actor[]> {
+  const atores: Actor[] = []
+  for (let i = 0; i < quantidade; i++) {
+    atores.push(await newActor(playwright, email, senha))
+  }
+  return atores
 }
 
 // ---------------------------------------------------------------------------

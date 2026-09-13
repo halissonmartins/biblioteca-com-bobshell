@@ -56,6 +56,11 @@ Cada Usuário tem exatamente um papel (`leitor` ou `bibliotecario`). Toda conta 
 
 > Em ambiente local, o Keycloak roda em `https://localhost:8443`. Para o navegador confiar no certificado, importe `keycloak/certs/ca.crt`.
 
+> **Se a tela de acesso não abrir**, a tela da biblioteca mostra o motivo e
+> libera o botão **Entrar** para nova tentativa — ela não fica parada em
+> "Encaminhando para o acesso seguro…". A linha menor abaixo da mensagem traz o
+> texto técnico do erro; é o que vale copiar ao pedir ajuda.
+
 ### 2.2 Criar conta (auto-cadastro)
 
 1. Na tela de login do Keycloak, clique em **Cadastre-se**.
@@ -119,11 +124,35 @@ No menu **Minhas Reservas** ficam todas as suas Reservas.
 ![Minhas Reservas](../../assets/images/minhas-reservas.png)
 
 - A coluna **Retire em até** mostra primeiro quanto tempo falta (contagem regressiva) e, abaixo, a data-hora limite.
-- A coluna **Status** indica o estado da Reserva (Ativa, Expirando, Expirada).
+- A coluna **Status** indica o estado da Reserva (Ativa, Expira em breve, Expirada, Cancelada).
 - Quando alguma Reserva tem menos de 1 hora de vida, um alerta amarelo **Retirada urgente** sobe a lista.
 - Reserva expirada não desaparece do histórico: ela permanece listada como Expirada, e a Cópia voltou ao acervo.
+- Cada Reserva **ativa** traz o botão **Cancelar** no fim da linha. Uma Reserva já
+  encerrada não oferece ação — não há o que desfazer.
 
-### 3.5 Acompanhar Meus Empréstimos
+### 3.5 Cancelar uma Reserva
+
+Se você já sabe que não vai buscar o livro, cancele a Reserva em vez de deixar
+vencer: a Cópia volta ao acervo **na hora** e outro Leitor pode levá-la, em vez de
+ficar bloqueada pelas 12 horas inteiras.
+
+1. Em **Minhas Reservas**, clique em **Cancelar** na linha da Reserva.
+2. A confirmação nomeia o Livro e avisa que a Cópia volta ao acervo imediatamente.
+3. Clique em **Cancelar reserva** para confirmar, ou **Manter reserva** para desistir
+   do cancelamento — só o primeiro tem efeito.
+
+Depois de cancelar:
+
+- A Reserva sai da sua lista (ela mostra apenas Reservas ativas) e passa a constar
+  como **Cancelada** para o balcão.
+- Você volta a poder reservar aquele mesmo Livro, se ainda houver Cópia livre.
+- A vaga volta para o seu limite de 3 Reservas ativas.
+
+**O que não dá para cancelar:** Reserva que já virou Empréstimo — o livro está com
+você, e o caminho é a Devolução no balcão. Se o prazo tiver vencido enquanto a aba
+estava aberta, o cancelamento avisa que a Cópia já voltou ao acervo e nada muda.
+
+### 3.6 Acompanhar Meus Empréstimos
 
 No menu **Meus Empréstimos** está o histórico completo.
 
@@ -132,7 +161,7 @@ No menu **Meus Empréstimos** está o histórico completo.
 - **Vencimento**: data limite para devolver. Por padrão são **7 dias corridos** desde a retirada (o Balcão pode ajustar esse prazo).
 - **Status**: **Em curso** ou **Devolvido**. Passou do vencimento sem Devolução, aparece o rótulo **Vencido**.
 
-### 3.6 Ver a página de um Autor
+### 3.7 Ver a página de um Autor
 
 Pelo nome do autor em qualquer página de Livro você chega à página dele, que reúne todos os Livros do autor presentes no acervo.
 
@@ -153,6 +182,10 @@ Menu **Reservas**: é por aqui que começa o atendimento do Leitor que chegou pa
 - Os botões **Ativas** e **Todas** alternam o filtro, com contador em cada um. O painel abre em **Ativas** — a lista que interessa no balcão.
 - **Filtrar por leitor (ID)**: cole o ID do usuário e clique em **Filtrar** para ver só as Reservas dele; **Limpar** remove o filtro.
 - Cada linha mostra Livro, Leitor (nome e e-mail), código da **Cópia** a entregar, quanto tempo falta para expirar e o Status.
+- **Cancelada** e **Expirada** não são a mesma coisa: a primeira é desistência do
+  Leitor (a Cópia voltou cedo, por decisão dele), a segunda é prazo vencido. Se o
+  Leitor aparecer no balcão cobrando um livro cuja Reserva está **Cancelada**, foi
+  ele mesmo quem a liberou.
 - A contagem regressiva recalcula sozinha: uma Reserva que expira com a tela aberta sai da lista Ativas e perde o botão de Efetivar.
 
 ### 4.2 Efetivar empréstimo
@@ -190,10 +223,14 @@ A Devolução não tem desfazer.
 Para consultar o Catálogo e ver detalhes, não. Para reservar, sim.
 
 **Por que não consigo reservar um Livro?**
-Quando a Disponibilidade é zero, todas as Cópias estão reservadas ou emprestadas — o botão aparece como Indisponível. Aguarde uma Devolução ou a expiração de outra Reserva.
+Três motivos possíveis, e a tela diz qual é:
+
+- **Disponibilidade zero** — todas as Cópias estão reservadas ou emprestadas, e o botão aparece como Indisponível. Aguarde uma Devolução ou a expiração de outra Reserva.
+- **Você já tem este Livro** — cada Leitor pode ter **uma Reserva ativa por Livro**, e um Empréstimo em aberto do mesmo Livro também conta: a Cópia já está com você. Não dá para reservar a segunda Cópia do mesmo título.
+- **Você atingiu o limite de Reservas** — são **3 Reservas ativas** por vez. Retire um dos Livros no balcão, ou aguarde uma Reserva expirar (12 horas), para liberar vaga. Empréstimo em aberto não ocupa vaga.
 
 **Minha Reserva sumiu de "Ativas". E agora?**
-Ela expirou após as 12 horas e a Cópia voltou ao acervo. Reserve novamente — o botão volta a ficar disponível enquanto houver Cópia livre.
+Ou ela expirou após as 12 horas, ou você a cancelou. Nos dois casos a Cópia voltou ao acervo; reserve novamente — o botão volta a ficar disponível enquanto houver Cópia livre.
 
 **Quantos dias tenho de empréstimo?**
 7 dias corridos por padrão, contados da retirada. O Balcão pode definir outro prazo no momento da efetivação.
@@ -202,7 +239,10 @@ Ela expirou após as 12 horas e a Cópia voltou ao acervo. Reserve novamente —
 Não há renovação on-line. Procure o balcão: devolva e, se houver Cópia disponível, reserve novamente.
 
 **Posso cancelar uma Reserva?**
-Não há cancelamento pelo Leitor. Se não retirar, a Reserva expira sozinha em 12 horas, sem penalidade.
+Sim, enquanto ela estiver ativa: o botão **Cancelar** fica na linha dela em **Minhas Reservas**. A Cópia volta ao acervo na hora, sem penalidade, e a vaga volta para o seu limite de 3. Se preferir não fazer nada, a Reserva expira sozinha em 12 horas — o resultado para o acervo é o mesmo, só mais tarde. Depois que a Reserva vira Empréstimo não há cancelamento: o livro está com você, e o caminho é a Devolução no balcão.
+
+**Cancelei sem querer. Consigo desfazer?**
+Não há como reverter o cancelamento — a Cópia já voltou ao acervo e pode ter sido levada por outro Leitor. Reserve de novo se ainda houver Cópia livre. É por isso que a tela pede confirmação antes.
 
 **Esqueci minha senha. O que faço?**
 Use **Esqueceu sua senha?** na tela de login do Keycloak e siga o e-mail de recuperação (no Mailpit, em ambiente local).
@@ -225,6 +265,13 @@ Sua sessão pode ter expirado. Clique em **Entrar** e autentique-se novamente.
 
 **Todo pedido falha com erro (401) ou a aplicação não autentica ninguém.**
 Provavelmente o Keycloak não está no ar. Em desenvolvimento, suba os serviços (`docker compose up -d`); o Keycloak leva cerca de 40 s na primeira subida.
+
+**A tela de acesso diz "Não foi possível falar com o serviço de acesso".**
+A aplicação não conseguiu falar com o Keycloak. Três causas, da mais comum para a menos comum:
+o serviço não está no ar (`docker compose up -d`, e ele leva ~40 s na primeira subida);
+o navegador não confia no certificado local (importe `keycloak/certs/ca.crt`); ou a rede
+está bloqueando a conexão. Clique em **Entrar** para tentar de novo — o botão fica
+liberado. Se o erro persistir, o texto menor abaixo da mensagem é o que a equipe precisa.
 
 **As capas dos Livros não carregam.**
 O servidor de capas (serviço `capas` do compose) pode estar fora do ar. Livro sem arquivo de capa exibe a placa tipográfica gerada com título, autor e gênero — isso é o comportamento esperado, não defeito.
