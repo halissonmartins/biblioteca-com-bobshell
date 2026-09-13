@@ -29,7 +29,7 @@ valor mudar, este texto continua certo.
 | SPA | processo Vite (`make dev-web`) | `5173` | a própria página | ninguém entra no sistema. O Vite faz proxy de `/api` → `:3000` e `/capas` → `:8080` |
 | `postgres` | `biblioteca-postgres` | `5432` | `pg_isready` | `/health` responde `503`, e toda rota que lê dado responde `500` |
 | `keycloak` | `biblioteca-keycloak` | `8443` (https) · `9002` (management) | `http://localhost:9002/health/ready` | ninguém entra; ver [§3.3](#33-keycloak-indisponível) |
-| `keycloak-db` | `biblioteca-keycloak-db` | interna | `pg_isready` | o Keycloak deixa de ficar `healthy` |
+| `keycloak-db` | `biblioteca-keycloak-db` | interna | `pg_isready` | o Keycloak para de atender na hora (`/health/ready` → `503`), mas só aparece `unhealthy` depois de ~7 min (`retries: 30`) |
 | `capas` | `biblioteca-capas` | `8080` | `wget http://localhost/` | capas quebradas no Catálogo; o resto funciona |
 | `mailpit` | `biblioteca-mailpit` | `8025` | o da própria imagem (aparece `healthy` no `compose ps`) | e-mail de verificação e de reset de senha não chega; login de conta já confirmada segue funcionando |
 
@@ -240,7 +240,7 @@ docker compose logs --tail 80 keycloak
 
 | O que aparece | Ação |
 |---|---|
-| `keycloak-db` não está `healthy` | `docker compose up -d --wait keycloak-db`; o Keycloak se recupera quando o banco volta |
+| `keycloak-db` não está `healthy` | `docker compose up -d --wait keycloak-db`; o Keycloak se recupera quando o banco volta, sem reiniciar. Nos primeiros segundos depois da volta, `/health/ready` ainda alterna entre `200` e `503` enquanto o cluster se reorganiza: repita a consulta até ficar `200` de forma estável |
 | o log do Keycloak fala de certificado (`tls.crt`) | os certificados de `make certs` sumiram ou venceram: `make certs` e depois `docker compose up -d --wait keycloak` |
 | container reiniciando em laço, com `OutOfMemoryError` ou `Killed` | o `mem_limit` do serviço foi atingido; libere memória do WSL2 (ver [`observabilidade.md` §7 — Memória](../observabilidade.md#memória)) e suba de novo |
 | `healthy`, mas o navegador recusa o certificado | a CA local não está confiável no SO ou no navegador: importe `keycloak/certs/ca.crt` |
@@ -251,14 +251,10 @@ docker compose logs --tail 80 keycloak
 docker compose up -d --wait keycloak
 ```
 
-> **`healthy` no `compose ps` não garante que o Keycloak já atende.** O
-> healthcheck procura `"status": "UP"` em qualquer ponto da resposta, e as
-> verificações internas aparecem como `UP` antes do status geral. Logo depois
-> de um `up -d --wait`, `/health/ready` ainda pode responder `"status": "DOWN"`
-> no topo por alguns segundos. Confira a **primeira** linha `"status"` e repita
-> até ela ficar `UP`.
+O `--wait` só devolve o controle quando `/health/ready` responde `200`, ou seja,
+com o Keycloak pronto para atender.
 
-**Confirmação.** A primeira linha `"status"` de `/health/ready` é `"UP"`, o discovery do
+**Confirmação.** `keycloak` aparece `(healthy)` no `docker compose ps`, o discovery do
 [§3.2](#32-todo-pedido-autenticado-dá-401) responde com o issuer certo, e a tela
 de acesso abre o formulário do Keycloak.
 
