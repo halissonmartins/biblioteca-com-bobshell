@@ -286,9 +286,9 @@ Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Emprésti
 
 | Situação | Componente | Variante | Rótulo |
 |---|---|---|---|
-| Cópia disponível | `<CopyStatusBadge status="available">` | `success` | Disponível |
-| Cópia reservada | `<CopyStatusBadge status="reserved">` | `warning` | Reservado |
-| Cópia emprestada | `<CopyStatusBadge status="loaned">` | `danger` | Emprestado |
+| Cópia disponível | `<Badge variant="success">` | `success` | Disponível |
+| Cópia reservada | `<Badge variant="warning">` | `warning` | Reservado |
+| Cópia emprestada | `<Badge variant="danger">` | `danger` | Emprestado |
 | Reserva ativa | `<ReservationStatusBadge state="ativa">` | `success` | Ativa |
 | Reserva a < 1 h do prazo | `<ReservationStatusBadge state="ativa" expiringSoon>` | `warning` | Expira em breve |
 | Reserva virou Empréstimo | `<ReservationStatusBadge state="convertida">` | `success` | Convertida |
@@ -296,9 +296,14 @@ Um estado nunca empresta o rótulo de outro: uma Reserva convertida em Emprésti
 | Livro com Disponibilidade | `<BookAvailabilityBadge availableCopies={n}>` | `success` / `neutral` | Disponível / Indisponível |
 
 `<BookAvailabilityBadge>` existe porque a API entrega apenas a contagem de Cópias
-de um Livro (`BookDetail.availableCopies`), sem os estados individuais — usar
-`<CopyStatusBadge>` ali obrigava a inventar um status e imprimia "Emprestado"
+de um Livro (`BookDetail.availableCopies`), sem os estados individuais — um chip
+de status de Cópia ali obrigava a inventar um status e imprimia "Emprestado"
 para Cópias que estavam apenas reservadas.
+
+Nenhuma tela mostra hoje o status de uma Cópia individual, por isso não existe
+componente pré-definido para ele: o `CopyStatusBadge` saiu como código morto
+(issue #17). As três linhas de Cópia acima continuam valendo como regra de
+variante e rótulo para quando uma tela precisar desse status.
 
 Não existe rótulo "Cancelada": ver [glossário](docs/produto/glossario.md), verbete
 *Reserva expirada*.
