@@ -624,3 +624,11 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 **[13/09/2026 13:41]** Implemente as issues #24 e #25
 ---
 **[13/09/2026 14:19]** Faça o commit, feche as issues e faça o push
+---
+**[13/09/2026 14:21]** Encerre A API e a Web
+---
+**[13/09/2026 14:22]** Derrube os contêineres também
+---
+**[13/09/2026 14:49]** Implemente a issue #34
+---
+**[13/09/2026 14:56]** Sim. Faça o commit, feche a issue e faça o push
