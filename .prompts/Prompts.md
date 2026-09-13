@@ -657,3 +657,58 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 
 ---
 **[13/09/2026 15:45]** sim, faça commit, push e monitore o CI
+
+---
+**[13/09/2026 16:04]** analise se eu consigo usar essas skill no claude sem instalar via python: https://github.com/google/mantis
+Quero instalar somente para esse projeto.
+
+---
+**[13/09/2026 16:07]** Como é comando para instalar todas via node sem --copy?
+
+---
+**[13/09/2026 16:11]** O melhor é instalar com o --copy?
+---
+**[13/09/2026 16:15]** Verifique se tem algum aplicação ou container em execução. Caso sim, encerre tudo
+
+---
+**[13/09/2026 16:19]** Instalei o google mantis: https://github.com/google/mantis
+  Me explique o fluxo de uso dela
+
+---
+**[13/09/2026 16:22]** pode preparar o .gitignore e rodar as etapas 2 a 4
+
+---
+**[13/09/2026 16:41]** remover os itens 11 e 12. Atualize a documentação para que esses itens sejam mencionados como fora de escopo.
+
+---
+**[13/09/2026 16:45]** rode o /mantis-researcher
+
+---
+**[13/09/2026 16:50]** /mantis-dedupe
+
+---
+**[13/09/2026 16:51]** /mantis-review
+
+---
+**[13/09/2026 16:55]** /mantis-critic
+
+---
+**[13/09/2026 16:56]** coloque tudo no ar e execute o /mantis-reproduce
+
+---
+**[13/09/2026 17:04]** Rode o /mantis-patch nessa branch
+
+---
+**[13/09/2026 17:12]** /mantis-calibrate
+
+---
+**[13/09/2026 17:14]** Rode o /mantis-report
+
+---
+**[13/09/2026 17:16]** Rode o /mantis-reflect
+
+---
+**[13/09/2026 17:20]** commite o fix, faça o push, derrube a stack e monitore o CI
+
+---
+**[13/09/2026 17:26]** commite o que ficou de fora
