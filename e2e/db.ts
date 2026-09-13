@@ -124,3 +124,77 @@ export async function countReservationsForCopy(copyId: string): Promise<number> 
 export async function countLoansForReservation(reservationId: string): Promise<number> {
   return withDb((db) => db.loan.count({ where: { reservationId } }))
 }
+
+/**
+ * Devolve ao acervo tudo o que um Leitor tem em circulação: Empréstimo em aberto
+ * vira devolvido, Reserva ativa vira cancelada, e as Cópias voltam a `available`.
+ *
+ * É a rede de segurança de cenário que atravessa Reserva → Empréstimo →
+ * Devolução pela tela: se ele quebrar no meio, a Cópia não fica estacionada e o
+ * próximo cenário que precisa do Livro não herda o estrago. No caminho feliz não
+ * encontra nada para desfazer.
+ */
+export async function desfazerCirculacaoDoLeitor(userId: string): Promise<void> {
+  await withDb((db) =>
+    db.$transaction(async (tx) => {
+      const agora = new Date()
+      const emprestimos = await tx.loan.findMany({
+        where: { userId, returnedAt: null },
+        select: { id: true, copyId: true },
+      })
+      for (const { id, copyId } of emprestimos) {
+        await tx.loan.update({ where: { id }, data: { returnedAt: agora } })
+        await tx.copy.update({ where: { id: copyId }, data: { status: 'available' } })
+      }
+
+      const reservas = await tx.reservation.findMany({
+        where: { userId, convertedAt: null, cancelledAt: null, expiredAt: null },
+        select: { id: true, copyId: true },
+      })
+      for (const { id, copyId } of reservas) {
+        await tx.reservation.update({ where: { id }, data: { cancelledAt: agora } })
+        await tx.copy.updateMany({ where: { id: copyId, status: 'reserved' }, data: { status: 'available' } })
+      }
+    }),
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Livros avulsos — só para a paginação (issue #24)
+// ---------------------------------------------------------------------------
+
+/**
+ * O seed de desenvolvimento tem 10 Livros e o Catálogo pagina de 20 em 20: sem
+ * dado extra a paginação nem aparece, e não há como provar que ela funciona por
+ * teclado. Estes Livros não têm Cópia nem capa (nenhuma requisição a `/capas`), e
+ * o título começa por "Zz" para cair depois de todo o seed na ordem alfabética —
+ * a primeira página continua mostrando os Livros que os outros specs procuram.
+ *
+ * Quem cria remove no fim, e também antes de criar: um teste interrompido não
+ * pode deixar o acervo com uma segunda página que ninguém espera.
+ */
+const ISBN_AVULSO = 'E2E-AVULSO-'
+const SLUG_AUTOR_AVULSO = 'autor-e2e-avulso'
+
+export async function criarLivrosAvulsos(quantidade: number): Promise<void> {
+  await withDb(async (db) => {
+    const autor = await db.author.upsert({
+      where: { slug: SLUG_AUTOR_AVULSO },
+      update: {},
+      create: { name: 'Autor Avulso E2E', slug: SLUG_AUTOR_AVULSO },
+    })
+    await db.book.createMany({
+      data: Array.from({ length: quantidade }, (_, i) => {
+        const n = String(i + 1).padStart(2, '0')
+        return { isbn: `${ISBN_AVULSO}${n}`, title: `Zz Livro Avulso ${n}`, genre: 'Romance', authorId: autor.id }
+      }),
+    })
+  })
+}
+
+export async function removerLivrosAvulsos(): Promise<void> {
+  await withDb(async (db) => {
+    await db.book.deleteMany({ where: { isbn: { startsWith: ISBN_AVULSO } } })
+    await db.author.deleteMany({ where: { slug: SLUG_AUTOR_AVULSO } })
+  })
+}

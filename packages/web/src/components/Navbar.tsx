@@ -50,12 +50,15 @@ export function Navbar() {
 
   const links = zonas(user?.role, isAuthenticated)
 
+  // O contorno do botão fica fora da chapa, sobre o oxblood: grafite ali mede
+  // 1,7:1 e o foco não se via. Branco, como o do resto do trilho.
+  const focoNoTrilho = 'focus-visible:outline-surface-0'
   const acoes = isAuthenticated ? (
-    <Button variant="secondary" size="sm" onClick={handleLogout}>
+    <Button variant="secondary" size="sm" className={focoNoTrilho} onClick={handleLogout}>
       Sair
     </Button>
   ) : (
-    <Button variant="secondary" size="sm" onClick={() => navigate('/login')}>
+    <Button variant="secondary" size="sm" className={focoNoTrilho} onClick={() => navigate('/login')}>
       Entrar
     </Button>
   )

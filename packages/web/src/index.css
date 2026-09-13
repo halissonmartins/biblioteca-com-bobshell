@@ -53,9 +53,12 @@
   }
 
   /* Foco visível obrigatório — acessibilidade AA.
-     Na chapa o foco é um filete grafite, legível sobre esmalte e sobre porcelana. */
+     Na chapa o foco é um filete grafite, legível sobre porcelana e chapa branca.
+     `outline` (estilo sólido) é explícito: sem ele o estilo ficava no `auto` do
+     navegador, que desenha o anel azul próprio e ignora a cor declarada. Sobre o
+     oxblood o grafite some (1,7:1) — ali o foco é branco (trilho e modal). */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-surface-900;
+    @apply outline outline-2 outline-offset-2 outline-surface-900;
   }
 
   :focus:not(:focus-visible) {
@@ -392,5 +395,24 @@
   .zona-link-ativo {
     @apply zona-link bg-surface-50 text-primary-700
            hover:bg-surface-50 hover:text-primary-700;
+  }
+
+  /* O contorno branco do trilho, desenhado para dentro, caía sobre a própria
+     porcelana da zona acesa: 1,1:1, foco invisível justamente no link de onde a
+     navegação por teclado parte. A zona acesa usa a tinta dela. */
+  .zona-link-ativo:focus-visible {
+    @apply outline-primary-700;
+  }
+
+  /* --- Pular para o conteúdo: a primeira parada do Tab em toda tela com
+         trilho. Fora da tela até receber foco; aparece como chapa branca sobre
+         o trilho, com o contorno branco que o oxblood pede. --- */
+  .link-pular {
+    @apply sr-only
+           focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60]
+           focus:inline-flex focus:items-center focus:min-h-[44px] focus:px-4
+           focus:bg-surface-0 focus:text-surface-900 focus:border-2 focus:border-surface-900
+           focus:font-display focus:text-base focus:font-semibold focus:uppercase focus:tracking-placa
+           focus-visible:outline-surface-0;
   }
 }

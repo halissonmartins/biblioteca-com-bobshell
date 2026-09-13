@@ -36,6 +36,7 @@ abaixo são consumidos pelos dois lados.
 | `contrato-api.spec.ts` | Caminho feliz no JSON, validação de entrada, shape, paginação, sessão |
 | `regras-negocio-api.spec.ts` | Prazo e concorrência — o que o navegador não consegue expressar: a última Cópia disputada (RN-3), o prazo que vence sozinho (RN-1/RN-5), a Reserva convertida duas vezes (RN-6), os dois limites por Leitor (RN-9, RN-10) e o cancelamento (RN-11), inclusive disputando a linha com o balcão |
 | `responsivo.spec.ts` | Layout das sete telas em 390, 768 e 1024px — rolagem horizontal, overflow escondido e alvo de toque de 44×44 |
+| `teclado.spec.ts` | Navegação só por teclado (issue #24) — skip link, ordem do Tab, foco visível **com contraste medido contra o que está atrás do anel**, alcance de todo controle, modal, paginação e circulação no balcão, login e cadastro do Keycloak |
 | `helpers.ts` | Login, arrange via API, atores isolados |
 | `fixtures.ts` | O `test` dos specs de UI — captura o console do navegador (issue #32) |
 | `db.ts` | Fixtures que mexem no relógio dos dados |
@@ -158,7 +159,8 @@ Reserva usa um Livro dedicado para não mexer na Disponibilidade que outro teste
 | Livro | Quem usa |
 |---|---|
 | Ensaio sobre a Cegueira | seed — 0 disponíveis, só leitura |
-| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia (devolve as duas Cópias no fim) |
+| O Nome de Deus | `regras-negocio-api` — disputa pela última Cópia (devolve as duas Cópias no fim) — e `teclado` (Reserva → Empréstimo → Devolução pela tela, que devolve a Cópia; `desfazerCirculacaoDoLeitor` garante isso se o cenário quebrar no meio) |
+| `Zz Livro Avulso NN` | `teclado` — 25 Livros sem Cópia criados e removidos no próprio cenário (`criarLivrosAvulsos`/`removerLivrosAvulsos` em `db.ts`): o seed tem 10 e o Catálogo pagina de 20 em 20, sem eles a paginação nem aparece |
 | A Paixão Segundo G.H. | `regras-negocio-api` (expiração ponta a ponta e Reserva disputada no balcão, os dois devolvem) e `bibliotecario` (Reserva cancelada no balcão — o cancelamento devolve a Cópia sozinho) |
 | Dom Casmurro | `contrato-api` — POST /reservations, cancelamento (RF-L8) e Reserva vencida que não se cancela. **Não serve de pré-condição para ninguém depois**: a última Cópia fica estacionada numa Reserva vencida até o job passar |
 | Memórias Póstumas de Brás Cubas | `contrato-api` — POST /loans e RN-6 |
@@ -224,6 +226,7 @@ contêiner para reimportar (`keycloak/README.md`), nunca clicar no admin console
 | `e2e-balcao-cancelada@` | `bibliotecario` RN-11 — "Cancelada" não é "Expirada" no balcão |
 | `e2e-tela-reserva@` | `reservas-leitor` US-03 |
 | `e2e-tela-cancela@` | `reservas-leitor` US-14 — cancela pela tela |
+| `e2e-teclado-<carimbo>@dominio-inexistente.invalid` | `teclado` US-10/US-11 — **cadastrada a cada execução** pela tela do Keycloak (`emailNovo` + `registrarEEntrar`), não vive no realm. Leitor novo não acumula RN-9/RN-10 entre execuções e dispensa reimportar o realm |
 
 **A fila de US-03 são oito contas distintas, não duas alternadas.** Com RN-9 um Leitor
 não disputa consigo mesmo: alternando contas, sete perdedores recebem

@@ -325,7 +325,8 @@ Não existe rótulo "Cancelada": ver [glossário](docs/produto/glossario.md), ve
 - **Style:** chapa oxblood cheia, links em condensada caixa alta a 75% de opacidade branca, canto vivo, sem ícone.
 - **Hover:** campo oxblood fundo, texto a 100%.
 - **Active:** **inversão pura** — o link imprime porcelana com tinta oxblood prensada, como uma placa acesa. A chapa inteira vira o indicador; não há filete de destaque. `aria-current` acompanha.
-- **Focus:** contorno branco de 2px com offset negativo, para não vazar da chapa.
+- **Focus:** contorno branco de 2px com offset negativo, para não vazar da chapa. Na zona acesa o contorno é oxblood prensado (`primary-700`): branco sobre a porcelana media 1,1:1 e o foco sumia justamente no link da tela atual. O botão Sair/Entrar do trilho também leva contorno branco — o grafite padrão cai sobre o oxblood a 1,7:1.
+- **Pular para o conteúdo:** primeira parada do Tab em toda tela com trilho. Fora da tela até receber foco; aí aparece no canto superior esquerdo como chapa branca com borda grafite e contorno branco, e o Enter leva o foco ao `<main>`.
 - **Abaixo de `xl`:** trilho no topo em duas linhas, zonas em faixa rolável horizontal; nunca espremidas numa linha só (rótulo cortado lê como defeito). O padding lateral do link cai de 16px para 12px no celular, o suficiente para as três zonas do Leitor caberem em 390px sem rolar — abaixo disso a faixa rola, que é o escape previsto.
 
 ### Faixas de Gênero
@@ -337,7 +338,7 @@ A codificação de zona virou controle de filtro. Cada faixa é um botão com o 
 - **Mobile:** empilha em fichas — ver a Regra da Ficha no Celular.
 
 ### Modal
-Overlay grafite a 70%, chapa branca, a única sombra do sistema. O **cabeçalho é uma placa oxblood cheia** com título em condensada branca — a identidade vem do campo de cor, não de um filete no topo. Rodapé separado por filete, ações alinhadas à direita. Fecha por Esc e por overlay (salvo `persistent`), trava o scroll do corpo e move o foco para o diálogo.
+Overlay grafite a 70%, chapa branca, a única sombra do sistema. O **cabeçalho é uma placa oxblood cheia** com título em condensada branca — a identidade vem do campo de cor, não de um filete no topo. Rodapé separado por filete, ações alinhadas à direita. Fecha por Esc e por overlay (salvo `persistent`), trava o scroll do corpo, move o foco para o diálogo, prende o Tab dentro dele e, ao fechar, devolve o foco a quem o abriu. Se a própria operação tira o gatilho da tela (a linha da Reserva efetivada sai da lista, o "Reservar" da última Cópia desabilita), o foco vai ao `<main>` em vez de cair no body. O X da placa oxblood tem contorno de foco branco, pela mesma razão do trilho.
 
 **No celular o rodapé empilha**: abaixo de `sm` as ações ocupam a largura inteira, a primária em cima. Lado a lado, o par mais largo — "Manter reserva" + "Cancelar reserva" — pedia 342px dentro dos 310 disponíveis em 390px, e a caixa alta condensada quebrava no meio da palavra. O botão de fechar carrega piso de 44×44: ele media 28px de largura, porque o ícone de 20px com padding de 4px não alcança o alvo que o `.btn-sm` garante só na altura.
 

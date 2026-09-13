@@ -124,14 +124,39 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
     dialogRef.current?.focus()
 
     return () => {
-      // Limitação conhecida: quando a própria operação remove o gatilho — a
-      // Reserva vira Empréstimo e o botão "Efetivar empréstimo" deixa a linha —
-      // ele ainda está conectado neste instante e só some depois do refetch,
-      // então o foco acaba no body. Devolver a um elemento condenado é o
-      // melhor que o Modal consegue decidir sozinho: quem sabe que a ação
-      // apaga o próprio gatilho é a página, não o diálogo.
-      if (anterior?.isConnected) anterior.focus()
-      else document.querySelector<HTMLElement>('main')?.focus()
+      const focarMain = () => document.querySelector<HTMLElement>('main')?.focus()
+      if (!anterior?.isConnected) {
+        focarMain()
+        return
+      }
+      anterior.focus()
+
+      // Quando a própria operação condena o gatilho — a Reserva vira Empréstimo
+      // e "Efetivar empréstimo" deixa a linha; a última Cópia é reservada e
+      // "Reservar" desabilita — ele ainda está de pé neste instante e só cai
+      // depois do refetch. O navegador então solta o foco no body e o próximo
+      // Tab recomeçava do topo da página. Vigia o gatilho até ele sair, e só
+      // intervém se o foco ainda estava nele.
+      const vigia = new MutationObserver(() => {
+        const ativo = document.activeElement
+        if (!anterior.isConnected || anterior.matches(':disabled')) {
+          encerrar()
+          if (ativo === null || ativo === document.body || ativo === anterior) focarMain()
+        } else if (ativo !== anterior) {
+          encerrar() // a pessoa já seguiu adiante
+        }
+      })
+      const prazo = window.setTimeout(() => encerrar(), 10_000)
+      function encerrar() {
+        vigia.disconnect()
+        window.clearTimeout(prazo)
+      }
+      vigia.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['disabled'],
+      })
     }
   }, [open])
 
@@ -162,7 +187,8 @@ export function Modal({ open, onClose, title, children, footer, persistent = fal
             aria-label="Fechar modal"
             // O `.btn-sm` já garante 44px de altura; a largura vinha do ícone de
             // 20px mais o padding e ficava em 28px — alvo de 28×44 no polegar.
-            className="!p-1 min-w-[44px] text-surface-0 hover:bg-primary-600"
+            // Contorno branco: o grafite padrão sobre a placa oxblood mede 1,7:1.
+            className="!p-1 min-w-[44px] text-surface-0 hover:bg-primary-600 focus-visible:outline-surface-0"
           >
             <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

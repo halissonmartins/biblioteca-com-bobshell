@@ -18,11 +18,26 @@ export default function App() {
 
   return (
     <>
+      {/* Sem isto quem navega por teclado atravessava o trilho inteiro em toda
+          troca de tela (WCAG 2.4.1). O foco vai por script, não pelo `#conteudo`
+          da URL: a âncora deixaria um hash que o roteador carregaria adiante. */}
+      {!naEntrada && (
+        <a
+          href="#conteudo"
+          className="link-pular"
+          onClick={(e) => {
+            e.preventDefault()
+            document.getElementById('conteudo')?.focus()
+          }}
+        >
+          Pular para o conteúdo
+        </a>
+      )}
       {!naEntrada && <Navbar />}
       {/* O trilho de zona vira coluna fixa a partir de xl — o conteúdo abre espaço para ele */}
-      {/* tabIndex -1: alvo de foco programático quando o Modal fecha e o
-          elemento que o abriu já não existe. Não entra na ordem de Tab. */}
-      <main tabIndex={-1} className={naEntrada ? undefined : 'xl:pl-60 focus:outline-none'}>
+      {/* tabIndex -1: alvo de foco programático do link "Pular para o conteúdo" e
+          de quando o Modal fecha sem ter para onde devolver. Não entra no Tab. */}
+      <main id="conteudo" tabIndex={-1} className={naEntrada ? undefined : 'xl:pl-60 focus:outline-none'}>
         <Routes>
           {/* Público */}
           <Route path="/login"             element={<LoginPage />} />
