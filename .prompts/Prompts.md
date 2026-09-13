@@ -618,3 +618,9 @@ Retorne um relatório estruturado e objetivo com caminhos de arquivo e números 
 **[13/09/2026 13:16]** Implemente a issue #33
 ---
 **[13/09/2026 13:32]** sim, faça o commit e o push
+---
+**[13/09/2026 13:38]** abra a issue do aviso Ignoring extra certs
+---
+**[13/09/2026 13:41]** Implemente as issues #24 e #25
+---
+**[13/09/2026 14:19]** Faça o commit, feche as issues e faça o push
