@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { defineConfig } from '@playwright/test'
 
 /**
@@ -16,6 +17,21 @@ import { defineConfig } from '@playwright/test'
  * HTTP próprios, então `playwright install` (download de navegador) é
  * desnecessário — local e no CI.
  */
+
+/**
+ * Confiança no Keycloak, declarada aqui e não herdada por acidente (issue #34).
+ *
+ * Os testes pedem token ao realm em https com a CA local de `make certs`, pelo
+ * `request` do Playwright — Node puro, sem `ignoreHTTPSErrors`. Os workers nascem
+ * depois de a config ser lida e herdam esta variável já no boot, que é o único
+ * momento em que o Node a lê. O caminho é absoluto porque os workers rodam com
+ * cwd nesta pasta; o relativo do antigo `.env.example` apontava para fora do
+ * repositório, e a suíte só autenticava porque o global-setup desligava o TLS.
+ *
+ * O processo principal subiu antes desta linha e não a vê: por isso o
+ * global-setup passa a CA na própria requisição do discovery.
+ */
+process.env['NODE_EXTRA_CA_CERTS'] = path.resolve(__dirname, '../keycloak/certs/ca.crt')
 
 const API_PORT = 3000
 

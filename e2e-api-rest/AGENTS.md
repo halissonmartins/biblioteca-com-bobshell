@@ -11,6 +11,15 @@ nenhum teste usa `page`, então `playwright install` é desnecessário**, local 
 O `webServer` sobe só a API; o `global-setup.ts` espera o discovery do realm,
 aplica migrations e roda o seed antes do primeiro teste. Sem mock, sem stub.
 
+**O TLS com o Keycloak é validado de verdade.** Os testes pedem token ao realm pelo
+`request` do Playwright, Node puro e sem `ignoreHTTPSErrors`. A confiança está
+declarada no `playwright.config.ts` (`NODE_EXTRA_CA_CERTS` com caminho absoluto,
+herdado pelos workers no boot), e o global-setup passa a mesma CA na requisição do
+discovery. Até a issue #34 a suíte só autenticava porque o setup punha
+`NODE_TLS_REJECT_UNAUTHORIZED=0` em `process.env` e os workers herdavam. Se
+aparecer `Ignoring extra certs` ou esse aviso no log, a confiança voltou a vir
+por acidente — não silencie, conserte.
+
 É irmã da suíte de UI (`e2e/`), não substituta: os três specs copiados de lá
 (`contrato-api`, `autorizacao-api`, `regras-negocio-api`) rodam nas duas suítes.
 Aqui eles existem para que o contrato HTTP seja verificável sem subir Chromium,

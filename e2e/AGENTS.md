@@ -7,8 +7,10 @@ Complementa o [`AGENTS.md`](../AGENTS.md) da raiz. Vale para tudo dentro de `e2e
 Playwright contra o **stack real**: API em `:3000`, SPA em `:5173`, Postgres em
 `:5432`, o servidor de capas em `:8080` e o **Keycloak em
 `https://localhost:8443`** (Fase 2: TLS com a CA local de `make certs`; o
-`ignoreHTTPSErrors` do Playwright cobre o Chromium, e o fetch do global-setup tem
-fallback próprio). Sem mock, sem stub, sem interceptação de rede — nem no login:
+`ignoreHTTPSErrors` do Playwright cobre o Chromium, o Node dos workers confia pela
+`NODE_EXTRA_CA_CERTS` que o `playwright.config.ts` declara com caminho absoluto, e
+o global-setup passa a CA na própria requisição do discovery — nada de
+`NODE_TLS_REJECT_UNAUTHORIZED`, que vazava para os workers até a issue #34). Sem mock, sem stub, sem interceptação de rede — nem no login:
 os testes preenchem a tela do Keycloak de verdade. O `webServer` do
 `playwright.config.ts` sobe API e Web; o `global-setup.ts` espera o Keycloak,
 aplica migrations e roda o seed uma vez, antes do primeiro teste. Postgres,
