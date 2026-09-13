@@ -10,6 +10,7 @@ import { BASE_URL } from './config.js';
 // Trends por operação — DEVEM ser criadas no init context (topo do módulo);
 // o k6 proíbe declarar métricas durante a execução do VU. isTime=true → ms.
 const TRENDS = {
+  catalog_home: new Trend('catalog_home', true),
   catalog_search: new Trend('catalog_search', true),
   book_detail: new Trend('book_detail', true),
   my_lists: new Trend('my_lists', true),

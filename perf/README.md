@@ -14,6 +14,7 @@ Os scripts são JavaScript **standalone do K6** — não há `package.json` nem
 | RNF-2 | `POST /reservations` | `reservation` | < 3 s |
 | RNF-3 | `POST /loans` + `PATCH /loans/:id/return` | `loan`, `return` | < 3 s |
 | RNF-4 | `GET /me/reservations`, `GET /me/loans` | `my_lists` | < 500 ms |
+| — | `GET /books` (tela inicial, sem filtro) | `catalog_home` | < 400 ms (meta interna) |
 | — | `GET /books?search=` | `catalog_search` | < 400 ms (meta interna) |
 
 Cada cenário também impõe `http_req_failed < 1%` e `checks > 99%`.
@@ -37,8 +38,49 @@ página com imagem é outra medida, ainda não coberta.
 execuções; rode `make perf-seed -- --reset` para uma medição limpa.
 
 ² A busca do catálogo era ~5,6 s antes da otimização em `bookRepository.findBooks`
-(ver "Diagnóstico" abaixo). Sob concorrência alta (`SEARCH_VUS=10`) ainda sobe para
-~700 ms — o `count(*)` exato do total continua sendo o custo dominante.
+(ver "Diagnóstico" abaixo). Os ~360 ms desta tabela são da medição em WSL2; a de
+13/09/2026 (Windows nativo, abaixo) deu p95 de 45 ms com 4 VUs e 64 ms com 10.
+
+### O custo do `count(*)` do total (issue #25) — medido em 13/09/2026
+
+A suspeita era o `tx.book.count({ where })` de `findBooks`, que roda em toda troca
+de página. Medido com o seed de performance (250.010 Livros, 500 mil Cópias), API
+em `npm run dev`, Postgres do compose, Windows 11 nativo, k6 em contêiner.
+
+**No banco** (`EXPLAIN ANALYZE` da SQL que o Prisma gera, cache quente):
+
+| Consulta | `count` | `findMany` (20 linhas) |
+|---|---|---|
+| Sem filtro — a tela inicial | **18,6 ms** (index-only scan) | 0,07 ms |
+| `genre = 'Romance'` | 3,0 ms | 0,04 ms |
+| `search=amor` (39.942 Livros casam) | 21,4 ms (bitmap no trigram) | 0,06 ms |
+| Sem filtro, página 5000 (`OFFSET 99980`) | 18,6 ms | **64,6 ms** |
+
+**Pela API** (`GET /books`, 20 s por perfil):
+
+| Perfil | p95 | p99 | req/s |
+|---|---|---|---|
+| Home, páginas 1–5, 10 VUs (`catalog-home.js`) | **32 ms** | 39 ms | 409 |
+| Home, páginas 1–5, 50 VUs | 119 ms | 151 ms | 522 |
+| Busca, páginas 1–5, 4 VUs | 45 ms | 50 ms | 106 |
+| Busca, páginas 1–5, 10 VUs | 64 ms | 69 ms | 194 |
+| Página aleatória 1–12.500, 10 VUs | 135 ms | 146 ms | 121 |
+
+**Conclusão: fica como está.** O `count` é a maior parcela da consulta das
+primeiras páginas — ~19 ms contra menos de 1 ms do `findMany` —, mas a resposta
+inteira fica em um décimo da meta de 400 ms, e a tela usa o número exato ("250010
+livros encontrados", "Página 1 de 12501"). Estimativa por `pg_class.reltuples`,
+cache do total ou paginação por cursor trocariam essa exatidão por milissegundos
+que ninguém percebe.
+
+O que cresce de verdade com a escala é o **`OFFSET` profundo**: 65 ms no banco na
+página 5000 e p95 de 135 ms pela API com páginas sorteadas no acervo inteiro. Está
+dentro da meta, e ninguém pagina até a página 5000 de "Anterior/Próxima" — mas se
+um dia a navegação ganhar salto para página arbitrária, é ali, não no `count`, que
+paginação por cursor (keyset em `title, id`) passa a valer a pena.
+
+Para repetir: `make perf-seed -- --reset`, `make dev` e
+`k6 run perf/scenarios/catalog-home.js` (ou `make perf`).
 
 ## Pré-requisitos
 
@@ -111,9 +153,9 @@ Correção (só reescrita de query, sem mudar o schema):
 2. Contar as Cópias `available` **apenas dos livros da página** (`groupBy` com
    `bookId IN (...)`), em vez de agregar toda a tabela `copies`.
 
-Efeito: p95 da busca caiu de **~5,6 s → ~360 ms** (SEARCH_VUS=4). O custo remanescente
-é o `count(*)` exato do total — se necessário, avaliar keyset pagination ou contagem
-aproximada.
+Efeito: p95 da busca caiu de **~5,6 s → ~360 ms** (SEARCH_VUS=4). O `count(*)` exato
+do total, apontado então como o custo remanescente, foi medido na issue #25 e não
+justifica troca — ver "O custo do `count(*)` do total" acima.
 
 > A migration `seed-perf.ts` roda `VACUUM (ANALYZE)` após o bulk insert para atualizar
 > estatísticas e o *visibility map* (index-only scans sem heap fetches).
@@ -126,6 +168,7 @@ perf/
   lib/http.js        # wrapper: request + check + Trend por operação
   lib/setup.js       # login no Keycloak (leitor/bibliotecário) + pool de bookIds
   scenarios/
+    catalog-home.js    # GET /books sem filtro (tela inicial — custo do count, #25)
     catalog-search.js  # GET /books?search= (busca do catálogo)
     book-detail.js     # GET /books/:id                    (RNF-1)
     reader-lists.js    # GET /me/reservations + /me/loans   (RNF-4)
