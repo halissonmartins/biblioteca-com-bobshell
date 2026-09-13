@@ -3,8 +3,14 @@ import path from 'node:path'
 
 /**
  * Prepara o ambiente antes da suíte E2E: espera o Keycloak, aplica migrations e
- * popula o seed. Roda uma única vez, antes do webServer atender requisições.
+ * popula o seed. Roda uma única vez, antes do primeiro teste — mas **depois** do
+ * webServer: o Playwright sobe API e Web primeiro e só então chama este setup.
  * Assume Postgres e Keycloak no ar (docker compose up -d, local e no CI).
+ *
+ * O Prisma Client é pré-requisito, não passo daqui (`make setup` o gera; no CI,
+ * passo próprio antes do `npm test`). Com a API já de pé, um `prisma generate`
+ * aqui chegaria tarde — ela importou o client antigo — e no Windows falha com
+ * EPERM, porque a DLL do query engine está aberta (issue #33).
  */
 
 const ISSUER =
@@ -61,7 +67,6 @@ export default async function globalSetup(): Promise<void> {
     execSync(cmd, { cwd: apiDir, stdio: 'inherit', env })
   }
 
-  run('npm run db:generate')
   run('npm run migrate:deploy')
   run('npm run db:seed')
 }

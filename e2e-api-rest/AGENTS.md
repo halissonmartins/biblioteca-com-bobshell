@@ -119,3 +119,9 @@ npx playwright test contrato-extensoes.spec.ts -g "malformado"   # um cenário
 arquivos do sistema de arquivos do Windows, e `reuseExistingServer` fora do CI
 reaproveita o processo antigo. Depois de mudar código da API, mate o servidor
 (`pkill -f "tsx watch"`) antes de rodar de novo.
+
+**O Prisma Client é pré-requisito — o `global-setup.ts` não o gera.** O Playwright
+sobe o `webServer` antes do global setup; um `generate` ali chegaria depois de a API
+importar o client e, no Windows, falha com `EPERM` na DLL aberta do query engine
+(issue #33). `make setup` gera; depois de mudar o schema, `npm run db:generate` em
+`packages/api` com a API parada. No CI, o job tem passo próprio antes do `npm test`.

@@ -150,6 +150,12 @@ jobs:
         working-directory: packages/api
         run: npm ci
 
+      # Antes do `npm test`, e não no global-setup: o Playwright sobe a API
+      # (webServer) antes do setup, e ela precisa do client já gerado (#33).
+      - name: Gerar Prisma Client
+        working-directory: packages/api
+        run: npm run db:generate
+
       - name: Instalar dependências da Web
         working-directory: packages/web
         run: npm ci
@@ -255,6 +261,11 @@ jobs:
       - name: Instalar dependências da API
         working-directory: packages/api
         run: npm ci
+
+      # Mesmo motivo do e2e-ci: o webServer sobe a API antes do global-setup (#33).
+      - name: Gerar Prisma Client
+        working-directory: packages/api
+        run: npm run db:generate
 
       - name: Instalar dependências do E2E de API
         working-directory: e2e-api-rest

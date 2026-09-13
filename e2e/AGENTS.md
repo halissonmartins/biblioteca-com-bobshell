@@ -258,3 +258,10 @@ sessão inteira de diagnóstico do fluxo de login.
 **`db.ts` importa o Prisma Client de `packages/api/node_modules`** por caminho relativo.
 É de propósito: evita duplicar dependência e schema aqui. Se o import quebrar, rode
 `npm run db:generate` em `packages/api`.
+
+**O Prisma Client é pré-requisito — o `global-setup.ts` não o gera.** O Playwright
+sobe o `webServer` **antes** do global setup, então quando o setup roda a API já
+importou o client: um `generate` ali chegaria tarde e, no Windows, falha com `EPERM`
+porque a DLL do query engine está aberta (issue #33). `make setup` gera; depois de
+mudar o schema, `npm run db:generate` em `packages/api` **com a API parada**. No CI,
+o job tem passo próprio antes do `npm test`.
