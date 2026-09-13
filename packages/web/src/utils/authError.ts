@@ -48,8 +48,10 @@ const FALHA_GENERICA =
 
 /** Extrai a mensagem de qualquer coisa que tenha caído no lugar de um erro. */
 function mensagemCrua(erro: unknown): string {
+  // Stryker disable next-line ConditionalExpression: equivalente — Error tem `message` string, e o ramo de objeto abaixo devolve o mesmo texto
   if (erro instanceof Error) return erro.message
   if (typeof erro === 'string') return erro
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalente — `erro` já é truthy aqui, e primitivo desestruturado dá `message` não-string, que cai no mesmo return ''
   if (erro && typeof erro === 'object' && 'message' in erro) {
     const { message } = erro as { message: unknown }
     if (typeof message === 'string') return message

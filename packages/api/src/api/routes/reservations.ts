@@ -58,6 +58,7 @@ const createReservationSchema = z.object({
  * barrou o Leitor (sinal de uso) — duas conclusões opostas sob o mesmo 409.
  */
 function resultadoDaFalha(err: unknown): string {
+  // Stryker disable next-line ConditionalExpression: equivalente — erro que não é AppError não tem `code` e cai no default 'erro'
   if (!(err instanceof AppError)) return 'erro';
   switch (err.code) {
     case 'NO_COPY_AVAILABLE':          return 'sem_copia';           // RN-3
@@ -75,6 +76,7 @@ function resultadoDaFalha(err: unknown): string {
  * não de que ele fez algo errado.
  */
 function resultadoDoCancelamento(err: unknown): string {
+  // Stryker disable next-line ConditionalExpression: equivalente — erro que não é AppError não tem `code` e cai no default 'erro'
   if (!(err instanceof AppError)) return 'erro';
   switch (err.code) {
     case 'NOT_FOUND':           return 'nao_encontrada';   // não existe, ou não é dele (RN-11)
@@ -100,6 +102,7 @@ router.post(
   asyncHandler(async (req, res, next) => {
     const parsed = createReservationSchema.safeParse(req.body);
     if (!parsed.success) {
+      // Stryker disable next-line OptionalChaining: equivalente — com success=false o zod sempre traz ao menos um issue
       next(new AppError('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Dados inválidos'));
       return;
     }
@@ -164,6 +167,7 @@ router.get(
   asyncHandler(async (req, res, next) => {
     const parsed = listReservationsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
+      // Stryker disable next-line OptionalChaining: equivalente — com success=false o zod sempre traz ao menos um issue
       next(new AppError('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Parâmetros inválidos'));
       return;
     }

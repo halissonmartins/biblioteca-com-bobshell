@@ -1,0 +1,88 @@
+name: Mutation
+
+# Teste de mutação (StrykerJS) — issue #37, ADR-0006.
+#
+# Fora do `ci-gate` de propósito: mutação é lenta perto do `vitest run`. Roda
+# toda segunda-feira, sob demanda e quando muda código que ela muta. O modo
+# incremental reaproveita o resultado de mutantes cujo código e testes não
+# mudaram (arquivo guardado no cache do Actions entre execuções).
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "packages/api/src/domain/**"
+      - "packages/api/src/api/**"
+      - "packages/api/stryker.config.mjs"
+      - "packages/web/src/utils/**"
+      - "packages/web/src/api/**"
+      - "packages/web/stryker.config.mjs"
+      - ".github/workflows/mutation.yml"
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: "Mutação — ${{ matrix.pacote }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        pacote: [api, web]
+
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.pacote }}
+
+    env:
+      # Mesmas variáveis do api-ci: o middleware de autenticação as lê ao
+      # carregar o módulo, e o ISSUER precisa bater com src/test/keycloak.ts.
+      # Nenhum teste Vitest abre conexão com banco (repositórios mockados).
+      DATABASE_URL: postgresql://biblioteca:biblioteca@localhost:5432/biblioteca_test
+      KEYCLOAK_ISSUER_URL: https://localhost:8443/realms/biblioteca
+      KEYCLOAK_AUDIENCE: biblioteca-api
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: packages/${{ matrix.pacote }}/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        if: matrix.pacote == 'api'
+        run: npx prisma generate
+
+      - name: Restaurar estado incremental
+        uses: actions/cache@v6
+        with:
+          path: packages/${{ matrix.pacote }}/reports/stryker-incremental.json
+          key: stryker-${{ matrix.pacote }}-${{ github.sha }}
+          restore-keys: stryker-${{ matrix.pacote }}-
+
+      - name: Teste de mutação (StrykerJS)
+        run: npm run test:mutation
+
+      - name: Publicar relatório
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report-${{ matrix.pacote }}
+          path: packages/${{ matrix.pacote }}/reports/mutation/
+          if-no-files-found: ignore
+          retention-days: 14

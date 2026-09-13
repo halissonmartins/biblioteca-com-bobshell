@@ -38,6 +38,7 @@ instala as próprias deps. Não tente `npm install` na raiz. Lint também difere
 make setup    # instala deps + docker compose up + migrate + seed
 make dev      # API (porta 3000) + Web (porta 5173) em watch
 make test     # Vitest — todos os testes unitários e de integração
+make mutation # StrykerJS — teste de mutação (API + Web); lento, incremental, fora do ci-gate (ADR-0006)
 make lint     # API: ESLint + typecheck · Web: oxlint
 make build    # build de produção
 make obs-up   # sobe a stack de observabilidade (perfil `obs`) — ver docs/observabilidade.md
@@ -129,6 +130,7 @@ npm run db:studio          # Prisma Studio em http://localhost:5555
 - **Mudança no realm é arquivo**: editar `keycloak/realm-biblioteca.json` ou rodar `make keycloak-export`. Clicar no admin console sem exportar perde a mudança
 - **Nunca editar migration já aplicada** — criar nova migration que corrige
 - **Nunca desabilitar lint/tipo/teste** para fazer build ou CI passar
+- **Mutante sobrevivente se mata com teste, não com comentário** — `// Stryker disable next-line <mutador>: <motivo>` só para mutante equivalente, e sempre com o motivo. Nunca baixar `thresholds.break` do `stryker.config.mjs` para passar (ADR-0006)
 - **Toda mudança de schema** exige migration versionada em `packages/api/prisma/migrations/`
 - **Capa de Livro é arquivo em `assets/capas/<isbn>.jpg`**, versionado, servido pelo nginx do compose. `coverUrl` guarda caminho relativo (`/capas/…`), nunca URL externa — nada de imagem sai da rede em runtime (ADR-0008)
 - Commits seguem **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `test:`

@@ -61,6 +61,16 @@ describe('requestId', () => {
     expect(req.requestId).toBe('primeiro');
   });
 
+  it('aceita header com exatamente 128 caracteres', () => {
+    const noLimite = 'x'.repeat(128);
+    const req = fazerReq({ 'x-request-id': noLimite });
+    const { res } = fazerRes();
+
+    requestId(req, res, fazerNext());
+
+    expect(req.requestId).toBe(noLimite);
+  });
+
   it('descarta header maior que 128 caracteres e gera um novo', () => {
     const req = fazerReq({ 'x-request-id': 'x'.repeat(129) });
     const { res } = fazerRes();

@@ -132,7 +132,10 @@ describe('createReservation()', () => {
 
     await expect(
       createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NO_COPY_AVAILABLE' });
+    ).rejects.toMatchObject({
+      code: 'NO_COPY_AVAILABLE',
+      message: 'Não há cópias disponíveis para este livro no momento.',
+    });
   });
 
   it('define expiresAt exatamente 12 horas após now (RN-1)', async () => {
@@ -172,7 +175,7 @@ describe('createReservation()', () => {
 
     await expect(
       createReservation({ userId: 'user-1', bookId: 'book-fantasma' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Livro não encontrado: book-fantasma' });
   });
 
   it('não consulta a existência do Livro no caminho de sucesso', async () => {
@@ -192,7 +195,10 @@ describe('createReservation()', () => {
 
     await expect(
       createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NO_COPY_AVAILABLE' });
+    ).rejects.toMatchObject({
+      code: 'NO_COPY_AVAILABLE',
+      message: 'Não há cópias disponíveis para este livro no momento.',
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -241,6 +247,10 @@ describe('createReservation()', () => {
     await expect(
       createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
     ).rejects.toThrow(new RegExp(`${String(MAX_ACTIVE_RESERVATIONS_PER_READER)} reservas ativas`));
+    // E diz o que fazer para liberar a vaga, não só que ela acabou.
+    await expect(
+      createReservation({ userId: 'user-1', bookId: 'book-1' }, deps, FIXED_NOW),
+    ).rejects.toThrow(/Retire ou aguarde a expiração de uma delas/);
   });
 
   it('o teto é um número só, e a API é quem o impõe (RN-10)', () => {
@@ -297,7 +307,7 @@ describe('cancelReservation()', () => {
 
     await expect(
       cancelReservation({ reservationId: 'res-404', userId: 'user-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Reserva não encontrada.' });
 
     expect(deps.cancelReservationTx).not.toHaveBeenCalled();
   });
@@ -327,7 +337,11 @@ describe('cancelReservation()', () => {
 
     await expect(
       cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message:
+        'Esta reserva já virou empréstimo e não pode ser cancelada. Procure o balcão para devolver o livro.',
+    });
 
     expect(deps.cancelReservationTx).not.toHaveBeenCalled();
   });
@@ -341,7 +355,7 @@ describe('cancelReservation()', () => {
 
     await expect(
       cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Esta reserva já foi cancelada.' });
 
     expect(deps.cancelReservationTx).not.toHaveBeenCalled();
   });
@@ -357,7 +371,10 @@ describe('cancelReservation()', () => {
 
     await expect(
       cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+    ).rejects.toMatchObject({
+      code: 'RESERVATION_EXPIRED',
+      message: 'Esta reserva expirou e a cópia já voltou ao acervo — não há o que cancelar.',
+    });
 
     expect(deps.cancelReservationTx).not.toHaveBeenCalled();
   });
@@ -384,7 +401,41 @@ describe('cancelReservation()', () => {
 
     await expect(
       cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Esta reserva já foi encerrada.' });
+  });
+
+  it('prazo vencendo exatamente agora já é RESERVATION_EXPIRED (fronteira inclusiva, RN-1)', async () => {
+    // As 12h de RN-1 terminam NO instante de `expiresAt`, não um tique depois —
+    // a mesma fronteira que a efetivação usa no balcão (loanService).
+    const deps = makeDeps({
+      findReservationForCancel: vi
+        .fn()
+        .mockResolvedValue(makeReservationForCancel({ expiresAt: FIXED_NOW })),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
+  });
+
+  it('`expiredAt` gravado pelo job encerra a Reserva mesmo com o relógio da API atrás do prazo (RN-1)', async () => {
+    // Job e API não leem o mesmo relógio. Se o job já expirou a Reserva, a Cópia
+    // voltou ao acervo — cancelar agora liberaria de novo uma Cópia que pode já
+    // estar reservada por outro Leitor.
+    const deps = makeDeps({
+      findReservationForCancel: vi.fn().mockResolvedValue(
+        makeReservationForCancel({
+          expiresAt: new Date(FIXED_NOW.getTime() + 30_000),
+          expiredAt: FIXED_NOW,
+        }),
+      ),
+    });
+
+    await expect(
+      cancelReservation({ reservationId: 'res-1', userId: 'user-1' }, deps, FIXED_NOW),
+    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+    expect(deps.cancelReservationTx).not.toHaveBeenCalled();
   });
 });
 

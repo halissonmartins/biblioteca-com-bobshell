@@ -85,6 +85,8 @@ describe('roleFromRealmRoles()', () => {
     } catch (err) {
       expect((err as AppError).code).toBe('FORBIDDEN');
       expect((err as AppError).statusCode).toBe(403);
+      // A tela mostra este texto a quem entrou e não tem o que fazer aqui.
+      expect((err as AppError).message).toMatch(/sem papel reconhecido/);
     }
   });
 });
@@ -146,6 +148,21 @@ describe('resolveLocalUser()', () => {
       email: 'ana@biblioteca.dev',
       role: 'leitor',
     });
+  });
+
+  it('ressincroniza quando só o e-mail muda no realm', async () => {
+    // Cada campo da guarda conta sozinho: e-mail trocado no Keycloak com nome e
+    // papel iguais ainda precisa chegar ao espelho.
+    const deps = makeDeps({
+      findUserByExternalId: vi.fn().mockResolvedValue(userLocal({ email: 'antigo@biblioteca.dev' })),
+    });
+
+    await resolveLocalUser(CLAIMS, deps);
+
+    expect(deps.updateUserProfile).toHaveBeenCalledWith(
+      'local-1',
+      expect.objectContaining({ email: 'ana@biblioteca.dev' }),
+    );
   });
 
   it('promove o papel quando o Bibliotecário o recebe no realm', async () => {

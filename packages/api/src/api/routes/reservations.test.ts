@@ -38,9 +38,23 @@ vi.mock('../../domain/reservation/reservationService.js', async (importOriginal)
   };
 });
 
+// Contadores dublados um a um: sem o NodeSDK, o meter no-op devolve a mesma
+// instância para todo contador, e as chamadas de um se misturariam às do outro.
+const contadores = vi.hoisted(() => ({ reservasCriadas: vi.fn(), reservasCanceladas: vi.fn() }));
+
+vi.mock('../../infra/telemetry/metrics.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../infra/telemetry/metrics.js')>();
+  return {
+    ...original,
+    reservasCriadas: { add: contadores.reservasCriadas },
+    reservasCanceladas: { add: contadores.reservasCanceladas },
+  };
+});
+
 import { createApp } from '../app.js';
 import * as reservationRepo from '../../infra/repositories/reservationRepository.js';
 import * as reservationService from '../../domain/reservation/reservationService.js';
+import { AppError, type ErrorCode } from '../../shared/errors.js';
 import { tokenDe, instalarChavesDeTeste } from '../../test/keycloak.js';
 
 /** Token RS256 assinado pelo kit de teste — o `sub` vira o id local. */
@@ -108,6 +122,9 @@ describe('POST /reservations', () => {
       { userId: 'user-1', bookId: 'book-1' },
       expect.anything(),
     );
+    // Contrato consumido pela tela de detalhes do Livro (docs/openapi.yaml).
+    expect(res.body).toMatchObject({ data: { reservation: { id: 'res-1', status: 'active' } } });
+    expect(contadores.reservasCriadas).toHaveBeenCalledWith(1, { resultado: 'criada' });
   });
 
   it('422 quando bookId ausente', async () => {
@@ -117,6 +134,52 @@ describe('POST /reservations', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({});
     expect(res.status).toBe(422);
+  });
+
+  it('422 devolve a mensagem do schema, não um texto genérico', async () => {
+    const token = await makeToken('leitor');
+    const res = await request(app)
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ bookId: '' });
+
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toContain('bookId obrigatório');
+    expect(reservationService.createReservation).not.toHaveBeenCalled();
+  });
+
+  // `resultado` separa acervo esgotado (sinal de compra) de regra barrando o
+  // Leitor (sinal de uso) — as duas chegam como 409 e dizem coisas opostas.
+  it.each<[ErrorCode, string]>([
+    ['NO_COPY_AVAILABLE', 'sem_copia'],            // RN-3
+    ['DUPLICATE_RESERVATION', 'duplicada'],        // RN-9
+    ['RESERVATION_LIMIT_REACHED', 'limite'],       // RN-10
+    ['NOT_FOUND', 'erro'],
+  ])('recusa %s conta como %s e mantém a resposta de erro', async (code, resultado) => {
+    vi.mocked(reservationService.createReservation).mockRejectedValue(new AppError(code, 'recusada'));
+
+    const token = await makeToken('leitor', 'user-1');
+    const res = await request(app)
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ bookId: 'book-1' });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(contadores.reservasCriadas).toHaveBeenCalledWith(1, { resultado });
+    expect(contadores.reservasCriadas).not.toHaveBeenCalledWith(1, { resultado: 'criada' });
+  });
+
+  it('erro que não é AppError conta como erro e vira 500', async () => {
+    vi.mocked(reservationService.createReservation).mockRejectedValue(new Error('banco caiu'));
+
+    const token = await makeToken('leitor', 'user-1');
+    const res = await request(app)
+      .post('/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ bookId: 'book-1' });
+
+    expect(res.status).toBe(500);
+    expect(contadores.reservasCriadas).toHaveBeenCalledWith(1, { resultado: 'erro' });
   });
 });
 
@@ -160,6 +223,26 @@ describe('PATCH /reservations/:id/cancel', () => {
       expect.anything(),
     );
     expect(res.body).toMatchObject({ data: { reservation: { status: 'cancelled' } } });
+    expect(contadores.reservasCanceladas).toHaveBeenCalledWith(1, { resultado: 'cancelada' });
+  });
+
+  it.each<[string, Error, string]>([
+    ['Reserva inexistente ou de outro Leitor', new AppError('NOT_FOUND', 'x'), 'nao_encontrada'], // RN-11
+    ['prazo vencido', new AppError('RESERVATION_EXPIRED', 'x'), 'expirada'],                      // RN-1
+    ['Reserva já encerrada', new AppError('CONFLICT', 'x'), 'encerrada'],
+    ['outro AppError', new AppError('VALIDATION_ERROR', 'x'), 'erro'],
+    ['erro inesperado', new Error('banco caiu'), 'erro'],
+  ])('cancelamento recusado por %s conta como %s', async (_caso, erro, resultado) => {
+    vi.mocked(reservationService.cancelReservation).mockRejectedValue(erro);
+
+    const token = await makeToken('leitor', 'user-1');
+    const res = await request(app)
+      .patch('/reservations/res-1/cancel')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(contadores.reservasCanceladas).toHaveBeenCalledWith(1, { resultado });
+    expect(contadores.reservasCanceladas).not.toHaveBeenCalledWith(1, { resultado: 'cancelada' });
   });
 });
 
@@ -198,5 +281,43 @@ describe('GET /reservations', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(spy).toHaveBeenCalledWith(undefined);
+  });
+
+  it('filtra por Leitor quando userId vem na query (RF-B3)', async () => {
+    const token = await makeToken('bibliotecario');
+    await request(app)
+      .get('/reservations?userId=user-42')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(reservationRepo.findAllReservations).toHaveBeenCalledWith('user-42');
+  });
+
+  it('com bookId na query, lista as Reservas do Livro (RF-B1)', async () => {
+    vi.mocked(reservationService.listBookReservations).mockResolvedValue([RESERVATION_DETAIL]);
+
+    const token = await makeToken('bibliotecario');
+    const res = await request(app)
+      .get('/reservations?bookId=book-1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(reservationService.listBookReservations).toHaveBeenCalledWith(
+      { bookId: 'book-1' },
+      expect.anything(),
+    );
+    expect(reservationRepo.findAllReservations).not.toHaveBeenCalled();
+    expect(res.body).toMatchObject({ data: [{ id: 'res-1' }] });
+  });
+
+  it('422 quando bookId vem repetido na query', async () => {
+    const token = await makeToken('bibliotecario');
+    const res = await request(app)
+      .get('/reservations?bookId=a&bookId=b')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toContain('Expected string');
+    expect(reservationService.listBookReservations).not.toHaveBeenCalled();
+    expect(reservationRepo.findAllReservations).not.toHaveBeenCalled();
   });
 });

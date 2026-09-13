@@ -13,6 +13,7 @@ export function formatDateTime(iso: string): string {
 
 /** Formata data ISO 8601 para dd/MM/yyyy */
 export function formatDate(iso: string): string {
+  // Stryker disable next-line ObjectLiteral: equivalente — sem opções, o pt-BR do ICU já formata dd/MM/yyyy
   return new Date(iso).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',

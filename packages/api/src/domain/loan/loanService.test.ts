@@ -120,7 +120,7 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-x', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Reserva não encontrada.' });
   });
 
   it('lança CONFLICT quando a Reserva já foi convertida (RN-6)', async () => {
@@ -132,7 +132,7 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Esta reserva já foi convertida em empréstimo.' });
   });
 
   it('lança CONFLICT quando a Reserva ganha outro desfecho durante a escrita (RN-6, RF-L8)', async () => {
@@ -213,7 +213,10 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Esta reserva foi cancelada pelo leitor e não pode ser convertida em empréstimo.',
+    });
     expect(deps.createLoanTx).not.toHaveBeenCalled();
   });
 
@@ -226,7 +229,10 @@ describe('createLoan()', () => {
 
     await expect(
       createLoan({ reservationId: 'res-1', librarianId: 'lib-1', dueAt: DUE_AT }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'RESERVATION_EXPIRED' });
+    ).rejects.toMatchObject({
+      code: 'RESERVATION_EXPIRED',
+      message: 'A reserva expirou e não pode ser convertida em empréstimo.',
+    });
   });
 
   it('passa todos os campos corretos para createLoanTx', async () => {
@@ -296,7 +302,7 @@ describe('returnLoan()', () => {
 
     await expect(
       returnLoan({ loanId: 'loan-x', librarianId: 'lib-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Empréstimo não encontrado.' });
   });
 
   it('lança CONFLICT quando o Empréstimo já foi devolvido (idempotência)', async () => {
@@ -308,7 +314,7 @@ describe('returnLoan()', () => {
 
     await expect(
       returnLoan({ loanId: 'loan-1', librarianId: 'lib-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Este empréstimo já foi devolvido.' });
   });
 
   it('passa loanId e returnedAt = now para returnLoanTx (RN-5)', async () => {
@@ -329,9 +335,10 @@ describe('returnLoan()', () => {
       returnLoanTx: vi.fn().mockResolvedValue(false),
     });
 
+    // Quem perde a corrida lê o mesmo texto de quem clicou numa lista velha.
     await expect(
       returnLoan({ loanId: 'loan-1', librarianId: 'lib-1' }, deps, FIXED_NOW),
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Este empréstimo já foi devolvido.' });
   });
 
   it('não chama returnLoanTx se o Empréstimo não existe', async () => {

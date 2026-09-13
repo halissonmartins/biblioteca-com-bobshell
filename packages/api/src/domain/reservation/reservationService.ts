@@ -164,6 +164,7 @@ export async function createReservation(
     maxActiveReservations: MAX_ACTIVE_RESERVATIONS_PER_READER,
   });
 
+  // Stryker disable next-line ConditionalExpression: equivalente — com ok=true, `reason` não existe e o switch não casa nenhum case
   if (!created.ok) {
     switch (created.reason) {
       // RN-9: o Leitor já tem este Livro nas mãos, por Reserva ou Empréstimo.

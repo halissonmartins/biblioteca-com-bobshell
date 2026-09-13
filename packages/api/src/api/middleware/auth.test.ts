@@ -15,6 +15,19 @@ vi.mock('../../infra/repositories/userRepository.js', async () => {
   return { authRepoDeps: fakeAuthRepoDeps() };
 });
 
+// Contadores dublados um a um: sem o NodeSDK, o meter no-op devolve a mesma
+// instância para todo contador, e as chamadas de um se misturariam às do outro.
+const contadores = vi.hoisted(() => ({ autenticacaoFalhas: vi.fn(), autorizacaoNegacoes: vi.fn() }));
+
+vi.mock('../../infra/telemetry/metrics.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../infra/telemetry/metrics.js')>();
+  return {
+    ...original,
+    autenticacaoFalhas: { add: contadores.autenticacaoFalhas },
+    autorizacaoNegacoes: { add: contadores.autorizacaoNegacoes },
+  };
+});
+
 import { authenticate, requireRole } from './auth.js';
 import { AppError } from '../../shared/errors.js';
 import type { AuthenticatedRequest } from './auth.js';
@@ -56,6 +69,8 @@ function comToken(token: string): Request {
 
 beforeEach(async () => {
   await instalarChavesDeTeste();
+  contadores.autenticacaoFalhas.mockClear();
+  contadores.autorizacaoNegacoes.mockClear();
 });
 
 afterAll(() => {
@@ -121,6 +136,39 @@ describe('authenticate()', () => {
     expect(err.code).toBe('FORBIDDEN');
     expect(err.statusCode).toBe(403);
   });
+
+  it('esquema diferente de Bearer é tratado como token ausente', async () => {
+    const next = await autenticar(makeReq({ headers: { authorization: 'Basic dXNlcjpzZW5oYQ==' } }));
+    expect(erroDe(next).code).toBe('UNAUTHORIZED');
+    expect(erroDe(next).message).toBe('Token de acesso não fornecido');
+  });
+
+  // O atributo `motivo` separa no painel "cliente esqueceu o token" de "sessão
+  // venceu" e de "alguém forjando token" — três ações diferentes (observabilidade.md).
+  it.each([
+    ['sem token', (): Promise<Request> => Promise.resolve(makeReq()), 'sem_token'],
+    ['token expirado', async (): Promise<Request> => comToken(await emitirToken({ expiraEm: '-1s' })), 'expirado'],
+    ['token mal-formado', (): Promise<Request> => Promise.resolve(comToken('INVALID.TOKEN')), 'invalido'],
+  ])('conta falha de autenticação por %s com motivo %s', async (_caso, fazerReq, motivo) => {
+    await autenticar(await fazerReq());
+
+    expect(contadores.autenticacaoFalhas).toHaveBeenCalledOnce();
+    expect(contadores.autenticacaoFalhas).toHaveBeenCalledWith(1, { motivo });
+  });
+
+  it('conta sem papel deste sistema não entra no contador de falhas de autenticação', async () => {
+    // Ela se autenticou: é negação de autorização, e contá-la aqui inflaria o
+    // sinal de token forjado.
+    await autenticar(comToken(await emitirToken({ realmRoles: ['offline_access'] })));
+
+    expect(contadores.autenticacaoFalhas).not.toHaveBeenCalled();
+  });
+
+  it('token válido não conta falha', async () => {
+    await autenticar(comToken(await emitirToken({ realmRoles: ['leitor'] })));
+
+    expect(contadores.autenticacaoFalhas).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -163,5 +211,24 @@ describe('requireRole()', () => {
     const next = makeNext();
     requireRole('bibliotecario')(reqComPapel('leitor'), makeRes(), next);
     expect(erroDe(next as ReturnType<typeof vi.fn>).code).toBe('FORBIDDEN');
+  });
+
+  it('a negação diz o papel exigido e o do usuário, e entra na métrica (RN-2, RN-7)', () => {
+    const next = makeNext();
+    requireRole('bibliotecario')(reqComPapel('leitor'), makeRes(), next);
+
+    expect(erroDe(next as ReturnType<typeof vi.fn>).message).toBe(
+      'Ação restrita a bibliotecario. Seu papel: leitor',
+    );
+    expect(contadores.autorizacaoNegacoes).toHaveBeenCalledWith(1, {
+      papel_requerido: 'bibliotecario',
+      papel_usuario: 'leitor',
+    });
+  });
+
+  it('papel certo não conta negação', () => {
+    requireRole('leitor')(reqComPapel('leitor'), makeRes(), makeNext());
+
+    expect(contadores.autorizacaoNegacoes).not.toHaveBeenCalled();
   });
 });

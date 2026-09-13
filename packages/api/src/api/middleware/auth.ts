@@ -55,6 +55,7 @@ function extractToken(req: Request): string {
 }
 
 function motivoDaFalha(err: unknown): string {
+  // Stryker disable next-line ConditionalExpression: equivalente — erro que não é AppError não casa nenhum `code` e cai em 'invalido'
   if (err instanceof AppError) {
     if (err.code === 'UNAUTHORIZED') return 'sem_token';
     if (err.code === 'TOKEN_EXPIRED') return 'expirado';

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage.enabled",
+    "test:mutation": "stryker run",
     "test:watch": "vitest",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
@@ -47,6 +48,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/node": "^20.17.57",

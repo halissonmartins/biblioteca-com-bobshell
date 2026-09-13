@@ -16,6 +16,10 @@ coverage/
 /e2e-api-rest/playwright-report/
 /e2e-api-rest/blob-report/
 
+# Teste de mutação (StrykerJS) — relatórios, estado incremental e sandbox
+/packages/*/reports/
+/packages/*/.stryker-tmp/
+
 # Certificados locais gerados por `make certs` (Fase 2 — TLS)
 /keycloak/certs/
 

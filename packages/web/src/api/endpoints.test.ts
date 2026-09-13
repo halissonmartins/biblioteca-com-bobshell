@@ -10,6 +10,7 @@ import { getBook, listBooks } from './books'
 import { createLoan, getAllLoans, getMyLoans, returnLoan } from './loans'
 import { getMe } from './me'
 import {
+  cancelReservation,
   createReservation,
   getAllReservations,
   getBookReservations,
@@ -158,6 +159,17 @@ describe('reservations', () => {
     expect(resultado).toEqual(reserva)
     expect(chamadas[0]?.url).toBe('/api/reservations')
     expect(chamadas[0]?.init.method).toBe('POST')
+  })
+
+  it('cancelReservation faz PATCH no caminho de cancelamento e devolve a Reserva encerrada (RF-L8)', async () => {
+    const cancelada = { id: 'r1', status: 'cancelled' }
+    const chamadas = stubFetch({ ok: true, data: { reservation: cancelada } })
+
+    const resultado = await cancelReservation('r1')
+
+    expect(resultado).toEqual(cancelada)
+    expect(chamadas[0]?.url).toBe('/api/reservations/r1/cancel')
+    expect(chamadas[0]?.init.method).toBe('PATCH')
   })
 
   it('getMyReservations lista as Reservas ativas do Leitor', async () => {

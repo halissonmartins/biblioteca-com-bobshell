@@ -66,6 +66,11 @@ describe('descreverErroDeAcesso', () => {
     expect(erro?.detalhe).toBe('invalid_client')
   })
 
+  it('apara espaços do texto cru antes de mostrar o detalhe', () => {
+    const erro = descreverErroDeAcesso(new Error('  invalid_client \n'))
+    expect(erro?.detalhe).toBe('invalid_client')
+  })
+
   it('aceita erro que chegou como string', () => {
     expect(descreverErroDeAcesso('Failed to fetch')?.mensagem).toContain('serviço de acesso')
   })

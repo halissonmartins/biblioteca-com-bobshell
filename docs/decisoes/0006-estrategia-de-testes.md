@@ -4,7 +4,7 @@
 |---|---|
 | Status | **Aceito** |
 | Data | 14/08/2026 |
-| Atualizado | 12/09/2026 — camada unitária do `packages/web` e exceção do teste de componente (issue #27) |
+| Atualizado | 13/09/2026 — teste de mutação com StrykerJS (issue #37) · 12/09/2026 — camada unitária do `packages/web` e exceção do teste de componente (issue #27) |
 
 ## Contexto
 
@@ -38,6 +38,37 @@ Com agentes de codificação, testes são o contrato que impede o agente de queb
 - Teste de componente **não entra no alvo de cobertura** do `packages/web`
   (`vitest.config.ts` inclui só `utils/` e `api/`): ele existe para travar um
   comportamento específico, não para engordar a cobertura
+
+### Teste de mutação
+
+Cobertura diz quais linhas os testes **executam**; mutação diz se eles
+**perceberiam** uma linha errada. O StrykerJS (`@stryker-mutator/vitest-runner`)
+altera o código de produção — troca `>=` por `>`, apaga uma chamada, inverte um
+`if` — e roda a suíte Vitest contra cada mutante. Mutante que sobrevive é regra
+sem teste que a defenda (issue #37).
+
+| Pacote | Alvo (`mutate`) | Config |
+|---|---|---|
+| `packages/api` | `src/domain/**` e `src/api/**` (sem `*Types.ts` e testes) | `packages/api/stryker.config.mjs` |
+| `packages/web` | `src/utils/**` e `src/api/**` | `packages/web/stryker.config.mjs` |
+
+O alvo espelha o da cobertura: `infra/repositories/**`, `infra/telemetry/**`,
+`pages/` e `components/` ficam fora pelo mesmo motivo — se provam nas suítes
+E2E, onde o custo por mutante seria de minutos.
+
+- **Onde roda**: `make mutation` local e o workflow `.github/workflows/mutation.yml`
+  (semanal, sob demanda e em push na `main` que toque o alvo), com relatório HTML
+  como artefato. **Não** faz parte do `ci-gate`: é lenta perto do `vitest run`.
+- **Modo incremental**: `reports/stryker-incremental.json` reaproveita mutantes
+  cujo código e testes não mudaram; no CI, o arquivo vive no cache do Actions.
+  `npx stryker run --force` refaz tudo.
+- **`thresholds.break`** fixado a partir da linha de base medida. Sobe aos
+  poucos; nunca desce para a execução passar.
+- **Sobrevivente se trata, não se silencia.** Primeiro, escrever o teste que
+  faltava, citando a RN. Só se o mutante for **equivalente** (não muda
+  comportamento observável), marcar com
+  `// Stryker disable next-line <mutador>: <motivo>` — sem motivo não passa na
+  revisão. Desligar mutador inteiro na config exige justificativa no arquivo.
 
 ### Rodar um único teste
 

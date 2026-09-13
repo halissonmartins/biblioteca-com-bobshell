@@ -21,8 +21,11 @@ import {
 
 describe('formatDateTime / formatDate', () => {
   it('formata data e hora em pt-BR', () => {
-    // O ICU do Node separa data e hora com vírgula.
-    expect(formatDateTime('2026-08-15T14:30:00Z')).toBe('15/08/2026, 14:30')
+    // O ICU do Node separa data e hora com vírgula. ISO sem `Z` é hora local:
+    // o teste confere o formato em qualquer fuso. O `process.env.TZ` do topo não
+    // basta — no pool `threads` (que o Stryker força) mudar TZ dentro do worker
+    // não troca o fuso do ICU.
+    expect(formatDateTime('2026-08-15T14:30:00')).toBe('15/08/2026, 14:30')
   })
 
   it('formata só a data em pt-BR', () => {
@@ -51,6 +54,13 @@ describe('reservationState', () => {
 
   it('envelhece para expirada entre um refetch e outro', () => {
     const r = { expiresAt: '2026-08-15T11:59:59Z' }
+    expect(reservationState(r, agora)).toBe('expirada')
+  })
+
+  it('no instante exato do prazo já é expirada — mesma fronteira da API (RN-1)', () => {
+    // A API recusa cancelar e efetivar com `expiresAt <= now`; a tela não pode
+    // oferecer o botão nesse mesmo instante.
+    const r = { expiresAt: agora.toISOString() }
     expect(reservationState(r, agora)).toBe('expirada')
   })
 
@@ -98,6 +108,16 @@ describe('isReservationActive / isExpiringSoon', () => {
     expect(isExpiringSoon(r, agora)).toBe(true)
   })
 
+  it('avisa quando falta exatamente uma hora', () => {
+    const r = { expiresAt: new Date(agora.getTime() + EXPIRING_SOON_MS).toISOString() }
+    expect(isExpiringSoon(r, agora)).toBe(true)
+  })
+
+  it('não avisa um segundo antes de faltar uma hora', () => {
+    const r = { expiresAt: new Date(agora.getTime() + EXPIRING_SOON_MS + 1_000).toISOString() }
+    expect(isExpiringSoon(r, agora)).toBe(false)
+  })
+
   it('não avisa quando o prazo está folgado', () => {
     const r = { expiresAt: new Date(agora.getTime() + 3 * EXPIRING_SOON_MS).toISOString() }
     expect(isExpiringSoon(r, agora)).toBe(false)
@@ -114,6 +134,14 @@ describe('formatDuration', () => {
 
   it('fala em dias acima de 24 h', () => {
     expect(formatDuration('2026-08-18T12:00:00Z', agora)).toBe('3 d')
+  })
+
+  it('24 h cravadas já são "1 d"', () => {
+    expect(formatDuration('2026-08-16T12:00:00Z', agora)).toBe('1 d')
+  })
+
+  it('60 min cravados já são "1 h 0 min"', () => {
+    expect(formatDuration('2026-08-15T13:00:00Z', agora)).toBe('1 h 0 min')
   })
 
   it('fala em horas e minutos abaixo de um dia', () => {
